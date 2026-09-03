@@ -4,66 +4,79 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>作業播放表｜班級管理系統</title>
+<title>作業清點｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▤</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260904-1" />
 <style>
-.wrap{flex:1 1 auto;display:flex;min-height:0;gap:2vw}
-.hwlist{flex:0 0 min(30vw,440px);display:flex;flex-direction:column;min-height:0;
-  border-right:1px solid var(--line);padding-right:1.6vw}
-.hwlist h2{margin:0 0 1vh;font-size:clamp(16px,2.2vh,26px);color:var(--duty);letter-spacing:.08em}
-.hwlist .items{flex:1 1 auto;overflow-y:auto}
-.hwlist .it{font-size:clamp(20px,3vh,38px);line-height:1.5;padding:.15em 0;display:flex;gap:.4em}
-.hwlist .it .n{color:var(--mark);font-weight:700}
-.hwlist .none{color:var(--chalk-3);font-size:clamp(15px,2vh,22px);line-height:1.9}
-.hwlist .src{margin-top:auto;padding-top:1vh;font-size:clamp(12px,1.6vh,16px);color:var(--chalk-3)}
-/* 座號格 */
-.gridwrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
-.gridwrap .tip{font-size:clamp(15px,2vh,22px);color:var(--chalk-3);margin-bottom:1vh}
-.grid{flex:1 1 auto;display:grid;gap:1vmin;align-content:start;overflow-y:auto;
-  grid-template-columns:repeat(auto-fill,minmax(clamp(90px,9vw,140px),1fr))}
-.cell{display:flex;align-items:center;justify-content:center;position:relative;
-  font-size:clamp(30px,4.4vh,60px);font-weight:700;font-variant-numeric:tabular-nums;
-  aspect-ratio:1/1;border:2px solid var(--line);border-radius:14px;cursor:pointer;
-  color:var(--chalk-2);background:var(--board-2);user-select:none;transition:transform .08s}
-.cell:hover{border-color:var(--duty)}
-.cell:active{transform:scale(.94)}
-.cell.done{background:var(--ok);color:#0f1f14;border-color:var(--ok)}
-.cell.done::after{content:"✓";position:absolute;top:.1em;right:.2em;font-size:.5em;font-weight:800}
+.legend{flex:0 0 auto;display:flex;gap:1.4vw;flex-wrap:wrap;align-items:center;
+  font-size:clamp(14px,1.9vh,22px);color:var(--chalk-3);margin-bottom:1vh}
+.legend .k{display:inline-flex;align-items:center;gap:.4em}
+.legend .dot{width:1em;height:1em;border-radius:5px;border:2px solid;display:inline-block}
+.dot.s0{border-color:var(--chalk-3);background:transparent}
+.dot.s1{border-color:var(--blue);background:rgba(106,166,240,.35)}
+.dot.s2{border-color:var(--warn);background:rgba(240,149,78,.4)}
+.legend .src{margin-left:auto;color:var(--chalk-3)}
+
+/* 一頁呈現：每份作業一列，列出還有問題的座號 */
+.items{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1.2vh}
+.itemrow{background:var(--board-2);border:1px solid var(--line);border-radius:16px;padding:1.2vh 1.2vw}
+.itemrow.clear{border-color:rgba(86,197,150,.4);background:rgba(86,197,150,.07)}
+.rowhead{display:flex;align-items:baseline;gap:1vw;flex-wrap:wrap;margin-bottom:.8vh}
+.rowhead .name{font-size:clamp(20px,2.8vh,36px);font-weight:800;color:var(--chalk)}
+.rowhead .cnt{font-size:clamp(14px,1.9vh,22px);color:var(--chalk-2);font-variant-numeric:tabular-nums}
+.rowhead .cnt b{font-weight:800}
+.rowhead .cnt .u{color:var(--chalk-3)} .rowhead .cnt .a{color:var(--blue)} .rowhead .cnt .c{color:var(--warn)} .rowhead .cnt .d{color:var(--ok)}
+.rowhead .grow{flex:1 1 auto}
+.rowhead .reset{font-family:inherit;font-size:13px;color:var(--chalk-3);background:transparent;
+  border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer}
+.rowhead .reset:hover{color:var(--chalk-2)}
+.chips{display:flex;flex-wrap:wrap;gap:.6vmin}
+.chip{display:inline-flex;align-items:center;justify-content:center;
+  font-size:clamp(22px,3vh,38px);font-weight:700;font-variant-numeric:tabular-nums;
+  min-width:1.9em;padding:.12em .18em;border:3px solid var(--chalk-3);border-radius:12px;cursor:pointer;
+  color:var(--chalk-2);background:var(--board-3);user-select:none;transition:transform .07s}
+.chip:active{transform:scale(.92)}
+.chip.s1{border-color:var(--blue);color:var(--blue);background:rgba(106,166,240,.14)}
+.chip.s2{border-color:var(--warn);color:var(--warn);background:rgba(240,149,78,.16)}
+.chip.s3{border-color:var(--ok);color:#0f1f14;background:var(--ok)}
+.rowclear{color:var(--ok);font-size:clamp(18px,2.4vh,30px);font-weight:700}
+.rowclear .sub{color:var(--chalk-3);font-size:.6em;font-weight:400;margin-left:.6em}
+@media (max-width:900px){
+  .items{gap:.9vh}
+  .itemrow{padding:1vh 3vw}
+  .chip{font-size:clamp(20px,2.6vh,32px)}
+  .rowhead .name{font-size:clamp(18px,2.4vh,28px)}
+}
 </style>
 </head>
 <body>
 <div class="stage" id="stage">
   <div class="head">
-    <h1>作業播放表<span class="sub">點自己的座號＝已交</span></h1>
+    <h1>作業清點<span class="sub">一頁看完・清點前一天派的作業</span></h1>
     <span class="grow"></span>
-    <span class="stat">完成 <b id="done">0</b> ／ <span id="total">0</span> 人</span>
+    <span class="stat">未完成 <b id="remain">0</b> 人次</span>
   </div>
-  <div class="wrap">
-    <div class="hwlist">
-      <h2>今天要交</h2>
-      <div class="items" id="items"><div class="none">讀取當天作業…</div></div>
-      <div class="src" id="src"></div>
-    </div>
-    <div class="gridwrap">
-      <div class="tip">同學上台點自己的座號，交了就變綠。老師可用「全部清除」重來。</div>
-      <div class="grid" id="grid"></div>
-    </div>
+  <div class="legend">
+    <span class="k"><span class="dot s0"></span>未交</span>
+    <span class="k"><span class="dot s1"></span>已交</span>
+    <span class="k"><span class="dot s2"></span>要訂正</span>
+    <span class="k">點一下往下一個狀態，<b style="color:var(--ok)">完成就消失</b></span>
+    <span class="src" id="src">讀取中…</span>
   </div>
+  <div class="items" id="items"></div>
 </div>
 
 <div class="hud" id="hud">
-  <button type="button" id="btn-all" class="primary">全部標記完成</button>
-  <button type="button" id="btn-clear">全部清除</button>
-  <button type="button" id="btn-reload">☁ 重讀作業</button>
+  <button type="button" id="btn-show">顯示已完成</button>
+  <button type="button" id="btn-reload" class="primary">☁ 重讀作業</button>
   <span class="sep"></span>
   <button type="button" id="btn-full">全螢幕</button>
   <a class="tip" href="index.html">← 工作台</a>
 </div>
 <div class="scrim" id="scrim"></div>
 
-<script src="assets/js/common.js?v=20260903-4"></script>
-<script src="assets/js/tool.js?v=20260903-4"></script>
+<script src="assets/js/common.js?v=20260904-1"></script>
+<script src="assets/js/tool.js?v=20260904-1"></script>
 <script>
 (function () {
   'use strict';
@@ -72,74 +85,77 @@
   if (!seats) { $('hud').style.display = 'none'; return; }
 
   var CLOUD_URL = 'https://flyshan2010.github.io/class-website/data/contactbook.json';
-  var db = Tool.store('classManager.homework.v1');
-  var st = db.get({ date: '', done: [], hw: '' });
-  if (st.date !== Tool.todayKey()) st = { date: Tool.todayKey(), done: [], hw: '' };
-  st.done = st.done.filter(function (n) { return seats.indexOf(n) >= 0; });
+  var STATES = ['未交', '已交', '要訂正', '完成'];   // 點一下往後：未交→已交→要訂正→完成（消失）
+  var db = Tool.store('classManager.homework.v2');
+  var st = db.get({ date: '', srcDate: '', items: [], status: {} });
+  if (st.date !== Tool.todayKey()) st = { date: Tool.todayKey(), srcDate: st.srcDate || '', items: st.items || [], status: st.status || {} };
 
-  function paintCount() {
-    $('total').textContent = seats.length;
-    $('done').textContent = st.done.length;
-  }
-  function paintGrid() {
-    var g = $('grid'); g.innerHTML = '';
-    seats.forEach(function (n) {
-      var c = document.createElement('div');
-      c.className = 'cell' + (st.done.indexOf(n) >= 0 ? ' done' : '');
-      c.textContent = n;
-      c.addEventListener('click', function () { toggle(n, c); });
-      g.appendChild(c);
+  var showDone = false;
+
+  function stateOf(item, seat) { return (st.status[item] && st.status[item][seat]) || 0; }
+  function setState(item, seat, v) { if (!st.status[item]) st.status[item] = {}; if (v === 0) delete st.status[item][seat]; else st.status[item][seat] = v; db.set(st); }
+  function counts(item) { var c = [0, 0, 0, 0]; seats.forEach(function (s) { c[stateOf(item, s)]++; }); return c; }
+
+  function paint() {
+    $('src').textContent = st.srcDate ? '清點 ' + st.srcDate.slice(5) + ' 派的' : '雲端讀不到前一天作業';
+    var box = $('items'); box.innerHTML = '';
+    if (!st.items.length) { box.innerHTML = '<div class="itemrow"><div class="rowclear">沒有可清點的項目<span class="sub">按「☁ 重讀作業」，或到 Notion 聯絡簿填前一天的作業</span></div></div>'; $('remain').textContent = '0'; return; }
+    var totalRem = 0;
+    st.items.forEach(function (item) {
+      var c = counts(item), rem = c[0] + c[1] + c[2]; totalRem += rem;
+      var row = document.createElement('div'); row.className = 'itemrow' + (rem === 0 ? ' clear' : '');
+      var head = document.createElement('div'); head.className = 'rowhead';
+      head.innerHTML = '<span class="name">' + item.replace(/[<>&]/g, '') + '</span>' +
+        '<span class="cnt"><span class="u">未交 <b>' + c[0] + '</b></span>　<span class="a">已交 <b>' + c[1] + '</b></span>　<span class="c">要訂正 <b>' + c[2] + '</b></span>　<span class="d">完成 <b>' + c[3] + '</b></span></span>' +
+        '<span class="grow"></span>';
+      var reset = document.createElement('button'); reset.className = 'reset'; reset.textContent = '全設未交';
+      reset.addEventListener('click', function () { if (confirm('把「' + item + '」全班設回未交？')) { delete st.status[item]; db.set(st); paint(); } });
+      head.appendChild(reset); row.appendChild(head);
+
+      var shown = seats.filter(function (s) { return showDone || stateOf(item, s) !== 3; });
+      if (!shown.length) {
+        var d = document.createElement('div'); d.className = 'rowclear'; d.innerHTML = '全部完成 🎉<span class="sub">按「顯示已完成」可回頭改</span>';
+        row.appendChild(d);
+      } else {
+        var chips = document.createElement('div'); chips.className = 'chips';
+        shown.forEach(function (s) {
+          var v = stateOf(item, s);
+          var ch = document.createElement('div'); ch.className = 'chip s' + v; ch.textContent = s;
+          ch.title = STATES[v];
+          ch.addEventListener('click', function () { var nv = (v + 1) % 4; setState(item, s, nv); if (nv === 3) Tool.beep(2, 720); else Tool.beep(1, 520); paint(); });
+          chips.appendChild(ch);
+        });
+        row.appendChild(chips);
+      }
+      box.appendChild(row);
     });
+    $('remain').textContent = totalRem;
   }
-  function toggle(n, cell) {
-    var i = st.done.indexOf(n);
-    if (i >= 0) { st.done.splice(i, 1); cell.classList.remove('done'); }
-    else { st.done.push(n); cell.classList.add('done'); Tool.beep(1, 720); }
-    db.set(st); paintCount();
-  }
-  function paintHw() {
-    var box = $('items');
-    var lines = String(st.hw || '').split(/\n+/).map(function (s) { return s.trim(); })
-                  .filter(function (s) { return s.length; });
-    if (!lines.length) { box.innerHTML = '<div class="none">雲端當天沒有作業內容，或還沒讀到。<br>作業寫在 Notion「📒 聯絡簿」的「作業」欄。</div>'; return; }
-    box.innerHTML = '';
-    lines.forEach(function (l, i) {
-      var d = document.createElement('div');
-      d.className = 'it';
-      d.innerHTML = '<span class="n">' + (i + 1) + '.</span><span>' + l.replace(/[<>&]/g, '') + '</span>';
-      box.appendChild(d);
-    });
-  }
-  // 讀當天作業（漸進增強，和投影黑板同一份公開資料；離線就用上次存的）
+
   function loadHw(force) {
     $('src').textContent = '讀取雲端…';
-    var url = CLOUD_URL + '?t=' + Date.now();
-    fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    fetch(CLOUD_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
       .then(function (rows) {
         var today = Tool.todayKey();
-        var row = (rows || []).filter(function (x) { return x && String(x.date || '').slice(0, 10) === today; })[0];
-        st.hw = row ? (row.homework || '') : '';
-        db.set(st); paintHw();
-        $('src').textContent = row ? '來源：Notion 聯絡簿（雲端）' : '雲端今天沒有作業列';
+        var past = (rows || []).filter(function (x) { return x && String(x.date || '').slice(0, 10) < today && String(x.homework || '').trim(); })
+                    .sort(function (a, b) { return b.date.localeCompare(a.date); });
+        var row = past[0], items = [];
+        if (row) String(row.homework).split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (l) { items.push(l); });
+        items.push('聯絡簿');
+        var ns = {}; items.forEach(function (it) { if (st.status[it]) ns[it] = st.status[it]; });
+        st.items = items; st.status = ns; st.srcDate = row ? row.date.slice(0, 10) : ''; db.set(st);
+        paint();
       })
-      .catch(function () {
-        paintHw();
-        $('src').textContent = '連不上雲端，顯示上次存下的作業（斷網照常可用）';
-      });
+      .catch(function () { if (!st.items.length) { st.items = ['聯絡簿']; db.set(st); } paint(); $('src').textContent = '連不上雲端，顯示上次存下的（斷網照常可用）'; });
   }
 
-  $('btn-all').addEventListener('click', function () {
-    st.done = seats.slice(); db.set(st); paintGrid(); paintCount(); Tool.beep(2, 720);
-  });
-  $('btn-clear').addEventListener('click', function () {
-    if (!st.done.length || confirm('把所有座號清成未交？')) { st.done = []; db.set(st); paintGrid(); paintCount(); }
-  });
+  $('btn-show').addEventListener('click', function () { showDone = !showDone; $('btn-show').textContent = showDone ? '隱藏已完成' : '顯示已完成'; $('btn-show').classList.toggle('primary', showDone); paint(); });
   $('btn-reload').addEventListener('click', function () { loadHw(true); });
   $('btn-full').addEventListener('click', Tool.fullscreen);
   document.addEventListener('keydown', function (e) { if (e.key.toLowerCase() === 'f') Tool.fullscreen(); });
   Tool.autoHideHud($('hud'));
 
-  paintCount(); paintGrid(); paintHw(); loadHw(false);
+  paint(); loadHw(false);
 })();
 </script>
 </body>

@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>小組計分｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▥</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260904-1" />
 <style>
 .cards{flex:1 1 auto;display:grid;gap:1.6vmin;min-height:0;overflow-y:auto;align-content:stretch;
   grid-template-columns:repeat(auto-fit,minmax(clamp(200px,22vw,340px),1fr))}
@@ -27,6 +27,11 @@
 .card .btns button.minus{border-color:var(--warn);color:var(--warn)}
 .card .btns button:hover{filter:brightness(1.15)}
 .crown{font-size:.8em}
+@media (max-width:900px){
+  .cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1.2vmin}
+  .card .score{font-size:clamp(56px,11vh,120px)}
+  .card .btns button{font-size:clamp(16px,2.4vh,26px)}
+}
 </style>
 </head>
 <body>
@@ -75,8 +80,8 @@
   <div class="note-box">分數與分組只存在這台電腦，投影用；不上傳、不進班網、不存姓名。</div>
 </aside>
 
-<script src="assets/js/common.js?v=20260903-4"></script>
-<script src="assets/js/tool.js?v=20260903-4"></script>
+<script src="assets/js/common.js?v=20260904-1"></script>
+<script src="assets/js/tool.js?v=20260904-1"></script>
 <script>
 (function () {
   'use strict';

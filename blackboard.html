@@ -4,786 +4,478 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>投影黑板｜班級管理系統</title>
+<title>電子看板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260904-1" />
 <style>
-/* 投影黑板 —— 1600×900 為基準，教室後排看得到：主要內容不低於 40px。
-   深色底、低彩度，避免投影機過曝。 */
-:root{
-  --board:#1b2a25;        /* 黑板底 */
-  --board-2:#16221e;
-  --chalk:#f2efe6;        /* 粉筆白 */
-  --chalk-2:#b9c6bd;      /* 次要 */
-  --chalk-3:#7d8f85;      /* 更淡 */
-  --line:rgba(242,239,230,.16);
-  --mark:#e8c86a;         /* 重點黃 */
-  --duty:#8fd0c4;         /* 值日生青 */
-  --warn:#e69a6b;
-}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-body{
-  background:var(--board);color:var(--chalk);
-  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
-  overflow:hidden;cursor:default;
-}
-/* 黑板質感：極淡的斜向粉筆灰，不影響對比 */
-body::before{
-  content:"";position:fixed;inset:0;pointer-events:none;
-  background:
-    radial-gradient(ellipse at 20% 15%,rgba(255,255,255,.05),transparent 55%),
-    radial-gradient(ellipse at 80% 85%,rgba(255,255,255,.035),transparent 60%);
-}
+/* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
+.top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
+  border-bottom:1px solid var(--line);margin-bottom:1.4vh}
+.moon{display:flex;flex-direction:column;align-items:center;flex:0 0 auto}
+.moon .glyph{font-size:clamp(38px,6vh,74px);line-height:1}
+.moon .mname{font-size:clamp(12px,1.5vh,17px);color:var(--chalk-3);margin-top:.1em}
+.date{flex:0 0 auto}
+.date .d1{font-size:clamp(28px,3.6vh,50px);font-weight:800;line-height:1.15;letter-spacing:.01em}
+.date .d2{font-size:clamp(15px,1.9vh,23px);color:var(--chalk-3);margin-top:.15em}
+.top .grow{flex:1 1 auto}
+.duty{display:flex;align-items:center;gap:.8vw}
+.duty .label{font-size:clamp(15px,1.9vh,23px);color:var(--chalk-3);letter-spacing:.14em}
+.duty .seats{display:flex;gap:.4vw}
+.duty .seat{font-size:clamp(28px,3.8vh,54px);font-weight:800;color:var(--duty);
+  border:3px solid var(--duty);border-radius:12px;padding:.02em .26em;min-width:1.7em;text-align:center;line-height:1.25}
+.duty .seat.none{color:var(--chalk-3);border-color:var(--chalk-3);border-style:dashed;
+  font-size:clamp(16px,2vh,24px);font-weight:500}
+.clock{text-align:right;font-variant-numeric:tabular-nums}
+.clock .hm{font-size:clamp(40px,5.6vh,80px);font-weight:300;line-height:1}
+.clock .sec{font-size:.4em;color:var(--chalk-3);margin-left:.12em}
 
-.board{position:fixed;inset:0;display:flex;flex-direction:column;padding:2.2vh 2.4vw}
+/* 今日課表 chips */
+.sched{flex:0 0 auto;display:flex;gap:.7vw;overflow-x:auto;padding-bottom:.8vh;margin-bottom:1.2vh}
+.sched::-webkit-scrollbar{height:6px}.sched::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.chip{flex:0 0 auto;background:var(--board-2);border:1px solid var(--line);border-radius:12px;
+  padding:.5vh .9vw;display:flex;flex-direction:column;min-width:5.2em;text-align:center}
+.chip .p{font-size:clamp(12px,1.5vh,16px);color:var(--chalk-3)}
+.chip .s{font-size:clamp(17px,2.3vh,28px);font-weight:700;color:var(--chalk)}
+.chip.now{border-color:var(--mark);background:rgba(240,200,90,.14)}
+.chip.now .s{color:var(--mark)}
+.sched .none{color:var(--chalk-3);font-size:clamp(14px,1.8vh,20px);padding:.4vh 0}
 
-/* ── 上緣：日期・值日生・時鐘 ───────────────────────── */
-.board-top{
-  display:flex;align-items:flex-end;gap:2.4vw;
-  padding-bottom:1.4vh;border-bottom:2px solid var(--line);flex:0 0 auto;
-}
-.date-main{font-size:clamp(30px,3.4vh,46px);font-weight:700;letter-spacing:.02em;line-height:1.2}
-.date-sub{font-size:clamp(18px,2vh,26px);color:var(--chalk-3);margin-top:.2em}
-
-.duty{margin-left:auto;text-align:right;display:flex;align-items:flex-end;gap:1.4vw}
-.duty .label{font-size:clamp(18px,2vh,26px);color:var(--chalk-3);letter-spacing:.16em;
-  writing-mode:horizontal-tb;padding-bottom:.5em}
-.duty .seats{display:flex;gap:.5vw}
-.duty .seat{
-  font-size:clamp(34px,4.4vh,62px);font-weight:700;color:var(--duty);
-  border:3px solid var(--duty);border-radius:14px;padding:.02em .28em;line-height:1.25;
-  min-width:1.9em;text-align:center;
-}
-.duty .seat.none{color:var(--chalk-3);border-color:var(--chalk-3);font-size:clamp(20px,2.4vh,30px);
-  font-weight:500;border-style:dashed}
-
-.clock{text-align:right;font-variant-numeric:tabular-nums;padding-bottom:.1em}
-.clock .hm{font-size:clamp(38px,5vh,70px);font-weight:300;line-height:1;letter-spacing:.01em}
-.clock .sec{font-size:.42em;color:var(--chalk-3);margin-left:.15em;font-weight:400}
-
-/* ── 主區：直式聯絡簿 ────────────────────────────────
-   直書由右至左；捲動方向也跟著變成水平。 */
-.notes{
-  flex:1 1 auto;min-height:0;margin-top:2vh;
-  writing-mode:vertical-rl;text-orientation:mixed;
-  /* 直書下 block 軸是「右→左」，所以要 column 才是一欄接一欄往左排；
-     row 會變成沿著文字方向由上往下，整個排版會爛掉。 */
+/* 直式聯絡簿 */
+.notes{flex:1 1 auto;min-height:0;writing-mode:vertical-rl;text-orientation:mixed;
   display:flex;flex-direction:column;flex-wrap:nowrap;align-items:flex-start;
-  gap:1.6vw;overflow-x:auto;overflow-y:hidden;
-  padding-bottom:.6vh;
-}
-/* 倒數浮在右下角，正好壓在直書第一欄（最右欄）的下緣——計時中就把版面下緣讓出來，
-   讓文字不會被數字蓋住。讓出後欄高變短，fitNotes 會重新配適字級。 */
+  gap:1.6vw;overflow-x:auto;overflow-y:hidden;padding-bottom:.6vh}
 body.timing .notes{padding-bottom:20vh}
-.notes::-webkit-scrollbar{height:8px}
-.notes::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
-
-.note{
-  display:flex;align-items:flex-start;gap:.5em;
-  font-size:var(--note-fs,clamp(40px,6.2vh,84px));font-weight:500;line-height:1.5;
-  letter-spacing:.06em;
-}
-.note .no{
-  color:var(--mark);font-weight:700;flex:0 0 auto;
-  font-size:.78em;padding-top:.1em;
-}
+.notes::-webkit-scrollbar{height:8px}.notes::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.note{display:flex;align-items:flex-start;gap:.5em;
+  font-size:var(--note-fs,clamp(40px,6.2vh,84px));font-weight:600;line-height:1.5;letter-spacing:.06em}
+.note .no{color:var(--mark);font-weight:800;flex:0 0 auto;font-size:.78em;padding-top:.1em}
 .note .no .num{text-combine-upright:all}
 .note .txt{flex:1 1 auto}
 .note.done{color:var(--chalk-3);text-decoration:line-through;text-decoration-thickness:.06em}
 .note.hi .txt{color:var(--mark)}
-
-/* 分隔標題（輸入以 # 開頭）：一整欄的科目／區塊名 */
-.note.head{font-size:calc(var(--note-fs,clamp(40px,6.2vh,84px)) * .68);font-weight:700;color:var(--duty);
+.note.head{font-size:calc(var(--note-fs,clamp(40px,6.2vh,84px)) * .68);font-weight:800;color:var(--duty);
   letter-spacing:.24em;align-self:flex-start}
 .note.head .no{display:none}
+.empty2{writing-mode:horizontal-tb;margin:auto;text-align:center;color:var(--chalk-3);
+  font-size:clamp(22px,3vh,34px);line-height:2}
+.empty2 kbd{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:6px;padding:.1em .5em;font-family:inherit;font-size:.9em}
 
-.overflow-tip{
-  position:fixed;left:2.4vw;bottom:2.4vh;font-size:clamp(15px,1.9vh,22px);color:var(--warn);
-  background:rgba(230,154,107,.12);border:1px solid rgba(230,154,107,.4);border-radius:8px;
-  padding:6px 12px;z-index:15;
-}
-.empty{
-  writing-mode:horizontal-tb;margin:auto;text-align:center;color:var(--chalk-3);
-  font-size:clamp(22px,3vh,34px);line-height:2;
-}
-.empty kbd{background:rgba(242,239,230,.1);border:1px solid var(--line);border-radius:6px;
-  padding:.1em .5em;font-family:inherit;font-size:.9em}
+.overflow-tip{position:fixed;left:2.4vw;bottom:9vh;font-size:clamp(15px,1.9vh,22px);color:var(--warn);
+  background:rgba(240,149,78,.14);border:1px solid rgba(240,149,78,.4);border-radius:10px;padding:6px 12px;z-index:15}
 
-/* ── 倒數：右下角常駐，計時中放大 ────────────────────── */
-.timer{
-  position:fixed;right:2.4vw;bottom:2.4vh;text-align:right;
-  font-variant-numeric:tabular-nums;pointer-events:none;transition:opacity .2s;
-}
+/* 倒數（右下） */
+.timer{position:fixed;right:2.4vw;bottom:10vh;text-align:right;font-variant-numeric:tabular-nums;
+  pointer-events:none;transition:opacity .2s;z-index:14}
 .timer.idle{opacity:0}
-.timer .t{font-size:clamp(64px,13vh,180px);font-weight:200;line-height:.95;letter-spacing:-.02em}
-.timer .cap{font-size:clamp(16px,2vh,24px);color:var(--chalk-3);letter-spacing:.16em}
+.timer .t{font-size:clamp(60px,12vh,170px);font-weight:200;line-height:.95;letter-spacing:-.02em}
+.timer .cap{font-size:clamp(15px,1.9vh,23px);color:var(--chalk-3);letter-spacing:.16em}
 .timer.paused .t{color:var(--chalk-3)}
 .timer.warn .t{color:var(--warn)}
 .timer.over .t{color:var(--warn)}
 .timer.over{animation:blink 1s steps(2,start) infinite}
 @keyframes blink{50%{opacity:.25}}
 
-/* ── 工具列：滑鼠不動 3 秒自動隱藏，投影時不干擾 ───────── */
-.bar{
-  position:fixed;left:50%;bottom:1.6vh;transform:translateX(-50%);
-  display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;
-  background:rgba(10,18,15,.86);border:1px solid var(--line);border-radius:12px;
-  padding:8px 12px;backdrop-filter:blur(6px);z-index:20;
-  transition:opacity .25s,transform .25s;max-width:94vw;
-}
-.bar.hidden{opacity:0;transform:translateX(-50%) translateY(14px);pointer-events:none}
-.bar button{
-  font-family:inherit;font-size:15px;color:var(--chalk);background:transparent;
-  border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap;
-}
-.bar button:hover{background:rgba(242,239,230,.12)}
-.bar button.primary{border-color:var(--duty);color:var(--duty)}
-.bar .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
-.bar .tip{font-size:13px;color:var(--chalk-3);padding:0 4px}
+/* 上下課鐘聲提示 toast */
+.toast{position:fixed;left:50%;top:12vh;transform:translateX(-50%) translateY(-20px);
+  background:rgba(14,20,33,.94);border:1px solid var(--line);border-radius:16px;padding:2vh 3vw;
+  font-size:clamp(30px,5vh,64px);font-weight:800;z-index:40;opacity:0;pointer-events:none;
+  transition:opacity .3s,transform .3s;box-shadow:0 16px 50px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.up{color:var(--ok)} .toast.down{color:var(--warn)}
 
-/* ── 設定面板 ───────────────────────────────────────── */
-.panel{
-  position:fixed;inset:0 0 0 auto;width:min(560px,92vw);z-index:30;
-  background:var(--board-2);border-left:1px solid var(--line);
-  padding:26px 28px 32px;overflow-y:auto;
-  transform:translateX(100%);transition:transform .22s ease;
-  box-shadow:-24px 0 60px rgba(0,0,0,.4);
-}
-.panel.open{transform:none}
-.panel h2{margin:0 0 4px;font-size:21px}
-.panel h3{margin:26px 0 6px;font-size:16px;color:var(--duty);letter-spacing:.06em}
-.panel p.hint{margin:0 0 12px;font-size:13.5px;color:var(--chalk-3);line-height:1.7}
-.panel label{display:block;font-size:13.5px;color:var(--chalk-2);margin:10px 0 5px}
-.panel textarea,.panel input,.panel select{
-  width:100%;background:rgba(0,0,0,.28);color:var(--chalk);
-  border:1px solid var(--line);border-radius:8px;padding:10px 12px;
-  font-family:inherit;font-size:15px;line-height:1.8;
-}
-.panel textarea{min-height:230px;resize:vertical}
-.panel input:focus-visible,.panel textarea:focus-visible,.panel select:focus-visible{
-  outline:2px solid var(--duty);outline-offset:1px}
-.panel .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
-.panel .row.tight{margin-top:8px}
-.panel .col{flex:1 1 140px;min-width:120px}
-.panel button{
-  font-family:inherit;font-size:14.5px;padding:9px 16px;border-radius:8px;cursor:pointer;
-  border:1px solid var(--duty);background:var(--duty);color:#10201c;font-weight:600;
-}
-.panel button.ghost{background:transparent;color:var(--chalk-2);border-color:var(--line);font-weight:400}
-.panel .status{font-size:13.5px;color:var(--chalk-3)}
-.panel .status.ok{color:var(--duty)}
-.panel .status.warn{color:var(--warn)}
+/* 廣播小按鈕在 HUD 內用彩色膠囊 */
+.panel .bcast-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.panel .bcast-row button{flex:0 0 auto}
 .panel .cloud-line{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 .panel .cloud-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .panel .cloud-head .grow{flex:1 1 auto}
-.panel .note-box{border-left:3px solid var(--warn);background:rgba(230,154,107,.1);
-  padding:11px 14px;border-radius:0 8px 8px 0;font-size:13.5px;color:var(--chalk-2);margin-top:18px;line-height:1.7}
-.panel a{color:var(--duty)}
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:25;opacity:0;pointer-events:none;
-  transition:opacity .22s}
-.scrim.open{opacity:1;pointer-events:auto}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.panel .toggle{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--chalk-2)}
+.panel .toggle input{width:auto}
+@media (max-width:900px){
+  .top{flex-wrap:wrap;gap:8px 12px}
+  .top .grow{flex-basis:100%;height:0;order:5}
+  .clock .hm{font-size:clamp(34px,5vh,64px)}
+  .duty .seat{font-size:clamp(24px,3.4vh,44px)}
+  .note{font-size:var(--note-fs,clamp(34px,5.4vh,64px))}
+  .timer .t{font-size:clamp(48px,9vh,120px)}
+}
 </style>
 </head>
 <body>
 
-<div class="board">
-  <div class="board-top">
-    <div>
-      <div class="date-main" id="date-main">—</div>
-      <div class="date-sub" id="date-sub"></div>
-    </div>
-    <div class="duty">
-      <span class="label">值日生</span>
-      <div class="seats" id="duty-seats"></div>
-    </div>
+<div class="stage">
+  <div class="top">
+    <div class="moon"><div class="glyph" id="moon-g">🌘</div><div class="mname" id="moon-n">—</div></div>
+    <div class="date"><div class="d1" id="date-1">—</div><div class="d2" id="date-2"></div></div>
+    <div class="grow"></div>
+    <div class="duty"><span class="label">值日生</span><div class="seats" id="duty-seats"></div></div>
     <div class="clock"><span class="hm" id="clock-hm">--:--</span><span class="sec" id="clock-sec"></span></div>
   </div>
+
+  <div class="sched" id="sched"><span class="none">讀取今日課表…</span></div>
 
   <div class="notes" id="notes"></div>
 </div>
 
-<div class="timer idle" id="timer">
-  <div class="t" id="timer-t">00:00</div>
-  <div class="cap" id="timer-cap">倒數</div>
-</div>
-
-<div class="bar" id="bar">
-  <button type="button" id="btn-panel" class="primary">寫聯絡簿</button>
-  <span class="sep"></span>
-  <button type="button" data-min="1">1 分</button>
-  <button type="button" data-min="3">3 分</button>
-  <button type="button" data-min="5">5 分</button>
-  <button type="button" data-min="10">10 分</button>
-  <button type="button" id="btn-toggle">暫停</button>
-  <button type="button" id="btn-stop">清除</button>
-  <span class="sep"></span>
-  <button type="button" id="btn-full">全螢幕</button>
-  <a class="tip" href="index.html" style="color:var(--chalk-3);text-decoration:none">← 工作台</a>
-</div>
-
 <div class="overflow-tip" id="overflow-tip" hidden></div>
+<div class="timer idle" id="timer"><div class="t" id="timer-t">00:00</div><div class="cap" id="timer-cap">倒數</div></div>
+<div class="toast" id="toast"></div>
+
+<div class="hud" id="hud">
+  <button type="button" class="blue" data-say="請小朋友回到教室，準備上課。">回教室</button>
+  <button type="button" class="orange" data-say="請到走廊排隊。">走廊排隊</button>
+  <button type="button" class="green" data-say="請安靜集合，看老師這裡。">集合</button>
+  <button type="button" class="purple" data-say="請安靜，眼睛看老師。">安靜</button>
+  <button type="button" class="pink" data-say="收拾好桌面，準備下課。">準備下課</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-panel" class="primary">寫聯絡簿</button>
+  <button type="button" data-min="5">倒數5分</button>
+  <button type="button" id="btn-full">全螢幕</button>
+  <a class="tip" href="index.html">← 工作台</a>
+</div>
 
 <div class="scrim" id="scrim"></div>
-
-<aside class="panel" id="panel" aria-label="黑板設定">
+<aside class="panel" id="panel" aria-label="看板設定">
   <h2>寫聯絡簿</h2>
-  <p class="hint">一行一項，直接寫在黑板上。<br>
-    行首打 <b>#</b> 是分隔標題（例：<code>#國語</code>）；打 <b>*</b> 是重點（黃字）；打 <b>~</b> 是已完成（劃掉）。</p>
+  <p class="hint">一行一項，直接寫在看板上。<br>
+    行首 <b>#</b> 是分隔標題（例 <code>#國語</code>）；<b>*</b> 是重點（黃字）；<b>~</b> 是已完成（劃掉）。</p>
   <textarea id="ta" spellcheck="false" placeholder="國習 P.28-29&#10;數習 P.15&#10;*明天帶直笛&#10;#提醒&#10;運動服穿學校"></textarea>
   <div class="row">
-    <button type="button" id="btn-apply">寫上黑板</button>
+    <button type="button" id="btn-apply">寫上看板</button>
     <button type="button" class="ghost" id="btn-clear-notes">清空</button>
     <span class="status" id="notes-status"></span>
   </div>
-
   <div class="cloud-line">
     <div class="cloud-head">
-      <span id="cloud-label">目前來源：本機手打</span>
-      <span class="grow"></span>
-      <button type="button" class="ghost" id="btn-cloud-reload">☁ 重新讀取雲端</button>
+      <span id="cloud-label">目前來源：本機手打</span><span class="grow"></span>
+      <button type="button" class="ghost" id="btn-cloud-reload">☁ 重讀雲端</button>
       <button type="button" id="btn-cloud-take" hidden>用雲端版覆蓋</button>
     </div>
-    <p class="hint" style="margin:6px 0 0">
-      當天聯絡簿的正本在 Notion「📒 聯絡簿」。在家改好那一列，到校開這頁就會自動帶入；
-      臨時想加一項就直接在上面手改（當天不會被雲端蓋回去）。斷網時用上次存下的內容。
-    </p>
+    <p class="hint" style="margin:6px 0 0">當天聯絡簿正本在 Notion「📒 聯絡簿」。在家改好，到校自動帶入；臨時想加就直接手改（當天不被雲端蓋回）。斷網用上次存下的內容。</p>
     <span class="status" id="cloud-status" style="display:block;margin-top:4px"></span>
   </div>
 
+  <h3>廣播</h3>
+  <p class="hint">用瀏覽器內建語音唸出來（離線可用）。上面 HUD 有快捷鈕，這裡可唸自訂句子。</p>
+  <div class="row">
+    <input id="say-custom" type="text" placeholder="要唸的話…" />
+  </div>
+  <div class="row"><button type="button" id="btn-say">唸出來</button>
+    <span class="status" id="say-status"></span></div>
+
   <h3>值日生</h3>
-  <p class="hint">依座號輪值，只算平日（週六日不推進）。改了基準日或人數，之後每天自動往下輪，不必再進來。</p>
-  <div class="row tight">
-    <div class="col">
-      <label for="duty-mode">方式</label>
-      <select id="duty-mode">
-        <option value="auto">自動輪值</option>
-        <option value="manual">手動指定</option>
-        <option value="off">不顯示</option>
-      </select>
-    </div>
-    <div class="col" id="wrap-per"><label for="duty-per">每天幾人</label>
-      <input id="duty-per" type="number" min="1" max="10" value="2" /></div>
-  </div>
-  <div class="row tight" id="wrap-auto">
-    <div class="col"><label for="duty-base">基準日</label>
-      <input id="duty-base" type="date" /></div>
-    <div class="col"><label for="duty-start">當天從幾號開始</label>
-      <input id="duty-start" type="number" min="1" max="100" value="1" /></div>
-  </div>
-  <div class="row tight" id="wrap-manual" hidden>
-    <div class="col" style="flex:1 1 100%">
-      <label for="duty-manual">今天的值日生座號（用逗號分隔）</label>
-      <input id="duty-manual" type="text" inputmode="numeric" placeholder="5, 6" />
-    </div>
-  </div>
+  <p class="hint">依座號輪值，只算平日（週六日不推進）。改一次之後每天自動往下輪。</p>
   <div class="row">
-    <button type="button" id="btn-duty">套用</button>
+    <div class="col"><label for="duty-mode">方式</label>
+      <select id="duty-mode"><option value="auto">自動輪值</option><option value="manual">手動指定</option><option value="off">不顯示</option></select></div>
+    <div class="col" id="wrap-per"><label for="duty-per">每天幾人</label><input id="duty-per" type="number" min="1" max="10" value="2" /></div>
+  </div>
+  <div class="row" id="wrap-auto">
+    <div class="col"><label for="duty-base">基準日</label><input id="duty-base" type="date" /></div>
+    <div class="col"><label for="duty-start">當天從幾號起</label><input id="duty-start" type="number" min="1" max="100" value="1" /></div>
+  </div>
+  <div class="row" id="wrap-manual" hidden>
+    <div class="col" style="flex:1 1 100%"><label for="duty-manual">今天值日生座號（逗號分隔）</label>
+      <input id="duty-manual" type="text" inputmode="numeric" placeholder="5, 6" /></div>
+  </div>
+  <div class="row"><button type="button" id="btn-duty">套用</button>
     <button type="button" class="ghost" id="btn-duty-skip">今天順延一輪</button>
-    <span class="status" id="duty-status"></span>
-  </div>
+    <span class="status" id="duty-status"></span></div>
+  <div class="note-box" id="seat-warn" hidden>還沒設定班級座號，值日生無法自動輪值。請先回 <a href="index.html">教師工作台</a> 設定。</div>
 
-  <div class="note-box" id="seat-warn" hidden>
-    還沒設定班級座號，值日生沒辦法自動輪值。請先回 <a href="index.html">教師工作台</a> 設定。
-  </div>
+  <h3>看板選項</h3>
+  <label class="toggle"><input type="checkbox" id="opt-bell" /> 上下課自動鐘聲（依課表時間，離線可用）</label>
+  <label class="toggle"><input type="checkbox" id="opt-sched" checked /> 顯示今日課表</label>
 
-  <h3>鍵盤</h3>
-  <p class="hint">
-    <b>E</b> 開關這個面板　<b>F</b> 全螢幕　<b>空白鍵</b> 倒數暫停／繼續<br>
-    <b>1 / 3 / 5</b> 起算 1／3／5 分鐘　<b>0</b> 清除倒數　<b>Esc</b> 關面板
-  </p>
-
-  <div class="note-box">
-    <b>資料只留在這台電腦。</b>聯絡簿內容與值日生設定存在瀏覽器裡，不上傳、不進版控，
-    也不會出現在班網。這裡不存學生姓名。
-  </div>
-
-  <div class="row">
-    <button type="button" class="ghost" id="btn-close">關閉</button>
-  </div>
+  <div class="note-box"><b>資料只留在這台電腦。</b>聯絡簿與設定存在瀏覽器，不上傳、不進版控、不出現在班網，也不存學生姓名。</div>
+  <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260903-3"></script>
+<script src="assets/js/common.js?v=20260904-1"></script>
+<script src="assets/js/tool.js?v=20260904-1"></script>
 <script>
 (function () {
   'use strict';
-  var $ = function (id) { return document.getElementById(id); };
+  var $ = Tool.$;
   var KEY = 'classManager.blackboard.v1';
+  var CLOUD_CONTACT = 'https://flyshan2010.github.io/class-website/data/contactbook.json';
+  var CLOUD_SCHED = 'https://flyshan2010.github.io/class-website/data/schedule.json';
 
-  /* ── 狀態 ─────────────────────────────────────────── */
   var state = {
-    text: '',
-    source: 'local',       // local＝本機手打／cloud＝雲端帶入／offline＝連不上時用的上次快取
-    localEditDate: '',     // 老師「就地」手改的日期；同一天有手改就不讓雲端自動覆蓋
-    cloudSyncedAt: '',     // 上次成功抓到雲端的時間
+    text: '', source: 'local', localEditDate: '', cloudSyncedAt: '',
     duty: { mode: 'auto', per: 2, base: '', start: 1, manual: '', skips: {} },
+    opt: { bell: false, sched: true },
     savedAt: ''
   };
-  // 聯絡簿正本在 Notion「📒 聯絡簿」，由 class-website 每天同步成公開 JSON。
-  // 兩站同域名（flyshan2010.github.io）＝同源，這支 fetch 不會有 CORS 問題，
-  // 也不改班網任何檔案。讀取一律漸進增強：讀得到就帶入並快取，讀不到就用上次快取，
-  // 離線照常可用（class-manager/CLAUDE.md 硬規則 4）。
-  var CLOUD_URL = 'https://flyshan2010.github.io/class-website/data/contactbook.json';
-  var pendingCloudText = null;   // 有當天本機手改時，雲端版先擱在這，等老師按「用雲端版」
+  var pendingCloudText = null;
 
   function load() {
     try {
-      var raw = localStorage.getItem(KEY);
-      if (!raw) return;
-      var d = JSON.parse(raw);
-      if (!d) return;
+      var d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!d) return;
       if (typeof d.text === 'string') state.text = d.text;
-      if (d.duty) {
-        for (var k in state.duty) if (d.duty[k] !== undefined) state.duty[k] = d.duty[k];
-        if (!state.duty.skips) state.duty.skips = {};
-      }
       if (typeof d.source === 'string') state.source = d.source;
       if (typeof d.localEditDate === 'string') state.localEditDate = d.localEditDate;
       if (typeof d.cloudSyncedAt === 'string') state.cloudSyncedAt = d.cloudSyncedAt;
+      if (d.duty) { for (var k in state.duty) if (d.duty[k] !== undefined) state.duty[k] = d.duty[k]; if (!state.duty.skips) state.duty.skips = {}; }
+      if (d.opt) { for (var o in state.opt) if (d.opt[o] !== undefined) state.opt[o] = d.opt[o]; }
       state.savedAt = d.savedAt || '';
-    } catch (e) { /* 讀不到就用預設，不要讓整頁掛掉 */ }
+    } catch (e) {}
   }
-  function save() {
-    state.savedAt = new Date().toISOString();
-    try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
-    catch (e) { return false; }
-  }
+  function save() { state.savedAt = new Date().toISOString(); try { localStorage.setItem(KEY, JSON.stringify(state)); return true; } catch (e) { return false; } }
 
-  /* ── 日期與時鐘 ───────────────────────────────────── */
-  function todayKey(d) {
-    d = d || new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
-           '-' + String(d.getDate()).padStart(2, '0');
+  function todayKey(d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+  /* ── 月相 ── */
+  function moonPhase(date) {
+    var syn = 29.530588853, known = Date.UTC(2000, 0, 6, 18, 14) / 86400000;
+    var days = (date.getTime() / 86400000) - known;
+    var p = ((days % syn) + syn) % syn / syn; // 0..1
+    var idx = Math.round(p * 8) % 8;
+    var g = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'][idx];
+    var n = ['新月', '眉月', '上弦月', '盈凸月', '滿月', '虧凸月', '下弦月', '殘月'][idx];
+    return { g: g, n: n };
   }
   function paintDate() {
     var now = new Date();
-    $('date-main').textContent =
-      (now.getFullYear() - 1911) + '學年　' + (now.getMonth() + 1) + ' 月 ' + now.getDate() + ' 日';
-    $('date-sub').textContent =
-      now.toLocaleDateString('zh-TW', { weekday: 'long' }) + '　' +
-      now.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  }
-  function tickClock() {
-    var now = new Date();
-    $('clock-hm').textContent =
-      String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-    $('clock-sec').textContent = String(now.getSeconds()).padStart(2, '0');
-    if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() < 2) {
-      paintDate(); paintDuty();   // 跨日：整晚沒關也會自己換日期與值日生
-    }
+    $('date-1').textContent = '民國 ' + (now.getFullYear() - 1911) + ' 年 ' + (now.getMonth() + 1) + ' 月 ' + now.getDate() + ' 日';
+    $('date-2').textContent = now.toLocaleDateString('zh-TW', { weekday: 'long' }) + '　' + now.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    var m = moonPhase(now); $('moon-g').textContent = m.g; $('moon-n').textContent = m.n;
   }
 
-  /* ── 聯絡簿 ───────────────────────────────────────── */
+  /* ── 時鐘 ── */
+  function tickClock() {
+    var now = new Date();
+    $('clock-hm').textContent = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    $('clock-sec').textContent = String(now.getSeconds()).padStart(2, '0');
+    if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() < 2) { paintDate(); paintDuty(); }
+  }
+
+  /* ── 聯絡簿 ── */
   function paintNotes() {
-    var box = $('notes');
-    box.textContent = '';
-    var lines = state.text.split('\n').map(function (s) { return s.trim(); })
-                          .filter(function (s) { return s.length; });
+    var box = $('notes'); box.textContent = '';
+    var lines = state.text.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
     if (!lines.length) {
-      var e = document.createElement('div');
-      e.className = 'empty';
+      var e = document.createElement('div'); e.className = 'empty2';
       e.innerHTML = '今天還沒寫聯絡簿。<br>按下方「寫聯絡簿」，或按 <kbd>E</kbd>。';
-      box.appendChild(e);
-      return;
+      box.appendChild(e); fitNotes(); return;
     }
     var n = 0;
     lines.forEach(function (line) {
       var cls = 'note', txt = line;
       if (txt.charAt(0) === '#') { cls += ' head'; txt = txt.slice(1).trim(); }
-      else {
-        if (txt.charAt(0) === '*') { cls += ' hi'; txt = txt.slice(1).trim(); }
-        else if (txt.charAt(0) === '~') { cls += ' done'; txt = txt.slice(1).trim(); }
-        n++;
-      }
-      var el = document.createElement('div');
-      el.className = cls;
-      if (cls.indexOf('head') === -1) {
-        var no = document.createElement('span');
-        no.className = 'no';
-        // 兩位數在直書裡橫著併成一格，不然會拆成上下兩個字
-        no.innerHTML = '<span class="num">' + n + '</span>.';
-        el.appendChild(no);
-      }
-      var t = document.createElement('span');
-      t.className = 'txt';
-      t.textContent = txt;
-      el.appendChild(t);
+      else { if (txt.charAt(0) === '*') { cls += ' hi'; txt = txt.slice(1).trim(); } else if (txt.charAt(0) === '~') { cls += ' done'; txt = txt.slice(1).trim(); } n++; }
+      var el = document.createElement('div'); el.className = cls;
+      if (cls.indexOf('head') === -1) { var no = document.createElement('span'); no.className = 'no'; no.innerHTML = '<span class="num">' + n + '</span>.'; el.appendChild(no); }
+      var t = document.createElement('span'); t.className = 'txt'; t.textContent = txt; el.appendChild(t);
       box.appendChild(el);
     });
     fitNotes();
   }
-
-  /* 一頁放不下時自動縮字，讓所有項目一次看得完——投影時沒有人會去捲畫面。
-     40px 是教室後排的硬下限（class-manager/CLAUDE.md「投影版面」），
-     縮到 40px 還放不下就停手並明說，不無聲截斷。 */
   function fitNotes() {
-    var box = $('notes');
-    var tip = $('overflow-tip');
+    var box = $('notes'), tip = $('overflow-tip');
     box.style.removeProperty('--note-fs');
     if (!box.querySelector('.note')) { tip.hidden = true; return; }
-    var fs = Math.max(40, Math.min(84, window.innerHeight * 0.062));
-    var guard = 0;
-    while (box.scrollWidth > box.clientWidth + 1 && fs > 40 && guard++ < 40) {
-      fs = Math.max(40, fs - 2);
-      box.style.setProperty('--note-fs', fs + 'px');
-    }
+    var fs = Math.max(40, Math.min(84, window.innerHeight * 0.062)), guard = 0;
+    while (box.scrollWidth > box.clientWidth + 1 && fs > 40 && guard++ < 40) { fs = Math.max(40, fs - 2); box.style.setProperty('--note-fs', fs + 'px'); }
     if (fs < 84) box.style.setProperty('--note-fs', fs + 'px');
     var over = box.scrollWidth > box.clientWidth + 1;
     tip.hidden = !over;
-    if (over) tip.textContent = '項目太多，右側還有沒顯示出來的——可以刪幾項，或分兩次投影。';
+    if (over) tip.textContent = '項目太多，右側還有沒顯示出來的——可刪幾項或分兩次投影。';
   }
 
-  /* ── 值日生 ───────────────────────────────────────── */
-  /* 只算平日：從基準日到今天之間有幾個上課日（週一～週五），一天推進 per 人。 */
-  function weekdaysBetween(fromISO, to) {
-    var from = new Date(fromISO + 'T00:00:00');
-    if (isNaN(from.getTime())) return null;
-    var a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-    var b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-    var sign = b < a ? -1 : 1;
-    var count = 0;
-    var cur = new Date(a);
-    while (sign > 0 ? cur < b : cur > b) {
-      cur.setDate(cur.getDate() + sign);
-      var w = cur.getDay();
-      if (w !== 0 && w !== 6) count += sign;
-    }
-    return count;
-  }
-
-  function computeDuty() {
-    var d = state.duty;
-    if (d.mode === 'off') return { seats: [], reason: null };
-    if (d.mode === 'manual') {
-      var ms = String(d.manual || '').split(/[^0-9]+/).filter(Boolean).map(Number);
-      return { seats: ms, reason: ms.length ? null : '尚未指定' };
-    }
-    var seats = ClassManager.requireSeats();
-    if (!seats) return { seats: [], reason: '請先設定座號' };
-    if (!d.base) return { seats: [], reason: '請先設定基準日' };
-    var days = weekdaysBetween(d.base, new Date());
-    if (days === null) return { seats: [], reason: '基準日看不懂' };
-
-    var per = Math.max(1, Math.min(10, parseInt(d.per, 10) || 1));
-    var startIdx = seats.indexOf(parseInt(d.start, 10));
-    if (startIdx < 0) startIdx = 0;
-
-    var skips = 0;   // 「今天順延一輪」記在被順延的那一天，往後全體一起移
-    for (var k in d.skips) if (k <= todayKey()) skips += d.skips[k];
-
-    var offset = ((startIdx + (days + skips) * per) % seats.length + seats.length) % seats.length;
-    var out = [];
-    for (var i = 0; i < Math.min(per, seats.length); i++) out.push(seats[(offset + i) % seats.length]);
-    return { seats: out, reason: null };
-  }
-
-  function paintDuty() {
-    var box = $('duty-seats');
-    var wrap = box.parentNode;
-    box.textContent = '';
-    var r = computeDuty();
-    if (state.duty.mode === 'off') { wrap.style.display = 'none'; return; }
-    wrap.style.display = '';
-    if (!r.seats.length) {
-      var s = document.createElement('span');
-      s.className = 'seat none';
-      s.textContent = r.reason || '尚未設定';
-      box.appendChild(s);
-      return;
-    }
-    r.seats.forEach(function (n) {
-      var s = document.createElement('span');
-      s.className = 'seat';
-      s.textContent = n;
-      box.appendChild(s);
-    });
-  }
-
-  /* ── 倒數 ─────────────────────────────────────────── */
-  var timer = { endAt: 0, left: 0, running: false, total: 0 };
-  function fmt(ms) {
-    var neg = ms < 0;
-    var s = Math.ceil(Math.abs(ms) / 1000);
-    var m = Math.floor(s / 60);
-    return (neg ? '-' : '') + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-  }
-  function startTimer(min) {
-    timer.total = min * 60000;
-    timer.endAt = Date.now() + timer.total;
-    timer.running = true;
-    beep(2, 660);
-    paintTimer();
-  }
-  function toggleTimer() {
-    if (!timer.total) return;
-    if (timer.running) { timer.left = timer.endAt - Date.now(); timer.running = false; }
-    else { timer.endAt = Date.now() + timer.left; timer.running = true; }
-    paintTimer();
-  }
-  function stopTimer() {
-    timer = { endAt: 0, left: 0, running: false, total: 0 };
-    rang = false;
-    paintTimer();
-  }
-  var rang = false;
-  function paintTimer() {
-    var el = $('timer');
-    var timing = !!timer.total;
-    if (document.body.classList.contains('timing') !== timing) {
-      document.body.classList.toggle('timing', timing);
-      fitNotes();
-    }
-    if (!timing) { el.className = 'timer idle'; $('timer-t').textContent = '00:00'; return; }
-    var left = timer.running ? timer.endAt - Date.now() : timer.left;
-    var cls = 'timer';
-    if (!timer.running) cls += ' paused';
-    if (left <= 0) {
-      cls += ' over';
-      if (!rang) { rang = true; beep(3, 880); }
-    } else if (left <= 60000) cls += ' warn';
-    el.className = cls;
-    $('timer-t').textContent = fmt(left);
-    $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '倒數' : '暫停');
-  }
-  /* 提示音用 Web Audio 現場合成，不載任何外部檔案（斷網也要響）。 */
-  function beep(times, freq) {
-    try {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      var ctx = beep.ctx || (beep.ctx = new AC());
-      for (var i = 0; i < times; i++) {
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        var t0 = ctx.currentTime + i * 0.28;
-        o.frequency.value = freq; o.type = 'sine';
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
-        o.connect(g); g.connect(ctx.destination);
-        o.start(t0); o.stop(t0 + 0.24);
-      }
-    } catch (e) { /* 沒聲音不影響上課 */ }
-  }
-
-  /* ── 面板 ─────────────────────────────────────────── */
-  function openPanel(open) {
-    $('panel').classList.toggle('open', open);
-    $('scrim').classList.toggle('open', open);
-    if (open) { syncPanel(); setTimeout(function () { $('ta').focus(); }, 60); }
-  }
-  function syncPanel() {
-    $('ta').value = state.text;
-    $('duty-mode').value = state.duty.mode;
-    $('duty-per').value = state.duty.per;
-    $('duty-base').value = state.duty.base || todayKey();
-    $('duty-start').value = state.duty.start;
-    $('duty-manual').value = state.duty.manual || '';
-    $('seat-warn').hidden = !!ClassManager.requireSeats() || state.duty.mode !== 'auto';
-    paintCloudLabel();
-    syncDutyMode();
-  }
-  function syncDutyMode() {
-    var m = $('duty-mode').value;
-    $('wrap-auto').hidden = m !== 'auto';
-    $('wrap-per').hidden = m !== 'auto';
-    $('wrap-manual').hidden = m !== 'manual';
-    $('seat-warn').hidden = !!ClassManager.requireSeats() || m !== 'auto';
-  }
-
-  function applyNotes() {
-    state.text = $('ta').value;
-    state.source = 'local';
-    state.localEditDate = todayKey();   // 就地手改：今天不讓雲端自動蓋掉（臨時加一項用）
-    var ok = save();
-    var st = $('notes-status');
-    st.className = ok ? 'status ok' : 'status warn';
-    st.textContent = ok ? '已寫上黑板。' : '瀏覽器不允許儲存（無痕模式？），畫面有，但關掉會不見。';
-    paintNotes();
-  }
-  /* 把 Notion 聯絡簿一列（作業／攜帶／提醒，皆為 \n 分隔多行）攤成黑板行格式。
-     只放有內容的段落，段落用 # 標題分隔。 */
   function rowToText(row) {
     var out = [];
-    function section(title, raw) {
-      var lines = String(raw || '').split(/\n+/).map(function (x) { return x.trim(); })
-                    .filter(function (x) { return x.length; });
-      if (!lines.length) return;
-      out.push('#' + title);
-      lines.forEach(function (l) { out.push(l); });
-    }
-    section('作業', row.homework);
-    section('攜帶', row.bring);
-    section('提醒', row.notes);
+    function sec(title, raw) { var ls = String(raw || '').split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); if (!ls.length) return; out.push('#' + title); ls.forEach(function (l) { out.push(l); }); }
+    sec('作業', row.homework); sec('攜帶', row.bring); sec('提醒', row.notes);
     return out.join('\n');
   }
-
-  function setCloudStatus(msg, kind) {
-    var el = $('cloud-status');
-    if (!el) return;
-    el.className = 'status' + (kind ? ' ' + kind : '');
-    el.textContent = msg;
-  }
+  function setCloudStatus(msg, kind) { var el = $('cloud-status'); el.className = 'status' + (kind ? ' ' + kind : ''); el.textContent = msg; }
   function cloudLabel() {
-    if (state.source === 'cloud') {
-      var t = state.cloudSyncedAt ? new Date(state.cloudSyncedAt) : null;
-      return '雲端帶入' + (t ? '（' + t.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) + '）' : '');
-    }
+    if (state.source === 'cloud') { var t = state.cloudSyncedAt ? new Date(state.cloudSyncedAt) : null; return '雲端帶入' + (t ? '（' + t.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) + '）' : ''); }
     if (state.source === 'offline') return '離線：顯示上次存下的內容';
     return '本機手打';
   }
-  function paintCloudLabel() {
-    var el = $('cloud-label');
-    if (el) el.textContent = '目前來源：' + cloudLabel();
-    var btn = $('btn-cloud-take');
-    if (btn) btn.hidden = pendingCloudText === null;
-  }
-
-  /* 從雲端抓當天聯絡簿。force＝老師主動按「重新讀取」或「用雲端版」，會蓋掉當天本機手改。 */
+  function paintCloudLabel() { var el = $('cloud-label'); if (el) el.textContent = '目前來源：' + cloudLabel(); var b = $('btn-cloud-take'); if (b) b.hidden = pendingCloudText === null; }
   function applyCloud(force) {
     setCloudStatus('讀取雲端…', '');
-    var url = CLOUD_URL + (CLOUD_URL.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now();
-    fetch(url, { cache: 'no-store' }).then(function (r) {
-      if (!r.ok) throw new Error('http ' + r.status);
-      return r.json();
-    }).then(function (rows) {
-      var today = todayKey();
-      var row = Array.isArray(rows) ? rows.filter(function (x) {
-        return x && String(x.date || '').slice(0, 10) === today;
-      })[0] : null;
-      if (!row) {
-        setCloudStatus('雲端今天沒有聯絡簿內容——內容改在 Notion「📒 聯絡簿」當天那列。', 'warn');
-        return;
-      }
-      var txt = rowToText(row);
-      if (!txt.trim()) {
-        setCloudStatus('雲端當天那列是空的。', 'warn');
-        return;
-      }
-      // 當天已有本機手改且非強制：不自動蓋，把雲端版擱著等老師決定。
-      if (!force && state.localEditDate === today && state.text.trim() && state.text !== txt) {
-        pendingCloudText = txt;
-        setCloudStatus('雲端當天有內容，和你就地改的不一樣。要換成雲端版就按右邊按鈕。', 'warn');
-        paintCloudLabel();
-        return;
-      }
-      pendingCloudText = null;
-      state.text = txt;
-      state.source = 'cloud';
-      state.cloudSyncedAt = new Date().toISOString();
-      if (force) state.localEditDate = '';
-      save();
-      $('ta').value = state.text;
-      paintNotes();
-      paintCloudLabel();
-      setCloudStatus('已帶入雲端當天聯絡簿。', 'ok');
-    }).catch(function () {
-      // 離線／讀不到：維持現狀（上次快取），只標記，不動內容。
-      if (state.text.trim() && state.source !== 'local') state.source = 'offline';
-      paintCloudLabel();
-      setCloudStatus('連不上雲端，顯示的是上次存下的內容（教室斷網照常可用）。', 'warn');
+    fetch(CLOUD_CONTACT + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (rows) {
+        var today = todayKey();
+        var row = (rows || []).filter(function (x) { return x && String(x.date || '').slice(0, 10) === today; })[0];
+        if (!row) { setCloudStatus('雲端今天沒有聯絡簿內容——內容改在 Notion「📒 聯絡簿」當天那列。', 'warn'); return; }
+        var txt = rowToText(row);
+        if (!txt.trim()) { setCloudStatus('雲端當天那列是空的。', 'warn'); return; }
+        if (!force && state.localEditDate === today && state.text.trim() && state.text !== txt) {
+          pendingCloudText = txt; setCloudStatus('雲端當天有內容，和你就地改的不一樣。要換成雲端版就按右邊按鈕。', 'warn'); paintCloudLabel(); return;
+        }
+        pendingCloudText = null; state.text = txt; state.source = 'cloud'; state.cloudSyncedAt = new Date().toISOString();
+        if (force) state.localEditDate = ''; save();
+        $('ta').value = state.text; paintNotes(); paintCloudLabel(); setCloudStatus('已帶入雲端當天聯絡簿。', 'ok');
+      })
+      .catch(function () { if (state.text.trim() && state.source !== 'local') state.source = 'offline'; paintCloudLabel(); setCloudStatus('連不上雲端，顯示上次存下的內容（斷網照常可用）。', 'warn'); });
+  }
+
+  /* ── 值日生 ── */
+  function weekdaysBetween(fromISO, to) {
+    var from = new Date(fromISO + 'T00:00:00'); if (isNaN(from.getTime())) return null;
+    var a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    var b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+    var sign = b < a ? -1 : 1, count = 0, cur = new Date(a);
+    while (sign > 0 ? cur < b : cur > b) { cur.setDate(cur.getDate() + sign); var w = cur.getDay(); if (w !== 0 && w !== 6) count += sign; }
+    return count;
+  }
+  function computeDuty() {
+    var d = state.duty;
+    if (d.mode === 'off') return { seats: [], reason: null };
+    if (d.mode === 'manual') { var ms = String(d.manual || '').split(/[^0-9]+/).filter(Boolean).map(Number); return { seats: ms, reason: ms.length ? null : '尚未指定' }; }
+    var seats = ClassManager.requireSeats(); if (!seats) return { seats: [], reason: '請先設定座號' };
+    if (!d.base) return { seats: [], reason: '請先設定基準日' };
+    var days = weekdaysBetween(d.base, new Date()); if (days === null) return { seats: [], reason: '基準日看不懂' };
+    var per = Math.max(1, Math.min(10, parseInt(d.per, 10) || 1));
+    var startIdx = seats.indexOf(parseInt(d.start, 10)); if (startIdx < 0) startIdx = 0;
+    var skips = 0; for (var k in d.skips) if (k <= todayKey()) skips += d.skips[k];
+    var offset = ((startIdx + (days + skips) * per) % seats.length + seats.length) % seats.length;
+    var out = []; for (var i = 0; i < Math.min(per, seats.length); i++) out.push(seats[(offset + i) % seats.length]);
+    return { seats: out, reason: null };
+  }
+  function paintDuty() {
+    var box = $('duty-seats'), wrap = box.parentNode; box.textContent = '';
+    if (state.duty.mode === 'off') { wrap.style.display = 'none'; return; }
+    wrap.style.display = ''; var r = computeDuty();
+    if (!r.seats.length) { var s = document.createElement('span'); s.className = 'seat none'; s.textContent = r.reason || '尚未設定'; box.appendChild(s); return; }
+    r.seats.forEach(function (n) { var s = document.createElement('span'); s.className = 'seat'; s.textContent = n; box.appendChild(s); });
+  }
+
+  /* ── 今日課表（同源讀班網 schedule.json；漸進增強） ── */
+  var schedCache = Tool.store('classManager.blackboard.sched');
+  function paintSched(data) {
+    var box = $('sched');
+    if (!state.opt.sched) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    var day = new Date().getDay(); // 0 日..6 六
+    if (day === 0 || day === 6) { box.innerHTML = '<span class="none">今天是假日，沒有課表。</span>'; return; }
+    if (!data || !data.periods || !data.table) { box.innerHTML = '<span class="none">課表讀取中或讀不到。</span>'; return; }
+    var col = day - 1, nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    box.innerHTML = '';
+    data.periods.forEach(function (p, i) {
+      var cell = (data.table[i] || [])[col];
+      var subj = cell == null ? '' : (typeof cell === 'object' ? (cell.subject || '') : cell);
+      if (!subj) return;
+      var now = false;
+      var mt = String(p.time || '').match(/(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2}):(\d{2})/);
+      if (mt) { var a = +mt[1] * 60 + +mt[2], b = +mt[3] * 60 + +mt[4]; now = nowMin >= a && nowMin < b; }
+      var c = document.createElement('div'); c.className = 'chip' + (now ? ' now' : '');
+      c.innerHTML = '<span class="p">' + (p.name || '') + '</span><span class="s">' + subj.replace(/[<>&]/g, '') + '</span>';
+      box.appendChild(c);
+    });
+    if (!box.children.length) box.innerHTML = '<span class="none">今天沒有排課。</span>';
+  }
+  var schedData = null;
+  function loadSched() {
+    schedData = schedCache.get(null); paintSched(schedData);
+    fetch(CLOUD_SCHED + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { schedData = d; schedCache.set(d); paintSched(d); }).catch(function () {});
+  }
+
+  /* ── 上下課鐘聲 ── */
+  var rungKeys = {};
+  function checkBell() {
+    if (!state.opt.bell || !schedData || !schedData.periods) return;
+    var day = new Date().getDay(); if (day === 0 || day === 6) return;
+    var now = new Date(), hm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    if (now.getSeconds() > 3) return; // 只在整分頭幾秒觸發一次
+    schedData.periods.forEach(function (p) {
+      if (String(p.name || '').indexOf('節') < 0) return;
+      var mt = String(p.time || '').match(/(\d{1,2}:\d{2})\s*[-–~]\s*(\d{1,2}:\d{2})/); if (!mt) return;
+      var start = mt[1].length === 4 ? '0' + mt[1] : mt[1], end = mt[2].length === 4 ? '0' + mt[2] : mt[2];
+      var kS = todayKey() + 'S' + start, kE = todayKey() + 'E' + end;
+      if (hm === start && !rungKeys[kS]) { rungKeys[kS] = 1; ring(true, p.name + ' 上課'); }
+      if (hm === end && !rungKeys[kE]) { rungKeys[kE] = 1; ring(false, p.name + ' 下課'); }
     });
   }
-
-  function applyDuty() {
-    state.duty.mode = $('duty-mode').value;
-    state.duty.per = Math.max(1, Math.min(10, parseInt($('duty-per').value, 10) || 1));
-    state.duty.base = $('duty-base').value;
-    state.duty.start = parseInt($('duty-start').value, 10) || 1;
-    state.duty.manual = $('duty-manual').value;
-    save();
-    paintDuty();
-    var r = computeDuty();
-    var st = $('duty-status');
-    st.className = r.seats.length ? 'status ok' : 'status warn';
-    st.textContent = r.seats.length ? '今天輪到 ' + r.seats.join('、') + ' 號。' : (r.reason || '沒有算出值日生。');
+  function ring(isUp, label) {
+    Tool.beep(isUp ? 2 : 3, isUp ? 700 : 520);
+    var t = $('toast'); t.className = 'toast show ' + (isUp ? 'up' : 'down'); t.textContent = (isUp ? '🔔 ' : '🎒 ') + label;
+    setTimeout(function () { t.className = 'toast ' + (isUp ? 'up' : 'down'); }, 4000);
   }
 
-  /* ── 綁事件 ───────────────────────────────────────── */
+  /* ── 語音廣播 ── */
+  function speak(text) {
+    if (!text) return;
+    try {
+      if (!('speechSynthesis' in window)) { $('say-status').textContent = '這台裝置不支援語音，改用畫面提示。'; ring(true, text); return; }
+      var u = new SpeechSynthesisUtterance(text); u.lang = 'zh-TW'; u.rate = 0.95; u.pitch = 1;
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* ── 倒數 ── */
+  var timer = { endAt: 0, left: 0, running: false, total: 0 }, rang = false;
+  function fmt(ms) { var neg = ms < 0, s = Math.ceil(Math.abs(ms) / 1000), m = Math.floor(s / 60); return (neg ? '-' : '') + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+  function startTimer(min) { timer.total = min * 60000; timer.endAt = Date.now() + timer.total; timer.running = true; rang = false; Tool.beep(2, 660); paintTimer(); }
+  function toggleTimer() { if (!timer.total) return; if (timer.running) { timer.left = timer.endAt - Date.now(); timer.running = false; } else { timer.endAt = Date.now() + timer.left; timer.running = true; } paintTimer(); }
+  function stopTimer() { timer = { endAt: 0, left: 0, running: false, total: 0 }; rang = false; paintTimer(); }
+  function paintTimer() {
+    var el = $('timer'), timing = !!timer.total;
+    if (document.body.classList.contains('timing') !== timing) { document.body.classList.toggle('timing', timing); fitNotes(); }
+    if (!timing) { el.className = 'timer idle'; $('timer-t').textContent = '00:00'; return; }
+    var left = timer.running ? timer.endAt - Date.now() : timer.left, cls = 'timer';
+    if (!timer.running) cls += ' paused';
+    if (left <= 0) { cls += ' over'; if (!rang) { rang = true; Tool.beep(3, 880); } } else if (left <= 60000) cls += ' warn';
+    el.className = cls; $('timer-t').textContent = fmt(left); $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '倒數' : '暫停');
+  }
+
+  /* ── 面板 ── */
+  var panel = Tool.panel($('panel'), $('scrim'));
+  function openPanel(open) { if (open) { syncPanel(); panel.open(); setTimeout(function () { $('ta').focus(); }, 60); } else panel.close(); }
+  function syncPanel() {
+    $('ta').value = state.text;
+    $('duty-mode').value = state.duty.mode; $('duty-per').value = state.duty.per;
+    $('duty-base').value = state.duty.base || todayKey(); $('duty-start').value = state.duty.start; $('duty-manual').value = state.duty.manual || '';
+    $('opt-bell').checked = !!state.opt.bell; $('opt-sched').checked = !!state.opt.sched;
+    paintCloudLabel(); syncDutyMode();
+  }
+  function syncDutyMode() { var m = $('duty-mode').value; $('wrap-auto').hidden = m !== 'auto'; $('wrap-per').hidden = m !== 'auto'; $('wrap-manual').hidden = m !== 'manual'; $('seat-warn').hidden = !!ClassManager.requireSeats() || m !== 'auto'; }
+  function applyNotes() { state.text = $('ta').value; state.source = 'local'; state.localEditDate = todayKey(); var ok = save(); var st = $('notes-status'); st.className = ok ? 'status ok' : 'status warn'; st.textContent = ok ? '已寫上看板。' : '瀏覽器不允許儲存（無痕模式？），畫面有，但關掉會不見。'; paintNotes(); }
+  function applyDuty() { state.duty.mode = $('duty-mode').value; state.duty.per = Math.max(1, Math.min(10, parseInt($('duty-per').value, 10) || 1)); state.duty.base = $('duty-base').value; state.duty.start = parseInt($('duty-start').value, 10) || 1; state.duty.manual = $('duty-manual').value; save(); paintDuty(); var r = computeDuty(); var st = $('duty-status'); st.className = r.seats.length ? 'status ok' : 'status warn'; st.textContent = r.seats.length ? '今天輪到 ' + r.seats.join('、') + ' 號。' : (r.reason || '沒有算出值日生。'); }
+
   $('btn-panel').addEventListener('click', function () { openPanel(true); });
   $('btn-close').addEventListener('click', function () { openPanel(false); });
-  $('scrim').addEventListener('click', function () { openPanel(false); });
   $('btn-apply').addEventListener('click', applyNotes);
-  $('btn-clear-notes').addEventListener('click', function () {
-    $('ta').value = ''; applyNotes();
-  });
+  $('btn-clear-notes').addEventListener('click', function () { $('ta').value = ''; applyNotes(); });
   $('btn-cloud-reload').addEventListener('click', function () { applyCloud(true); });
-  $('btn-cloud-take').addEventListener('click', function () {
-    if (pendingCloudText === null) return;
-    state.text = pendingCloudText;
-    state.source = 'cloud';
-    state.cloudSyncedAt = new Date().toISOString();
-    state.localEditDate = '';
-    pendingCloudText = null;
-    save();
-    $('ta').value = state.text;
-    paintNotes();
-    paintCloudLabel();
-    setCloudStatus('已換成雲端版。', 'ok');
-  });
+  $('btn-cloud-take').addEventListener('click', function () { if (pendingCloudText === null) return; state.text = pendingCloudText; state.source = 'cloud'; state.cloudSyncedAt = new Date().toISOString(); state.localEditDate = ''; pendingCloudText = null; save(); $('ta').value = state.text; paintNotes(); paintCloudLabel(); setCloudStatus('已換成雲端版。', 'ok'); });
   $('btn-duty').addEventListener('click', applyDuty);
   $('duty-mode').addEventListener('change', syncDutyMode);
-  $('btn-duty-skip').addEventListener('click', function () {
-    var k = todayKey();
-    state.duty.skips[k] = (state.duty.skips[k] || 0) + 1;
-    save(); paintDuty();
-    var r = computeDuty();
-    $('duty-status').className = 'status ok';
-    $('duty-status').textContent = '已順延，今天改成 ' + (r.seats.join('、') || '—') + ' 號。';
-  });
+  $('btn-duty-skip').addEventListener('click', function () { var k = todayKey(); state.duty.skips[k] = (state.duty.skips[k] || 0) + 1; save(); paintDuty(); var r = computeDuty(); $('duty-status').className = 'status ok'; $('duty-status').textContent = '已順延，今天改成 ' + (r.seats.join('、') || '—') + ' 號。'; });
+  $('btn-say').addEventListener('click', function () { speak($('say-custom').value.trim()); });
+  $('say-custom').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btn-say').click(); });
+  $('opt-bell').addEventListener('change', function () { state.opt.bell = $('opt-bell').checked; save(); });
+  $('opt-sched').addEventListener('change', function () { state.opt.sched = $('opt-sched').checked; save(); paintSched(schedData); });
 
-  Array.prototype.forEach.call(document.querySelectorAll('.bar [data-min]'), function (b) {
-    b.addEventListener('click', function () { startTimer(parseInt(b.dataset.min, 10)); });
-  });
-  $('btn-toggle').addEventListener('click', toggleTimer);
-  $('btn-stop').addEventListener('click', stopTimer);
-  $('btn-full').addEventListener('click', function () {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen();
-  });
+  Array.prototype.forEach.call(document.querySelectorAll('.hud [data-say]'), function (b) { b.addEventListener('click', function () { speak(b.dataset.say); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('.hud [data-min]'), function (b) { b.addEventListener('click', function () { startTimer(parseInt(b.dataset.min, 10)); }); });
+  $('btn-full').addEventListener('click', Tool.fullscreen);
 
   document.addEventListener('keydown', function (e) {
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
-      if (e.key === 'Escape') openPanel(false);
-      return;
-    }
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') { if (e.key === 'Escape') openPanel(false); return; }
     var k = e.key.toLowerCase();
-    if (k === 'e') { e.preventDefault(); openPanel(!$('panel').classList.contains('open')); }
-    else if (k === 'f') { $('btn-full').click(); }
+    if (k === 'e') { e.preventDefault(); openPanel(!panel.isOpen()); }
+    else if (k === 'f') Tool.fullscreen();
     else if (k === ' ') { e.preventDefault(); toggleTimer(); }
-    else if (k === '1' || k === '3' || k === '5') { startTimer(parseInt(k, 10)); }
-    else if (k === '0') { stopTimer(); }
-    else if (k === 'escape') { openPanel(false); }
+    else if (k === '5') startTimer(5);
+    else if (k === '0') stopTimer();
+    else if (k === 'escape') openPanel(false);
   });
-
-  /* 工具列閒置自動隱藏：投影時老師手離開滑鼠，畫面就只剩黑板。 */
-  var hideAt = 0;
-  function poke() {
-    $('bar').classList.remove('hidden');
-    hideAt = Date.now() + 3000;
-  }
   window.addEventListener('resize', fitNotes);
-  document.addEventListener('mousemove', poke);
-  document.addEventListener('keydown', poke);
-  $('bar').addEventListener('mouseenter', function () { hideAt = Infinity; });
-  $('bar').addEventListener('mouseleave', poke);
+  Tool.autoHideHud($('hud'), panel.isOpen);
 
-  /* ── 主迴圈：一秒一次，時鐘／倒數／自動隱藏共用 ────── */
-  function loop() {
-    tickClock();
-    paintTimer();
-    if (hideAt && Date.now() > hideAt && !$('panel').classList.contains('open')) {
-      $('bar').classList.add('hidden');
-    }
-    setTimeout(loop, 250);
-  }
+  function loop() { tickClock(); paintTimer(); paintSched(schedData); checkBell(); setTimeout(loop, 250); }
 
   load();
   if (!state.duty.base) state.duty.base = todayKey();
-  paintDate();
-  paintNotes();     // 先畫上次存下的內容：離線也立刻有東西、不閃白
-  paintDuty();
-  paintCloudLabel();
-  applyCloud(false);   // 再非強制抓雲端：有網路就自動帶入當天聯絡簿
-  poke();
+  paintDate(); paintNotes(); paintDuty(); paintCloudLabel();
+  applyCloud(false); loadSched();
   loop();
 })();
 </script>

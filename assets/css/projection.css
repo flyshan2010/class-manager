@@ -1,15 +1,23 @@
-/* class-manager 投影工具共用外殼 —— 抽籤／計時／抽籤問答／作業播放表／小組計分共用。
-   基準 1600×900、深色底高對比、教室後排看得到（主要內容 ≥40px）。
-   單檔離線可用，本檔是同源資產，不是外部 CDN。 */
+/* class-manager 投影工具共用外殼 v2 —— 視覺參照「智慧教室儀表板 2.0」：
+   近黑星空底、玻璃感圓角卡片、彩色膠囊底部工具列。
+   仍守投影鐵則：1600×900、深色高對比、主要內容 ≥40px、單檔離線（星空是內嵌 SVG，非外部資源）。
+   類別名沿用 v1，六支工具的 HTML 不必改；只換配色與質感。 */
 :root{
-  --board:#1b2a25; --board-2:#16221e; --board-3:#0f1814;
-  --chalk:#f2efe6; --chalk-2:#b9c6bd; --chalk-3:#7d8f85;
-  --line:rgba(242,239,230,.16);
-  --mark:#e8c86a;      /* 重點黃 */
-  --duty:#8fd0c4;      /* 青（主色） */
-  --ok:#7cc58f;        /* 對／完成 綠 */
-  --warn:#e69a6b;      /* 錯／警告 橘 */
-  --pink:#e58fa8; --blue:#8fb8e0; --purple:#c3a0e0; --lime:#bcd98a;
+  --board:#0b0f18;      /* 頁面底（太空黑） */
+  --board-2:#161d2b;    /* 卡片面 */
+  --board-3:#0f1521;    /* 更深 */
+  --chalk:#f4f6fb;      /* 主要文字（白） */
+  --chalk-2:#b6c1d4;    /* 次要 */
+  --chalk-3:#7c8699;    /* 更淡 */
+  --line:rgba(255,255,255,.10);
+  --line-2:rgba(255,255,255,.18);
+  /* 招牌彩色（對近黑高對比、投影安全） */
+  --duty:#5ec9bf;   /* 青・主色 */
+  --mark:#f0c85a;   /* 黃・重點 */
+  --ok:#56c596;     /* 綠・完成／對 */
+  --warn:#f0954e;   /* 橘・警告／錯 */
+  --pink:#f2789b; --blue:#6aa6f0; --purple:#a78bfa; --lime:#9fd356;
+  --radius:18px;
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -18,69 +26,96 @@ body{
   font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   overflow:hidden;
 }
+/* 星空：內嵌 SVG 疏星（低透明度，不干擾投影內容）＋兩片柔光星雲 */
 body::before{
-  content:"";position:fixed;inset:0;pointer-events:none;
-  background:
-    radial-gradient(ellipse at 20% 15%,rgba(255,255,255,.05),transparent 55%),
-    radial-gradient(ellipse at 80% 85%,rgba(255,255,255,.035),transparent 60%);
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(ellipse at 18% 12%,rgba(94,201,191,.10),transparent 45%),
+    radial-gradient(ellipse at 85% 88%,rgba(167,139,250,.10),transparent 50%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='24' cy='38' r='1.1' fill-opacity='.7'/%3E%3Ccircle cx='90' cy='16' r='.8' fill-opacity='.5'/%3E%3Ccircle cx='150' cy='60' r='1.3' fill-opacity='.8'/%3E%3Ccircle cx='210' cy='28' r='.7' fill-opacity='.45'/%3E%3Ccircle cx='280' cy='52' r='1' fill-opacity='.6'/%3E%3Ccircle cx='40' cy='110' r='.7' fill-opacity='.5'/%3E%3Ccircle cx='120' cy='140' r='1.1' fill-opacity='.7'/%3E%3Ccircle cx='190' cy='120' r='.8' fill-opacity='.5'/%3E%3Ccircle cx='260' cy='150' r='1.2' fill-opacity='.75'/%3E%3Ccircle cx='300' cy='108' r='.7' fill-opacity='.4'/%3E%3Ccircle cx='16' cy='190' r='1' fill-opacity='.6'/%3E%3Ccircle cx='72' cy='220' r='.8' fill-opacity='.5'/%3E%3Ccircle cx='140' cy='250' r='1.2' fill-opacity='.7'/%3E%3Ccircle cx='215' cy='210' r='.7' fill-opacity='.45'/%3E%3Ccircle cx='285' cy='245' r='1' fill-opacity='.6'/%3E%3Ccircle cx='50' cy='285' r='.9' fill-opacity='.55'/%3E%3Ccircle cx='125' cy='300' r='.7' fill-opacity='.4'/%3E%3Ccircle cx='198' cy='288' r='1.1' fill-opacity='.65'/%3E%3Ccircle cx='250' cy='300' r='.7' fill-opacity='.4'/%3E%3Ccircle cx='305' cy='280' r='.9' fill-opacity='.5'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat:no-repeat,no-repeat,repeat;
 }
-.stage{position:fixed;inset:0;display:flex;flex-direction:column;padding:2.2vh 2.4vw}
+.stage{position:fixed;inset:0;display:flex;flex-direction:column;padding:2.2vh 2.4vw;z-index:1}
 
 /* 標題列 */
 .head{display:flex;align-items:flex-end;gap:1.4vw;flex:0 0 auto;
-  padding-bottom:1.2vh;border-bottom:2px solid var(--line);margin-bottom:2vh}
-.head h1{margin:0;font-size:clamp(24px,3vh,40px);font-weight:700;letter-spacing:.02em}
-.head .sub{font-size:clamp(15px,1.9vh,22px);color:var(--chalk-3);margin-left:.4em}
+  padding-bottom:1.2vh;border-bottom:1px solid var(--line);margin-bottom:2vh}
+.head h1{margin:0;font-size:clamp(24px,3vh,40px);font-weight:800;letter-spacing:.01em}
+.head .sub{font-size:clamp(15px,1.9vh,22px);color:var(--chalk-3);margin-left:.4em;font-weight:400}
 .head .grow{flex:1 1 auto}
 .head .stat{font-size:clamp(18px,2.4vh,32px);color:var(--chalk-2);font-variant-numeric:tabular-nums}
-.head .stat b{color:var(--duty);font-weight:700}
+.head .stat b{color:var(--duty);font-weight:800}
 
-/* 空狀態（沒設座號） */
-.empty{margin:auto;text-align:center;color:var(--chalk-3);
-  font-size:clamp(22px,3.2vh,36px);line-height:2}
+/* 空狀態 */
+.empty{margin:auto;text-align:center;color:var(--chalk-3);font-size:clamp(22px,3.2vh,36px);line-height:2}
 .empty a{color:var(--duty)}
 .empty .big{font-size:clamp(40px,7vh,84px);display:block;margin-bottom:.3em}
 
-/* 底部 HUD（滑鼠停 3 秒自動淡出） */
-.hud{position:fixed;left:50%;bottom:1.6vh;transform:translateX(-50%);
-  display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;
-  background:rgba(10,18,15,.86);border:1px solid var(--line);border-radius:12px;
-  padding:8px 12px;backdrop-filter:blur(6px);z-index:20;max-width:96vw;
+/* 底部彩色膠囊工具列（智慧教室 2.0 風・滑鼠停 3 秒自動淡出） */
+.hud{position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;
+  background:rgba(14,20,33,.82);border:1px solid var(--line);border-radius:999px;
+  padding:10px 14px;backdrop-filter:blur(10px);z-index:20;max-width:96vw;
+  box-shadow:0 12px 40px rgba(0,0,0,.45);
   transition:opacity .25s,transform .25s}
 .hud.hidden{opacity:0;transform:translateX(-50%) translateY(14px);pointer-events:none}
-.hud button{font-family:inherit;font-size:15px;color:var(--chalk);background:transparent;
-  border:1px solid var(--line);border-radius:8px;padding:8px 15px;cursor:pointer;white-space:nowrap}
-.hud button:hover{background:rgba(242,239,230,.12)}
-.hud button.primary{border-color:var(--duty);color:var(--duty);font-weight:600}
-.hud button.big{font-size:17px;padding:10px 22px}
-.hud .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
-.hud .tip{font-size:13px;color:var(--chalk-3);padding:0 4px;text-decoration:none}
+.hud button{font-family:inherit;font-size:15px;font-weight:600;color:var(--chalk);
+  background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;
+  padding:9px 18px;cursor:pointer;white-space:nowrap;transition:filter .12s,background .12s}
+.hud button:hover{background:rgba(255,255,255,.14)}
+.hud button.big{font-size:17px;padding:11px 24px}
+/* 彩色膠囊：各功能一色，對應智慧教室 2.0 招牌 */
+.hud button.primary{background:var(--duty);border-color:transparent;color:#08201d}
+.hud button.pink{background:var(--pink);border-color:transparent;color:#2a0c15}
+.hud button.blue{background:var(--blue);border-color:transparent;color:#08152a}
+.hud button.orange{background:var(--warn);border-color:transparent;color:#2a1408}
+.hud button.green{background:var(--ok);border-color:transparent;color:#082013}
+.hud button.purple{background:var(--purple);border-color:transparent;color:#1a1030}
+.hud button.pink,.hud button.blue,.hud button.orange,.hud button.green,.hud button.purple,.hud button.primary{font-weight:700}
+.hud .sep{width:1px;align-self:stretch;background:var(--line);margin:0 3px}
+.hud .tip{font-size:14px;color:var(--chalk-3);padding:0 6px;text-decoration:none}
 .hud a.tip:hover{color:var(--chalk-2)}
 
-/* 側邊設定面板 */
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:25;opacity:0;pointer-events:none;
-  transition:opacity .22s}
+/* 側邊玻璃面板 */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:25;opacity:0;pointer-events:none;transition:opacity .22s}
 .scrim.open{opacity:1;pointer-events:auto}
-.panel{position:fixed;inset:0 0 0 auto;width:min(520px,92vw);z-index:30;
-  background:var(--board-2);border-left:1px solid var(--line);padding:26px 28px 32px;overflow-y:auto;
-  transform:translateX(100%);transition:transform .22s ease;box-shadow:-24px 0 60px rgba(0,0,0,.4)}
+.panel{position:fixed;inset:0 0 0 auto;width:min(540px,92vw);z-index:30;
+  background:rgba(18,24,37,.96);border-left:1px solid var(--line);padding:26px 28px 32px;overflow-y:auto;
+  transform:translateX(100%);transition:transform .22s ease;box-shadow:-24px 0 60px rgba(0,0,0,.5);backdrop-filter:blur(6px)}
 .panel.open{transform:none}
-.panel h2{margin:0 0 4px;font-size:21px}
+.panel h2{margin:0 0 4px;font-size:22px;font-weight:800}
 .panel h3{margin:24px 0 6px;font-size:16px;color:var(--duty);letter-spacing:.06em}
 .panel p.hint{margin:0 0 12px;font-size:13.5px;color:var(--chalk-3);line-height:1.7}
 .panel label{display:block;font-size:13.5px;color:var(--chalk-2);margin:10px 0 5px}
-.panel input,.panel select,.panel textarea{width:100%;background:rgba(0,0,0,.28);color:var(--chalk);
-  border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:15px;line-height:1.7}
+.panel input,.panel select,.panel textarea{width:100%;background:rgba(0,0,0,.32);color:var(--chalk);
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:15px;line-height:1.7}
 .panel input:focus-visible,.panel select:focus-visible,.panel textarea:focus-visible{outline:2px solid var(--duty);outline-offset:1px}
 .panel .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
 .panel .col{flex:1 1 130px;min-width:110px}
-.panel button{font-family:inherit;font-size:14.5px;padding:9px 16px;border-radius:8px;cursor:pointer;
-  border:1px solid var(--duty);background:var(--duty);color:#10201c;font-weight:600}
-.panel button.ghost{background:transparent;color:var(--chalk-2);border-color:var(--line);font-weight:400}
+.panel button{font-family:inherit;font-size:14.5px;padding:10px 18px;border-radius:10px;cursor:pointer;
+  border:1px solid transparent;background:var(--duty);color:#08201d;font-weight:700}
+.panel button.ghost{background:rgba(255,255,255,.05);color:var(--chalk-2);border-color:var(--line);font-weight:400}
 .panel .status{font-size:13.5px;color:var(--chalk-3)}
 .panel .status.ok{color:var(--ok)} .panel .status.warn{color:var(--warn)}
-.panel .note-box{border-left:3px solid var(--warn);background:rgba(230,154,107,.1);
-  padding:11px 14px;border-radius:0 8px 8px 0;font-size:13.5px;color:var(--chalk-2);margin-top:18px;line-height:1.7}
+.panel .note-box{border-left:3px solid var(--warn);background:rgba(240,149,78,.12);
+  padding:11px 14px;border-radius:0 10px 10px 0;font-size:13.5px;color:var(--chalk-2);margin-top:18px;line-height:1.7}
 .panel a{color:var(--duty)}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── RWD：投影是主場景，這裡讓平板／手機也能用（窄螢幕縮排、HUD 換行、面板滿版） ── */
+@media (max-width:900px){
+  .stage{padding:16px 14px}
+  .head{flex-wrap:wrap;gap:6px 12px}
+  .head .grow{flex-basis:100%;height:0}
+  .hud{flex-wrap:wrap;gap:6px;padding:8px 10px;border-radius:20px;bottom:10px;max-width:95vw}
+  .hud button{font-size:13px;padding:7px 12px}
+  .hud button.big{font-size:14px;padding:8px 15px}
+  .hud .sep{display:none}
+  .panel{width:100%;padding:20px 18px 28px}
+}
+@media (max-width:560px){
+  .head h1{font-size:22px}
+  .hud{gap:5px;padding:7px 8px}
+  .hud button{font-size:12px;padding:6px 10px}
+}

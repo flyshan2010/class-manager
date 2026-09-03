@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>抽籤問答｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260904-1" />
 <style>
 .wrap{flex:1 1 auto;display:flex;min-height:0;gap:2vw}
 .main{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
@@ -35,6 +35,12 @@
 .rk.top{background:rgba(143,208,196,.14)}
 .rk.top .s{color:var(--duty)}
 .board .none{color:var(--chalk-3);font-size:clamp(15px,2vh,22px);line-height:1.9}
+@media (max-width:900px){
+  .wrap{flex-direction:column;gap:1.2vh}
+  .num{font-size:clamp(84px,20vh,200px)}
+  .board{flex:0 0 auto;border-left:none;border-top:1px solid var(--line);
+    padding-left:0;padding-top:1.2vh;max-height:34vh}
+}
 </style>
 </head>
 <body>
@@ -69,8 +75,8 @@
 </div>
 <div class="scrim" id="scrim"></div>
 
-<script src="assets/js/common.js?v=20260903-4"></script>
-<script src="assets/js/tool.js?v=20260903-4"></script>
+<script src="assets/js/common.js?v=20260904-1"></script>
+<script src="assets/js/tool.js?v=20260904-1"></script>
 <script>
 (function () {
   'use strict';

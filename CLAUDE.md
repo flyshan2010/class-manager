@@ -38,6 +38,13 @@
   只提示「有雲端版」讓老師自己按鈕換。
 - 破快取：fetch 帶 `?t=<時間戳>` + `cache:'no-store'`，確保拿到最新（班網 sync 每天三次）。
 
+## 視覺基準：智慧教室儀表板 2.0 風＋全站 RWD（2026-09-04）
+
+全站視覺參照 apaulliao.github.io/schooltool（近黑星空底、玻璃圓角卡片、彩色膠囊工具列），
+正本在 `assets/css/projection.css`（投影工具外殼）與 `assets/css/style.css`（工作台）的 `:root` 色票與 `body::before` 星空。
+改配色改這兩處即可，六支工具用同一組 CSS 變數（--duty/--mark/--ok/--warn/--pink/--blue/--purple/--lime/--board*/--chalk*），不要在個別工具硬寫色。
+**全站 RWD**：每頁都有 `@media (max-width:900px/560px)` 斷點；投影仍是主場景（1600×900），但平板／手機開也不得橫向捲動（改版後一律在 390 寬回讀 `scrollWidth<=innerWidth`）。星空是內嵌 SVG data-URI，非外部資源，不違反離線硬規則。
+
 ## 課堂工具共用資產（2026-09-03 Phase 1 六支上線）
 
 六支工具（blackboard／draw／timer／quiz／homework／groups）共用兩個同源資產，改它們＝改全部工具，改完把版本號往前推、逐支回讀：
