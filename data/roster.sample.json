@@ -1,0 +1,9 @@
+{
+  "_說明": "名單格式範例。真實名單不進 repo——老師在工作台貼上，存瀏覽器 localStorage。",
+  "className": "四年四班",
+  "students": [
+    { "seat": 1, "name": "範例甲" },
+    { "seat": 2, "name": "範例乙" },
+    { "seat": 3, "name": "範例丙" }
+  ]
+}

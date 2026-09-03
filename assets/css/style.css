@@ -1,0 +1,80 @@
+/* class-manager 共用樣式 —— 教師工作台。投影頁各自另有樣式。 */
+:root{
+  --bg:#f4f2ed;
+  --surface:#ffffff;
+  --surface-2:#eae7de;
+  --ink:#1c2430;
+  --ink-2:#4d5867;
+  --ink-3:#828c99;
+  --line:#dcd7cb;
+  --accent:#2c5f7c;
+  --accent-soft:#dde9f0;
+  --warn:#a8532f;
+  --warn-soft:#f4e2d8;
+  --ok:#3d7452;
+  --ok-soft:#dfeae1;
+  --radius:10px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#101419; --surface:#181e26; --surface-2:#212933;
+    --ink:#e9e8e1; --ink-2:#b2b9c2; --ink-3:#858e99;
+    --line:#2c343f;
+    --accent:#7fb2d0; --accent-soft:#1a2b36;
+    --warn:#dd9376; --warn-soft:#34211a;
+    --ok:#7cb891; --ok-soft:#1d2f24;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+
+.top{padding:40px 0 20px;border-bottom:2px solid var(--ink);margin-bottom:32px;
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px}
+.top h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.01em}
+.top .kicker{margin:0 0 4px;font-size:12px;letter-spacing:.18em;color:var(--ink-3)}
+.top .right{margin-left:auto;text-align:right;font-size:13px;color:var(--ink-3)}
+.top .right b{color:var(--ink-2);font-weight:500}
+
+h2{font-size:19px;margin:36px 0 4px}
+.hint{margin:0 0 16px;font-size:14px;color:var(--ink-3)}
+
+.tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.tool{display:block;text-decoration:none;color:inherit;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 16px;
+  transition:border-color .15s,transform .15s}
+.tool:hover,.tool:focus-visible{border-color:var(--accent);transform:translateY(-2px)}
+.tool .icon{font-size:26px;line-height:1;display:block;margin-bottom:10px}
+.tool h3{margin:0 0 4px;font-size:17px;font-weight:700}
+.tool p{margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.6}
+.tool.soon{opacity:.55;pointer-events:none}
+.badge{display:inline-block;font-size:11px;letter-spacing:.06em;padding:2px 8px;border-radius:999px;
+  background:var(--surface-2);color:var(--ink-3);margin-left:6px;vertical-align:2px}
+.badge.soon{background:var(--warn-soft);color:var(--warn)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+.panel .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+textarea{width:100%;min-height:150px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;
+  background:var(--bg);color:var(--ink);font-family:inherit;font-size:15px;line-height:1.7;resize:vertical}
+textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font-family:inherit;font-size:14.5px;font-weight:500;padding:9px 18px;border-radius:8px;
+  border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:hover{filter:brightness(1.08)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.status{font-size:14px;color:var(--ink-2)}
+.status.ok{color:var(--ok)}
+.status.warn{color:var(--warn)}
+
+.notice{border-left:3px solid var(--warn);background:var(--warn-soft);padding:13px 16px;
+  border-radius:0 8px 8px 0;font-size:14px;color:var(--ink-2);margin:20px 0}
+.notice b{color:var(--ink)}
+
+footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
