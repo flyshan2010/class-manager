@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>作業播放表｜班級管理系統</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▤</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<style>
+.wrap{flex:1 1 auto;display:flex;min-height:0;gap:2vw}
+.hwlist{flex:0 0 min(30vw,440px);display:flex;flex-direction:column;min-height:0;
+  border-right:1px solid var(--line);padding-right:1.6vw}
+.hwlist h2{margin:0 0 1vh;font-size:clamp(16px,2.2vh,26px);color:var(--duty);letter-spacing:.08em}
+.hwlist .items{flex:1 1 auto;overflow-y:auto}
+.hwlist .it{font-size:clamp(20px,3vh,38px);line-height:1.5;padding:.15em 0;display:flex;gap:.4em}
+.hwlist .it .n{color:var(--mark);font-weight:700}
+.hwlist .none{color:var(--chalk-3);font-size:clamp(15px,2vh,22px);line-height:1.9}
+.hwlist .src{margin-top:auto;padding-top:1vh;font-size:clamp(12px,1.6vh,16px);color:var(--chalk-3)}
+/* 座號格 */
+.gridwrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.gridwrap .tip{font-size:clamp(15px,2vh,22px);color:var(--chalk-3);margin-bottom:1vh}
+.grid{flex:1 1 auto;display:grid;gap:1vmin;align-content:start;overflow-y:auto;
+  grid-template-columns:repeat(auto-fill,minmax(clamp(90px,9vw,140px),1fr))}
+.cell{display:flex;align-items:center;justify-content:center;position:relative;
+  font-size:clamp(30px,4.4vh,60px);font-weight:700;font-variant-numeric:tabular-nums;
+  aspect-ratio:1/1;border:2px solid var(--line);border-radius:14px;cursor:pointer;
+  color:var(--chalk-2);background:var(--board-2);user-select:none;transition:transform .08s}
+.cell:hover{border-color:var(--duty)}
+.cell:active{transform:scale(.94)}
+.cell.done{background:var(--ok);color:#0f1f14;border-color:var(--ok)}
+.cell.done::after{content:"✓";position:absolute;top:.1em;right:.2em;font-size:.5em;font-weight:800}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="head">
+    <h1>作業播放表<span class="sub">點自己的座號＝已交</span></h1>
+    <span class="grow"></span>
+    <span class="stat">完成 <b id="done">0</b> ／ <span id="total">0</span> 人</span>
+  </div>
+  <div class="wrap">
+    <div class="hwlist">
+      <h2>今天要交</h2>
+      <div class="items" id="items"><div class="none">讀取當天作業…</div></div>
+      <div class="src" id="src"></div>
+    </div>
+    <div class="gridwrap">
+      <div class="tip">同學上台點自己的座號，交了就變綠。老師可用「全部清除」重來。</div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="hud">
+  <button type="button" id="btn-all" class="primary">全部標記完成</button>
+  <button type="button" id="btn-clear">全部清除</button>
+  <button type="button" id="btn-reload">☁ 重讀作業</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-full">全螢幕</button>
+  <a class="tip" href="index.html">← 工作台</a>
+</div>
+<div class="scrim" id="scrim"></div>
+
+<script src="assets/js/common.js?v=20260903-4"></script>
+<script src="assets/js/tool.js?v=20260903-4"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = Tool.$;
+  var seats = Tool.requireSeats($('stage'));
+  if (!seats) { $('hud').style.display = 'none'; return; }
+
+  var CLOUD_URL = 'https://flyshan2010.github.io/class-website/data/contactbook.json';
+  var db = Tool.store('classManager.homework.v1');
+  var st = db.get({ date: '', done: [], hw: '' });
+  if (st.date !== Tool.todayKey()) st = { date: Tool.todayKey(), done: [], hw: '' };
+  st.done = st.done.filter(function (n) { return seats.indexOf(n) >= 0; });
+
+  function paintCount() {
+    $('total').textContent = seats.length;
+    $('done').textContent = st.done.length;
+  }
+  function paintGrid() {
+    var g = $('grid'); g.innerHTML = '';
+    seats.forEach(function (n) {
+      var c = document.createElement('div');
+      c.className = 'cell' + (st.done.indexOf(n) >= 0 ? ' done' : '');
+      c.textContent = n;
+      c.addEventListener('click', function () { toggle(n, c); });
+      g.appendChild(c);
+    });
+  }
+  function toggle(n, cell) {
+    var i = st.done.indexOf(n);
+    if (i >= 0) { st.done.splice(i, 1); cell.classList.remove('done'); }
+    else { st.done.push(n); cell.classList.add('done'); Tool.beep(1, 720); }
+    db.set(st); paintCount();
+  }
+  function paintHw() {
+    var box = $('items');
+    var lines = String(st.hw || '').split(/\n+/).map(function (s) { return s.trim(); })
+                  .filter(function (s) { return s.length; });
+    if (!lines.length) { box.innerHTML = '<div class="none">雲端當天沒有作業內容，或還沒讀到。<br>作業寫在 Notion「📒 聯絡簿」的「作業」欄。</div>'; return; }
+    box.innerHTML = '';
+    lines.forEach(function (l, i) {
+      var d = document.createElement('div');
+      d.className = 'it';
+      d.innerHTML = '<span class="n">' + (i + 1) + '.</span><span>' + l.replace(/[<>&]/g, '') + '</span>';
+      box.appendChild(d);
+    });
+  }
+  // 讀當天作業（漸進增強，和投影黑板同一份公開資料；離線就用上次存的）
+  function loadHw(force) {
+    $('src').textContent = '讀取雲端…';
+    var url = CLOUD_URL + '?t=' + Date.now();
+    fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (rows) {
+        var today = Tool.todayKey();
+        var row = (rows || []).filter(function (x) { return x && String(x.date || '').slice(0, 10) === today; })[0];
+        st.hw = row ? (row.homework || '') : '';
+        db.set(st); paintHw();
+        $('src').textContent = row ? '來源：Notion 聯絡簿（雲端）' : '雲端今天沒有作業列';
+      })
+      .catch(function () {
+        paintHw();
+        $('src').textContent = '連不上雲端，顯示上次存下的作業（斷網照常可用）';
+      });
+  }
+
+  $('btn-all').addEventListener('click', function () {
+    st.done = seats.slice(); db.set(st); paintGrid(); paintCount(); Tool.beep(2, 720);
+  });
+  $('btn-clear').addEventListener('click', function () {
+    if (!st.done.length || confirm('把所有座號清成未交？')) { st.done = []; db.set(st); paintGrid(); paintCount(); }
+  });
+  $('btn-reload').addEventListener('click', function () { loadHw(true); });
+  $('btn-full').addEventListener('click', Tool.fullscreen);
+  document.addEventListener('keydown', function (e) { if (e.key.toLowerCase() === 'f') Tool.fullscreen(); });
+  Tool.autoHideHud($('hud'));
+
+  paintCount(); paintGrid(); paintHw(); loadHw(false);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>抽籤問答｜班級管理系統</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<style>
+.wrap{flex:1 1 auto;display:flex;min-height:0;gap:2vw}
+.main{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+.lead{font-size:clamp(20px,3vh,34px);color:var(--chalk-3);margin-bottom:.3em}
+.num{font-size:clamp(150px,38vh,400px);font-weight:800;line-height:.9;font-variant-numeric:tabular-nums;
+  color:var(--mark);letter-spacing:-.02em}
+.num.rolling{color:var(--chalk-2)} .num.settle{animation:pop .4s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{0%{transform:scale(.6);opacity:.4}100%{transform:scale(1)}}
+.answer{display:flex;gap:2vw;margin-top:2vh}
+.answer button{font-family:inherit;font-weight:700;font-size:clamp(24px,4vh,52px);
+  padding:.3em 1.1em;border-radius:16px;cursor:pointer;border:3px solid;background:transparent}
+.answer .yes{color:var(--ok);border-color:var(--ok)}
+.answer .no{color:var(--warn);border-color:var(--warn)}
+.answer button:hover{filter:brightness(1.15)}
+.answer.hidden{visibility:hidden}
+/* 記分榜 */
+.board{flex:0 0 min(30vw,420px);display:flex;flex-direction:column;min-height:0;
+  border-left:1px solid var(--line);padding-left:1.6vw}
+.board h2{margin:0 0 1vh;font-size:clamp(16px,2.2vh,26px);color:var(--duty);letter-spacing:.08em}
+.rows{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;gap:.5vh}
+.rk{display:flex;align-items:center;gap:.7em;font-size:clamp(18px,2.6vh,32px);
+  padding:.25em .5em;border-radius:8px;font-variant-numeric:tabular-nums}
+.rk .s{font-weight:700;color:var(--chalk);min-width:2em}
+.rk .c{margin-left:auto;color:var(--ok);font-weight:700}
+.rk .w{color:var(--warn);font-size:.7em}
+.rk.top{background:rgba(143,208,196,.14)}
+.rk.top .s{color:var(--duty)}
+.board .none{color:var(--chalk-3);font-size:clamp(15px,2vh,22px);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="head">
+    <h1>抽籤問答<span class="sub">抽人・答對答錯・累積本機</span></h1>
+    <span class="grow"></span>
+    <span class="stat">共答對 <b id="totc">0</b> 題</span>
+  </div>
+  <div class="wrap">
+    <div class="main">
+      <div class="lead" id="lead">按「抽一位」開始</div>
+      <div class="num" id="num" hidden>–</div>
+      <div class="answer hidden" id="answer">
+        <button type="button" class="yes" id="btn-yes">答對 ✓</button>
+        <button type="button" class="no" id="btn-no">答錯 ✗</button>
+      </div>
+    </div>
+    <div class="board">
+      <h2>記分榜（答對次數）</h2>
+      <div class="rows" id="rows"></div>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="hud">
+  <button type="button" id="btn-draw" class="primary big">抽一位</button>
+  <button type="button" id="btn-reset">重置分數</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-full">全螢幕</button>
+  <a class="tip" href="index.html">← 工作台</a>
+</div>
+<div class="scrim" id="scrim"></div>
+
+<script src="assets/js/common.js?v=20260903-4"></script>
+<script src="assets/js/tool.js?v=20260903-4"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = Tool.$;
+  var seats = Tool.requireSeats($('stage'));
+  if (!seats) { $('hud').style.display = 'none'; return; }
+
+  var db = Tool.store('classManager.quiz.v1');
+  var st = db.get({ date: '', stats: {}, last: null });
+  if (st.date !== Tool.todayKey()) st = { date: Tool.todayKey(), stats: {}, last: null };
+
+  var current = null, rolling = false;
+
+  function stat(n) { return st.stats[n] || (st.stats[n] = { c: 0, w: 0, d: 0 }); }
+
+  function paintBoard() {
+    var totc = 0; seats.forEach(function (n) { totc += (st.stats[n] ? st.stats[n].c : 0); });
+    $('totc').textContent = totc;
+    var arr = seats.map(function (n) { var s = st.stats[n] || { c: 0, w: 0 }; return { n: n, c: s.c, w: s.w }; })
+                   .filter(function (x) { return x.c || x.w; })
+                   .sort(function (a, b) { return b.c - a.c || a.n - b.n; });
+    var rows = $('rows');
+    if (!arr.length) { rows.innerHTML = '<div class="none">還沒有紀錄。<br>抽一位、答對或答錯，就會累積在這裡。</div>'; return; }
+    var top = arr[0].c;
+    rows.innerHTML = '';
+    arr.forEach(function (x) {
+      var d = document.createElement('div');
+      d.className = 'rk' + (x.c === top && x.c > 0 ? ' top' : '');
+      d.innerHTML = '<span class="s">' + x.n + '</span>' +
+        '<span class="c">✓ ' + x.c + '</span>' + (x.w ? '<span class="w">✗' + x.w + '</span>' : '');
+      rows.appendChild(d);
+    });
+  }
+
+  function showNum(n, cls) {
+    var el = $('num'); el.hidden = false; el.textContent = n;
+    el.className = 'num' + (cls ? ' ' + cls : ''); $('lead').hidden = true;
+  }
+
+  function draw() {
+    if (rolling) return;
+    $('answer').classList.add('hidden');
+    rolling = true; $('btn-draw').disabled = true;
+    // 儘量抽被抽次數較少的：先取最少 drawn 的一批，再隨機
+    var minD = Math.min.apply(null, seats.map(function (n) { return stat(n).d; }));
+    var pool = seats.filter(function (n) { return stat(n).d === minD; });
+    if (pool.length === 1 && seats.length > 1 && pool[0] === st.last) {
+      minD++; pool = seats.filter(function (n) { return stat(n).d <= minD; });
+    }
+    var ticks = 0, maxTicks = 14 + Math.floor(Math.random() * 5);
+    var iv = setInterval(function () {
+      showNum(seats[Math.floor(Math.random() * seats.length)], 'rolling');
+      Tool.beep(1, 900);
+      if (++ticks >= maxTicks) {
+        clearInterval(iv);
+        current = pool[Math.floor(Math.random() * pool.length)];
+        stat(current).d++; st.last = current; db.set(st);
+        showNum(current, 'settle'); Tool.beep(2, 680);
+        rolling = false; $('btn-draw').disabled = false;
+        $('btn-draw').textContent = '再抽一位';
+        $('answer').classList.remove('hidden');
+      }
+    }, 70);
+  }
+
+  function mark(ok) {
+    if (current == null) return;
+    if (ok) { stat(current).c++; Tool.beep(2, 760); } else { stat(current).w++; Tool.beep(1, 300); }
+    db.set(st); paintBoard();
+    $('answer').classList.add('hidden');
+    current = null;
+  }
+
+  function reset() {
+    if (!confirm('確定清空今天所有答對答錯紀錄？')) return;
+    st = { date: Tool.todayKey(), stats: {}, last: null };
+    db.set(st); current = null;
+    $('num').hidden = true; $('lead').hidden = false; $('lead').textContent = '按「抽一位」開始';
+    $('answer').classList.add('hidden'); $('btn-draw').textContent = '抽一位';
+    paintBoard();
+  }
+
+  $('btn-draw').addEventListener('click', draw);
+  $('btn-yes').addEventListener('click', function () { mark(true); });
+  $('btn-no').addEventListener('click', function () { mark(false); });
+  $('btn-reset').addEventListener('click', reset);
+  $('btn-full').addEventListener('click', Tool.fullscreen);
+  document.addEventListener('keydown', function (e) {
+    var k = e.key.toLowerCase();
+    if (k === ' ') { e.preventDefault(); draw(); }
+    else if (k === 'f') Tool.fullscreen();
+    else if ((e.key === 'ArrowRight' || k === 'o') && current != null) mark(true);
+    else if ((e.key === 'ArrowLeft' || k === 'x') && current != null) mark(false);
+  });
+  Tool.autoHideHud($('hud'));
+
+  paintBoard();
+})();
+</script>
+</body>
+</html>

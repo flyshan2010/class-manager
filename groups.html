@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>小組計分｜班級管理系統</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▥</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<style>
+.cards{flex:1 1 auto;display:grid;gap:1.6vmin;min-height:0;overflow-y:auto;align-content:stretch;
+  grid-template-columns:repeat(auto-fit,minmax(clamp(200px,22vw,340px),1fr))}
+.card{display:flex;flex-direction:column;background:var(--board-2);border:2px solid var(--line);
+  border-radius:18px;padding:1.4vh 1.2vw;min-height:0;border-top:6px solid var(--ac)}
+.card .cname{font-size:clamp(20px,2.8vh,34px);font-weight:700;color:var(--ac);display:flex;align-items:center;gap:.4em}
+.card .cmembers{font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);margin:.3em 0 .2em;line-height:1.5;
+  max-height:3.4em;overflow:hidden}
+.card .score{flex:1 1 auto;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(70px,15vh,170px);font-weight:800;font-variant-numeric:tabular-nums;color:var(--chalk);line-height:1}
+.card.lead .score{color:var(--ac)}
+.card .btns{display:flex;gap:.5vw;justify-content:center;flex-wrap:wrap}
+.card .btns button{font-family:inherit;font-weight:700;font-size:clamp(18px,2.6vh,30px);
+  border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--chalk);
+  cursor:pointer;padding:.15em .55em;min-width:2.2em}
+.card .btns button.plus{border-color:var(--ok);color:var(--ok)}
+.card .btns button.plus5{border-color:var(--mark);color:var(--mark)}
+.card .btns button.minus{border-color:var(--warn);color:var(--warn)}
+.card .btns button:hover{filter:brightness(1.15)}
+.crown{font-size:.8em}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="head">
+    <h1>小組計分<span class="sub">小組競賽分</span></h1>
+    <span class="grow"></span>
+    <button class="stat" id="btn-cfg" style="background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--chalk-2);cursor:pointer;padding:6px 14px;font-size:15px">⚙ 分組設定</button>
+  </div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div class="hud" id="hud">
+  <button type="button" id="btn-reset" class="primary">分數全歸零</button>
+  <button type="button" id="btn-cfg2">分組設定</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-full">全螢幕</button>
+  <a class="tip" href="index.html">← 工作台</a>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="panel" id="panel" aria-label="分組設定">
+  <h2>分組設定</h2>
+  <p class="hint">改組數或分法會重新分組，<b>但分數不會歸零</b>（要歸零按 HUD 的「分數全歸零」）。</p>
+  <div class="row">
+    <div class="col"><label for="ngroups">組數</label>
+      <input id="ngroups" type="number" min="2" max="8" value="4" /></div>
+    <div class="col"><label for="mode">分法</label>
+      <select id="mode">
+        <option value="serial">依座號平均分（連號）</option>
+        <option value="snake">依座號蛇形分（S 形較平均）</option>
+        <option value="manual">手動指定</option>
+      </select></div>
+  </div>
+  <div id="wrap-manual" hidden>
+    <label for="manual">每組一行，填座號（逗號分隔）。第 1 行＝第 1 組。</label>
+    <textarea id="manual" style="min-height:150px" placeholder="1,2,3,4,5,6,7&#10;8,9,10,11,12,14,15"></textarea>
+  </div>
+  <label for="names" style="margin-top:14px">組名（可留白，一行一組）</label>
+  <textarea id="names" style="min-height:96px" placeholder="紅隊&#10;藍隊&#10;綠隊&#10;黃隊"></textarea>
+  <div class="row">
+    <button type="button" id="btn-apply">套用分組</button>
+    <button type="button" class="ghost" id="btn-close">關閉</button>
+    <span class="status" id="cfg-status"></span>
+  </div>
+  <div class="note-box">分數與分組只存在這台電腦，投影用；不上傳、不進班網、不存姓名。</div>
+</aside>
+
+<script src="assets/js/common.js?v=20260903-4"></script>
+<script src="assets/js/tool.js?v=20260903-4"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = Tool.$;
+  var seats = Tool.requireSeats($('stage'));
+  if (!seats) { $('hud').style.display = 'none'; return; }
+
+  var ACS = ['--duty', '--pink', '--blue', '--lime', '--mark', '--purple', '--ok', '--warn'];
+  var db = Tool.store('classManager.groups.v1');
+  var st = db.get(null);
+  if (!st || !st.groups) st = { config: { n: 4, mode: 'serial', manual: '', names: '' }, groups: null };
+
+  function splitSeats(n, mode, manual) {
+    var groups = [];
+    if (mode === 'manual') {
+      String(manual || '').split(/\n+/).forEach(function (line) {
+        var ss = line.split(/[^0-9]+/).filter(Boolean).map(Number).filter(function (x) { return seats.indexOf(x) >= 0; });
+        if (ss.length) groups.push(ss);
+      });
+      if (!groups.length) return splitSeats(n, 'serial');
+      return groups;
+    }
+    for (var i = 0; i < n; i++) groups.push([]);
+    if (mode === 'snake') {
+      var dir = 1, g = 0;
+      seats.forEach(function (s) {
+        groups[g].push(s);
+        if (dir > 0 && g === n - 1) dir = -1; else if (dir < 0 && g === 0) dir = 1; else g += dir;
+      });
+    } else { // serial
+      var per = Math.ceil(seats.length / n);
+      seats.forEach(function (s, i) { groups[Math.min(n - 1, Math.floor(i / per))].push(s); });
+    }
+    return groups.filter(function (x) { return x.length; });
+  }
+
+  function rebuild(keepScores) {
+    var cfg = st.config;
+    var sets = splitSeats(cfg.n, cfg.mode, cfg.manual);
+    var names = String(cfg.names || '').split(/\n+/).map(function (s) { return s.trim(); });
+    var oldScores = {};
+    if (keepScores && st.groups) st.groups.forEach(function (g, i) { oldScores[i] = g.score; });
+    st.groups = sets.map(function (ss, i) {
+      return { name: names[i] || ('第 ' + (i + 1) + ' 組'), seats: ss, score: keepScores ? (oldScores[i] || 0) : 0 };
+    });
+    db.set(st); paint();
+  }
+
+  function paint() {
+    var top = Math.max.apply(null, st.groups.map(function (g) { return g.score; }));
+    var box = $('cards'); box.innerHTML = '';
+    st.groups.forEach(function (g, i) {
+      var lead = g.score === top && g.score !== 0;
+      var card = document.createElement('div');
+      card.className = 'card' + (lead ? ' lead' : '');
+      card.style.setProperty('--ac', 'var(' + ACS[i % ACS.length] + ')');
+      card.innerHTML =
+        '<div class="cname">' + (lead ? '<span class="crown">👑</span>' : '') + g.name + '</div>' +
+        '<div class="cmembers">座號 ' + g.seats.join('、') + '</div>' +
+        '<div class="score">' + g.score + '</div>' +
+        '<div class="btns">' +
+          '<button class="minus" data-i="' + i + '" data-d="-1">−1</button>' +
+          '<button class="plus" data-i="' + i + '" data-d="1">＋1</button>' +
+          '<button class="plus5" data-i="' + i + '" data-d="5">＋5</button>' +
+        '</div>';
+      box.appendChild(card);
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) {
+      b.addEventListener('click', function () {
+        var i = +b.dataset.i, d = +b.dataset.d;
+        st.groups[i].score = Math.max(-99, st.groups[i].score + d);
+        db.set(st); Tool.beep(1, d > 0 ? 720 : 320); paint();
+      });
+    });
+  }
+
+  var panel = Tool.panel($('panel'), $('scrim'));
+  function openCfg() {
+    $('ngroups').value = st.config.n;
+    $('mode').value = st.config.mode;
+    $('manual').value = st.config.manual || '';
+    $('names').value = st.config.names || '';
+    $('wrap-manual').hidden = st.config.mode !== 'manual';
+    panel.open();
+  }
+  $('mode').addEventListener('change', function () { $('wrap-manual').hidden = $('mode').value !== 'manual'; });
+  $('btn-cfg').addEventListener('click', openCfg);
+  $('btn-cfg2').addEventListener('click', openCfg);
+  $('btn-close').addEventListener('click', panel.close);
+  $('btn-apply').addEventListener('click', function () {
+    st.config.n = Math.max(2, Math.min(8, parseInt($('ngroups').value, 10) || 4));
+    st.config.mode = $('mode').value;
+    st.config.manual = $('manual').value;
+    st.config.names = $('names').value;
+    rebuild(true);
+    $('cfg-status').className = 'status ok';
+    $('cfg-status').textContent = '已重新分組（' + st.groups.length + ' 組），分數保留。';
+  });
+  $('btn-reset').addEventListener('click', function () {
+    if (!confirm('所有小組分數歸零？')) return;
+    st.groups.forEach(function (g) { g.score = 0; }); db.set(st); paint();
+  });
+  $('btn-full').addEventListener('click', Tool.fullscreen);
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+      if (e.key === 'Escape') panel.close(); return;
+    }
+    if (e.key.toLowerCase() === 'f') Tool.fullscreen();
+    else if (e.key.toLowerCase() === 'e') openCfg();
+    else if (e.key === 'Escape') panel.close();
+  });
+  Tool.autoHideHud($('hud'), panel.isOpen);
+
+  if (!st.groups) rebuild(false); else paint();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>抽籤｜班級管理系統</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◉</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<style>
+.pick{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+.pick .lead{font-size:clamp(20px,3vh,34px);color:var(--chalk-3);margin-bottom:.4em}
+.pick .num{font-size:clamp(180px,44vh,460px);font-weight:800;line-height:.9;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--mark);text-shadow:0 6px 40px rgba(232,200,106,.18)}
+.pick .num.rolling{color:var(--chalk-2);text-shadow:none}
+.pick .num.settle{animation:pop .4s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{0%{transform:scale(.6);opacity:.4}100%{transform:scale(1);opacity:1}}
+.pick .done{font-size:clamp(30px,5vh,60px);color:var(--ok);font-weight:700}
+.drawn{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:.5vw;align-items:center;
+  padding-top:1.4vh;border-top:1px solid var(--line);max-height:22vh;overflow-y:auto}
+.drawn .lbl{font-size:clamp(15px,1.9vh,22px);color:var(--chalk-3);margin-right:.6em}
+.drawn .s{font-size:clamp(22px,3vh,40px);font-weight:700;color:var(--duty);
+  border:2px solid var(--duty);border-radius:10px;padding:.02em .3em;min-width:1.7em;text-align:center;line-height:1.3}
+.drawn .s.latest{background:var(--duty);color:#10201c}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="head">
+    <h1>抽籤<span class="sub">每人限中一次</span></h1>
+    <span class="grow"></span>
+    <span class="stat">剩 <b id="left">–</b> ／ <span id="total">–</span> 人</span>
+  </div>
+  <div class="pick">
+    <div class="lead" id="lead">按「抽一位」或空白鍵開始</div>
+    <div class="num" id="num" hidden>–</div>
+  </div>
+  <div class="drawn" id="drawn" hidden><span class="lbl">已抽出</span></div>
+</div>
+
+<div class="hud" id="hud">
+  <button type="button" id="btn-draw" class="primary big">抽一位</button>
+  <button type="button" id="btn-reset">重置名單</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-full">全螢幕</button>
+  <a class="tip" href="index.html">← 工作台</a>
+</div>
+<div class="scrim" id="scrim"></div>
+
+<script src="assets/js/common.js?v=20260903-4"></script>
+<script src="assets/js/tool.js?v=20260903-4"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = Tool.$;
+  var seats = Tool.requireSeats($('stage'));
+  if (!seats) { $('hud').style.display = 'none'; return; }
+
+  var db = Tool.store('classManager.draw.v1');
+  var st = db.get({ date: '', drawn: [] });
+  if (st.date !== Tool.todayKey()) st = { date: Tool.todayKey(), drawn: [] };
+  // 名單若換過（座號變動），把不在現行名單內的已抽號碼清掉
+  st.drawn = st.drawn.filter(function (n) { return seats.indexOf(n) >= 0; });
+
+  var rolling = false;
+
+  function remaining() { return seats.filter(function (n) { return st.drawn.indexOf(n) < 0; }); }
+
+  function paintStat() {
+    $('total').textContent = seats.length;
+    $('left').textContent = remaining().length;
+  }
+  function paintDrawn() {
+    var box = $('drawn');
+    box.hidden = st.drawn.length === 0;
+    box.innerHTML = '<span class="lbl">已抽出</span>';
+    st.drawn.forEach(function (n, i) {
+      var s = document.createElement('span');
+      s.className = 's' + (i === st.drawn.length - 1 ? ' latest' : '');
+      s.textContent = n;
+      box.appendChild(s);
+    });
+  }
+  function showNum(n, cls) {
+    var el = $('num');
+    el.hidden = false;
+    el.textContent = n;
+    el.className = 'num' + (cls ? ' ' + cls : '');
+    $('lead').hidden = true;
+  }
+
+  function draw() {
+    if (rolling) return;
+    var pool = remaining();
+    if (!pool.length) {
+      $('num').hidden = true;
+      $('lead').hidden = false;
+      $('lead').innerHTML = '<span class="done">全部都抽過了 🎉<br>按「重置名單」重新開始</span>';
+      Tool.beep(2, 520);
+      return;
+    }
+    rolling = true;
+    $('btn-draw').disabled = true;
+    var ticks = 0, maxTicks = 16 + Math.floor(Math.random() * 6);
+    var iv = setInterval(function () {
+      showNum(pool[Math.floor(Math.random() * pool.length)], 'rolling');
+      Tool.beep(1, 900);
+      if (++ticks >= maxTicks) {
+        clearInterval(iv);
+        var pick = pool[Math.floor(Math.random() * pool.length)];
+        st.drawn.push(pick);
+        db.set(st);
+        showNum(pick, 'settle');
+        Tool.beep(2, 680);
+        paintStat(); paintDrawn();
+        rolling = false;
+        $('btn-draw').disabled = false;
+        $('btn-draw').textContent = remaining().length ? '再抽一位' : '已抽完';
+      }
+    }, 70);
+  }
+
+  function reset() {
+    st = { date: Tool.todayKey(), drawn: [] };
+    db.set(st);
+    $('num').hidden = true;
+    $('lead').hidden = false;
+    $('lead').textContent = '按「抽一位」或空白鍵開始';
+    $('btn-draw').textContent = '抽一位';
+    $('btn-draw').disabled = false;
+    paintStat(); paintDrawn();
+  }
+
+  $('btn-draw').addEventListener('click', draw);
+  $('btn-reset').addEventListener('click', reset);
+  $('btn-full').addEventListener('click', Tool.fullscreen);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === ' ') { e.preventDefault(); draw(); }
+    else if (e.key.toLowerCase() === 'f') Tool.fullscreen();
+    else if (e.key.toLowerCase() === 'r') reset();
+  });
+  Tool.autoHideHud($('hud'));
+
+  paintStat(); paintDrawn();
+})();
+</script>
+</body>
+</html>

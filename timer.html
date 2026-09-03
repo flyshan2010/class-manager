@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>計時｜班級管理系統</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260903-4" />
+<style>
+.clockwrap{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+.bigtime{font-size:clamp(160px,50vh,520px);font-weight:200;line-height:.9;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--chalk)}
+.bigtime.warn{color:var(--warn)}
+.bigtime.over{color:var(--warn);animation:blink 1s steps(2,start) infinite}
+.bigtime.paused{color:var(--chalk-3)}
+@keyframes blink{50%{opacity:.25}}
+.caplabel{font-size:clamp(22px,3.4vh,44px);color:var(--chalk-3);letter-spacing:.16em;margin-top:.3em}
+.hud input.min{width:74px;text-align:center;background:rgba(0,0,0,.3);color:var(--chalk);
+  border:1px solid var(--line);border-radius:8px;padding:8px 6px;font-family:inherit;font-size:15px}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="head">
+    <h1>計時<span class="sub" id="sub">倒數計時</span></h1>
+    <span class="grow"></span>
+    <span class="stat" id="clock"></span>
+  </div>
+  <div class="clockwrap">
+    <div class="bigtime" id="big">00:00</div>
+    <div class="caplabel" id="cap">設定時間開始倒數</div>
+  </div>
+</div>
+
+<div class="hud" id="hud">
+  <button type="button" data-min="1">1 分</button>
+  <button type="button" data-min="3">3 分</button>
+  <button type="button" data-min="5">5 分</button>
+  <button type="button" data-min="10">10 分</button>
+  <button type="button" data-min="20">20 分</button>
+  <input class="min" id="custom" type="number" min="1" max="180" placeholder="自訂" />
+  <button type="button" id="btn-custom">起算</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-plus">＋1 分</button>
+  <button type="button" id="btn-toggle" class="primary">暫停</button>
+  <button type="button" id="btn-up">正數計時</button>
+  <button type="button" id="btn-stop">歸零</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-full">全螢幕</button>
+  <a class="tip" href="index.html">← 工作台</a>
+</div>
+<div class="scrim" id="scrim"></div>
+
+<script src="assets/js/common.js?v=20260903-4"></script>
+<script src="assets/js/tool.js?v=20260903-4"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = Tool.$;
+  // 計時不需要座號，任何情況都能用。
+  var t = { mode: 'idle', running: false, total: 0, endAt: 0, left: 0, base: 0, elapsed: 0 };
+  var rang = false;
+
+  function fmt(ms) {
+    var neg = ms < 0;
+    var s = Math.floor(Math.abs(ms) / 1000);
+    var h = Math.floor(s / 3600); s -= h * 3600;
+    var m = Math.floor(s / 60); var sec = s % 60;
+    var core = (h > 0 ? String(h).padStart(2, '0') + ':' : '') +
+               String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    return (neg ? '-' : '') + core;
+  }
+
+  function startDown(min) {
+    t.mode = 'down'; t.total = min * 60000; t.endAt = Date.now() + t.total; t.running = true;
+    rang = false; $('sub').textContent = '倒數計時'; $('btn-toggle').textContent = '暫停';
+    Tool.beep(2, 660); paint();
+  }
+  function startUp() {
+    t.mode = 'up'; t.base = Date.now(); t.elapsed = 0; t.running = true;
+    rang = false; $('sub').textContent = '正數計時（碼錶）'; $('btn-toggle').textContent = '暫停';
+    Tool.beep(2, 660); paint();
+  }
+  function toggle() {
+    if (t.mode === 'idle') return;
+    if (t.mode === 'down') {
+      if (t.running) { t.left = t.endAt - Date.now(); t.running = false; }
+      else { t.endAt = Date.now() + t.left; t.running = true; }
+    } else {
+      if (t.running) { t.elapsed = Date.now() - t.base; t.running = false; }
+      else { t.base = Date.now() - t.elapsed; t.running = true; }
+    }
+    $('btn-toggle').textContent = t.running ? '暫停' : '繼續';
+    paint();
+  }
+  function stop() {
+    t = { mode: 'idle', running: false, total: 0, endAt: 0, left: 0, base: 0, elapsed: 0 };
+    rang = false; $('btn-toggle').textContent = '暫停';
+    $('big').className = 'bigtime'; $('big').textContent = '00:00';
+    $('cap').textContent = '設定時間開始倒數';
+  }
+  function plus() {
+    if (t.mode === 'down') { if (t.running) t.endAt += 60000; else t.left += 60000; }
+    else if (t.mode === 'up') { /* 正數不加 */ }
+    else startDown(1);
+    paint();
+  }
+
+  function paint() {
+    var big = $('big'), cap = $('cap');
+    if (t.mode === 'idle') return;
+    var val, over = false;
+    if (t.mode === 'down') {
+      val = t.running ? t.endAt - Date.now() : t.left;
+      over = val <= 0;
+      big.className = 'bigtime' + (!t.running ? ' paused' : over ? ' over' : val <= 60000 ? ' warn' : '');
+      cap.textContent = over ? '時間到' : (t.running ? '倒數中' : '暫停');
+      if (over && !rang) { rang = true; Tool.beep(3, 880); }
+    } else {
+      val = t.running ? Date.now() - t.base : t.elapsed;
+      big.className = 'bigtime' + (t.running ? '' : ' paused');
+      cap.textContent = t.running ? '計時中' : '暫停';
+    }
+    big.textContent = fmt(val);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.hud [data-min]'), function (b) {
+    b.addEventListener('click', function () { startDown(parseInt(b.dataset.min, 10)); });
+  });
+  $('btn-custom').addEventListener('click', function () {
+    var v = parseInt($('custom').value, 10);
+    if (v >= 1 && v <= 180) startDown(v);
+  });
+  $('custom').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btn-custom').click(); });
+  $('btn-plus').addEventListener('click', plus);
+  $('btn-toggle').addEventListener('click', toggle);
+  $('btn-up').addEventListener('click', startUp);
+  $('btn-stop').addEventListener('click', stop);
+  $('btn-full').addEventListener('click', Tool.fullscreen);
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT') { if (e.key === 'Escape') e.target.blur(); return; }
+    var k = e.key.toLowerCase();
+    if (k === ' ') { e.preventDefault(); toggle(); }
+    else if (k === 'f') Tool.fullscreen();
+    else if (k === '0') stop();
+    else if (k === '1' || k === '3' || k === '5') startDown(parseInt(k, 10));
+  });
+  Tool.autoHideHud($('hud'));
+
+  // 右上角現在時刻（段考看得到現在幾點）
+  setInterval(function () {
+    var now = new Date();
+    $('clock').textContent = String(now.getHours()).padStart(2, '0') + ':' +
+      String(now.getMinutes()).padStart(2, '0');
+    paint();
+  }, 250);
+})();
+</script>
+</body>
+</html>

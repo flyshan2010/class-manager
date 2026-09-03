@@ -38,6 +38,13 @@
   只提示「有雲端版」讓老師自己按鈕換。
 - 破快取：fetch 帶 `?t=<時間戳>` + `cache:'no-store'`，確保拿到最新（班網 sync 每天三次）。
 
+## 課堂工具共用資產（2026-09-03 Phase 1 六支上線）
+
+六支工具（blackboard／draw／timer／quiz／homework／groups）共用兩個同源資產，改它們＝改全部工具，改完把版本號往前推、逐支回讀：
+- `assets/css/projection.css`：投影外殼（板面底色、HUD 底列、側邊面板、按鈕、空狀態）。
+- `assets/js/tool.js`：共用底層 `Tool.*`（座號守門 `requireSeats`、HUD 自動隱藏、全螢幕、提示音、localStorage、洗牌）。個別工具的邏輯不寫這裡。
+座號一律 `Tool.requireSeats(stageEl)`，回 null 就換成「請先回工作台設定」（計時不需座號，例外）。
+
 ## 靜態資源一律帶版本號（2026-09-03 活體驗收踩到）
 
 `index.html` 引用 `assets/**` 時**必須加 `?v=<日期>-<序>`**，改動 JS／CSS 就把版本號往前推。
