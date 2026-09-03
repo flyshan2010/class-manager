@@ -1,9 +1,6 @@
 {
-  "_說明": "名單格式範例。真實名單不進 repo——老師在工作台貼上，存瀏覽器 localStorage。",
-  "className": "四年四班",
-  "students": [
-    { "seat": 1, "name": "範例甲" },
-    { "seat": 2, "name": "範例乙" },
-    { "seat": 3, "name": "範例丙" }
-  ]
+  "_說明": "座號設定的格式範例。實際設定存在老師瀏覽器的 localStorage，不進 repo。本系統不存學生姓名。",
+  "_鍵名": "classManager.seats.v2",
+  "seats": [1, 2, 3, 4, 5],
+  "savedAt": "2026-09-03T12:00:00.000Z"
 }

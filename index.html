@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>教師工作台｜班級管理系統</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20260903-1" />
+<link rel="stylesheet" href="assets/css/style.css?v=20260903-2" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎒</text></svg>" />
 </head>
 <body>
@@ -18,7 +18,7 @@
     </div>
     <div class="right">
       <div id="today"></div>
-      <div><b id="roster-summary">尚未載入班級名單</b></div>
+      <div><b id="seat-summary">尚未設定座號</b></div>
     </div>
   </header>
 
@@ -46,22 +46,24 @@
       <p>整組每人加分與小組競賽分。</p></a>
   </div>
 
-  <h2>班級名單</h2>
-  <p class="hint">一行一位，格式「座號 姓名」。沒寫座號就依行序自動編號。</p>
+  <h2>班級座號</h2>
+  <p class="hint">課堂工具用座號指認學生，不存姓名。填人數就好；有轉學生留下的空號才需要逐段指定。</p>
 
   <div class="panel">
-    <label for="roster-input" class="hint" style="display:block;margin-bottom:6px">貼上名單</label>
-    <textarea id="roster-input" placeholder="1 王小明&#10;2 陳大華&#10;3 李美玲"></textarea>
+    <label for="seat-input" class="hint" style="display:block;margin-bottom:6px">班級人數，或座號範圍</label>
+    <input id="seat-input" type="text" inputmode="numeric" placeholder="27　或　1-12,14-28" />
     <div class="row">
-      <button id="btn-save" type="button">儲存名單</button>
+      <button id="btn-save" type="button">儲存</button>
       <button id="btn-clear" class="ghost" type="button">清除</button>
-      <span id="roster-status" class="status"></span>
+      <span id="seat-status" class="status"></span>
     </div>
+    <p id="seat-preview" class="hint" style="margin:14px 0 0"></p>
   </div>
 
   <div class="notice">
-    <b>名單只存在這台電腦的瀏覽器裡</b>，不會上傳、不會進版控、不會被別人看到。
-    換電腦或清除瀏覽器資料後要重貼一次。
+    <b>這裡不存學生姓名。</b>投影在教室前方時座號就足以指認，少了姓名，
+    這個網站的畫面、截圖與程式碼都不可能外洩個資。
+    座號設定只存在這台電腦的瀏覽器裡，換電腦要重設一次。
   </div>
 
   <footer>
@@ -69,14 +71,15 @@
   </footer>
 
 </div>
-<script src="assets/js/common.js?v=20260903-1"></script>
+<script src="assets/js/common.js?v=20260903-2"></script>
 <script>
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var input = $('roster-input');
-  var status = $('roster-status');
-  var summary = $('roster-summary');
+  var input = $('seat-input');
+  var status = $('seat-status');
+  var summary = $('seat-summary');
+  var preview = $('seat-preview');
 
   $('today').textContent = new Date().toLocaleDateString('zh-TW', {
     year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long'
@@ -85,36 +88,30 @@
   function refresh() {
     var data = ClassManager.load();
     if (data) {
-      summary.textContent = '名單已載入 ' + data.students.length + ' 位';
-      input.value = ClassManager.toText(data);
+      var seats = data.seats;
+      summary.textContent = '已設定 ' + seats.length + ' 個座號';
+      input.value = ClassManager.toText(seats);
+      preview.textContent = '目前座號：' + seats.join('、');
     } else {
-      summary.textContent = '尚未載入班級名單';
+      summary.textContent = '尚未設定座號';
+      preview.textContent = '';
     }
   }
 
   $('btn-save').addEventListener('click', function () {
-    var parsed = ClassManager.parseRoster(input.value);
-    var students = parsed.students;
-    if (!students.length) {
+    var parsed = ClassManager.parseSeats(input.value);
+    if (parsed.error) {
       status.className = 'status warn';
-      status.textContent = '沒有讀到任何一位學生，請確認格式是「座號 姓名」。';
+      status.textContent = parsed.error;
       return;
     }
-    if (!ClassManager.save(students)) {
+    if (!ClassManager.save(parsed.seats)) {
       status.className = 'status warn';
       status.textContent = '瀏覽器不允許儲存，請關閉無痕模式後再試一次。';
       return;
     }
-    var msg = '已儲存 ' + students.length + ' 位（座號 ' +
-      students[0].seat + '–' + students[students.length - 1].seat + '）。';
-    if (parsed.duplicates.length) {
-      status.className = 'status warn';
-      status.textContent = msg + ' 座號重複、沒有存進去的有：' +
-        parsed.duplicates.join('、') + '，請改好座號再存一次。';
-    } else {
-      status.className = 'status ok';
-      status.textContent = msg;
-    }
+    status.className = 'status ok';
+    status.textContent = '已儲存 ' + parsed.seats.length + ' 個座號。';
     refresh();
   });
 
@@ -122,8 +119,12 @@
     ClassManager.clear();
     input.value = '';
     status.className = 'status';
-    status.textContent = '名單已清除。';
+    status.textContent = '座號設定已清除。';
     refresh();
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('btn-save').click(); }
   });
 
   refresh();

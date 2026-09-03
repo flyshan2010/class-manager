@@ -59,6 +59,8 @@ h2{font-size:19px;margin:36px 0 4px}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
 .panel .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+input[type=text]{width:100%;max-width:320px;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:inherit;font-size:17px;letter-spacing:.02em}
+input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 textarea{width:100%;min-height:150px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;
   background:var(--bg);color:var(--ink);font-family:inherit;font-size:15px;line-height:1.7;resize:vertical}
 textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}

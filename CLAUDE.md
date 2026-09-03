@@ -12,9 +12,12 @@
 
 1. **不碰班網。** 本 repo 的任何工作都不得修改 `class-website/` 底下的檔案。
    需要班網的資料時，走後台（Notion）取得，不跨 repo 讀寫。
-2. **repo 是 public，個資一律不進版控。**
-   學生姓名、查詢碼、性別、職務、家長聯絡資訊——**一個字都不寫進任何檔案**。
-   名單由老師在瀏覽器貼上，存 localStorage（`data/roster.local.json` 已進 .gitignore）。
+2. **本系統不存學生姓名，只用座號。**
+   投影在教室前方時座號就足以指認學生；少了姓名，這個 public repo、任何截圖與
+   任何投影畫面都不可能外洩個資。**姓名、查詢碼、性別、職務、家長聯絡資訊
+   一個字都不寫進任何檔案，也不寫進 localStorage。**
+   座號由老師在工作台設定（`ClassManager.requireSeats()` 取用），存 localStorage。
+   工具頁拿不到座號時要顯示「請先回工作台設定座號」，**不要自己假設人數**。
 3. **每頁必加 `<meta name="robots" content="noindex">`**，且不從班網連過來。
 4. **純靜態、零相依。** 無 build step、無 npm 套件、無外部 CDN 與外部字型——
    教室網路會斷，斷網時全部工具必須照常可用。
