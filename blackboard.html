@@ -173,6 +173,9 @@ body.timing .notes{padding-bottom:20vh}
 .panel .status{font-size:13.5px;color:var(--chalk-3)}
 .panel .status.ok{color:var(--duty)}
 .panel .status.warn{color:var(--warn)}
+.panel .cloud-line{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.panel .cloud-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.panel .cloud-head .grow{flex:1 1 auto}
 .panel .note-box{border-left:3px solid var(--warn);background:rgba(230,154,107,.1);
   padding:11px 14px;border-radius:0 8px 8px 0;font-size:13.5px;color:var(--chalk-2);margin-top:18px;line-height:1.7}
 .panel a{color:var(--duty)}
@@ -232,6 +235,20 @@ body.timing .notes{padding-bottom:20vh}
     <button type="button" id="btn-apply">寫上黑板</button>
     <button type="button" class="ghost" id="btn-clear-notes">清空</button>
     <span class="status" id="notes-status"></span>
+  </div>
+
+  <div class="cloud-line">
+    <div class="cloud-head">
+      <span id="cloud-label">目前來源：本機手打</span>
+      <span class="grow"></span>
+      <button type="button" class="ghost" id="btn-cloud-reload">☁ 重新讀取雲端</button>
+      <button type="button" id="btn-cloud-take" hidden>用雲端版覆蓋</button>
+    </div>
+    <p class="hint" style="margin:6px 0 0">
+      當天聯絡簿的正本在 Notion「📒 聯絡簿」。在家改好那一列，到校開這頁就會自動帶入；
+      臨時想加一項就直接在上面手改（當天不會被雲端蓋回去）。斷網時用上次存下的內容。
+    </p>
+    <span class="status" id="cloud-status" style="display:block;margin-top:4px"></span>
   </div>
 
   <h3>值日生</h3>
@@ -296,9 +313,18 @@ body.timing .notes{padding-bottom:20vh}
   /* ── 狀態 ─────────────────────────────────────────── */
   var state = {
     text: '',
+    source: 'local',       // local＝本機手打／cloud＝雲端帶入／offline＝連不上時用的上次快取
+    localEditDate: '',     // 老師「就地」手改的日期；同一天有手改就不讓雲端自動覆蓋
+    cloudSyncedAt: '',     // 上次成功抓到雲端的時間
     duty: { mode: 'auto', per: 2, base: '', start: 1, manual: '', skips: {} },
     savedAt: ''
   };
+  // 聯絡簿正本在 Notion「📒 聯絡簿」，由 class-website 每天同步成公開 JSON。
+  // 兩站同域名（flyshan2010.github.io）＝同源，這支 fetch 不會有 CORS 問題，
+  // 也不改班網任何檔案。讀取一律漸進增強：讀得到就帶入並快取，讀不到就用上次快取，
+  // 離線照常可用（class-manager/CLAUDE.md 硬規則 4）。
+  var CLOUD_URL = 'https://flyshan2010.github.io/class-website/data/contactbook.json';
+  var pendingCloudText = null;   // 有當天本機手改時，雲端版先擱在這，等老師按「用雲端版」
 
   function load() {
     try {
@@ -311,6 +337,9 @@ body.timing .notes{padding-bottom:20vh}
         for (var k in state.duty) if (d.duty[k] !== undefined) state.duty[k] = d.duty[k];
         if (!state.duty.skips) state.duty.skips = {};
       }
+      if (typeof d.source === 'string') state.source = d.source;
+      if (typeof d.localEditDate === 'string') state.localEditDate = d.localEditDate;
+      if (typeof d.cloudSyncedAt === 'string') state.cloudSyncedAt = d.cloudSyncedAt;
       state.savedAt = d.savedAt || '';
     } catch (e) { /* 讀不到就用預設，不要讓整頁掛掉 */ }
   }
@@ -549,6 +578,7 @@ body.timing .notes{padding-bottom:20vh}
     $('duty-start').value = state.duty.start;
     $('duty-manual').value = state.duty.manual || '';
     $('seat-warn').hidden = !!ClassManager.requireSeats() || state.duty.mode !== 'auto';
+    paintCloudLabel();
     syncDutyMode();
   }
   function syncDutyMode() {
@@ -561,12 +591,98 @@ body.timing .notes{padding-bottom:20vh}
 
   function applyNotes() {
     state.text = $('ta').value;
+    state.source = 'local';
+    state.localEditDate = todayKey();   // 就地手改：今天不讓雲端自動蓋掉（臨時加一項用）
     var ok = save();
     var st = $('notes-status');
     st.className = ok ? 'status ok' : 'status warn';
     st.textContent = ok ? '已寫上黑板。' : '瀏覽器不允許儲存（無痕模式？），畫面有，但關掉會不見。';
     paintNotes();
   }
+  /* 把 Notion 聯絡簿一列（作業／攜帶／提醒，皆為 \n 分隔多行）攤成黑板行格式。
+     只放有內容的段落，段落用 # 標題分隔。 */
+  function rowToText(row) {
+    var out = [];
+    function section(title, raw) {
+      var lines = String(raw || '').split(/\n+/).map(function (x) { return x.trim(); })
+                    .filter(function (x) { return x.length; });
+      if (!lines.length) return;
+      out.push('#' + title);
+      lines.forEach(function (l) { out.push(l); });
+    }
+    section('作業', row.homework);
+    section('攜帶', row.bring);
+    section('提醒', row.notes);
+    return out.join('\n');
+  }
+
+  function setCloudStatus(msg, kind) {
+    var el = $('cloud-status');
+    if (!el) return;
+    el.className = 'status' + (kind ? ' ' + kind : '');
+    el.textContent = msg;
+  }
+  function cloudLabel() {
+    if (state.source === 'cloud') {
+      var t = state.cloudSyncedAt ? new Date(state.cloudSyncedAt) : null;
+      return '雲端帶入' + (t ? '（' + t.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) + '）' : '');
+    }
+    if (state.source === 'offline') return '離線：顯示上次存下的內容';
+    return '本機手打';
+  }
+  function paintCloudLabel() {
+    var el = $('cloud-label');
+    if (el) el.textContent = '目前來源：' + cloudLabel();
+    var btn = $('btn-cloud-take');
+    if (btn) btn.hidden = pendingCloudText === null;
+  }
+
+  /* 從雲端抓當天聯絡簿。force＝老師主動按「重新讀取」或「用雲端版」，會蓋掉當天本機手改。 */
+  function applyCloud(force) {
+    setCloudStatus('讀取雲端…', '');
+    var url = CLOUD_URL + (CLOUD_URL.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now();
+    fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json();
+    }).then(function (rows) {
+      var today = todayKey();
+      var row = Array.isArray(rows) ? rows.filter(function (x) {
+        return x && String(x.date || '').slice(0, 10) === today;
+      })[0] : null;
+      if (!row) {
+        setCloudStatus('雲端今天沒有聯絡簿內容——內容改在 Notion「📒 聯絡簿」當天那列。', 'warn');
+        return;
+      }
+      var txt = rowToText(row);
+      if (!txt.trim()) {
+        setCloudStatus('雲端當天那列是空的。', 'warn');
+        return;
+      }
+      // 當天已有本機手改且非強制：不自動蓋，把雲端版擱著等老師決定。
+      if (!force && state.localEditDate === today && state.text.trim() && state.text !== txt) {
+        pendingCloudText = txt;
+        setCloudStatus('雲端當天有內容，和你就地改的不一樣。要換成雲端版就按右邊按鈕。', 'warn');
+        paintCloudLabel();
+        return;
+      }
+      pendingCloudText = null;
+      state.text = txt;
+      state.source = 'cloud';
+      state.cloudSyncedAt = new Date().toISOString();
+      if (force) state.localEditDate = '';
+      save();
+      $('ta').value = state.text;
+      paintNotes();
+      paintCloudLabel();
+      setCloudStatus('已帶入雲端當天聯絡簿。', 'ok');
+    }).catch(function () {
+      // 離線／讀不到：維持現狀（上次快取），只標記，不動內容。
+      if (state.text.trim() && state.source !== 'local') state.source = 'offline';
+      paintCloudLabel();
+      setCloudStatus('連不上雲端，顯示的是上次存下的內容（教室斷網照常可用）。', 'warn');
+    });
+  }
+
   function applyDuty() {
     state.duty.mode = $('duty-mode').value;
     state.duty.per = Math.max(1, Math.min(10, parseInt($('duty-per').value, 10) || 1));
@@ -588,6 +704,20 @@ body.timing .notes{padding-bottom:20vh}
   $('btn-apply').addEventListener('click', applyNotes);
   $('btn-clear-notes').addEventListener('click', function () {
     $('ta').value = ''; applyNotes();
+  });
+  $('btn-cloud-reload').addEventListener('click', function () { applyCloud(true); });
+  $('btn-cloud-take').addEventListener('click', function () {
+    if (pendingCloudText === null) return;
+    state.text = pendingCloudText;
+    state.source = 'cloud';
+    state.cloudSyncedAt = new Date().toISOString();
+    state.localEditDate = '';
+    pendingCloudText = null;
+    save();
+    $('ta').value = state.text;
+    paintNotes();
+    paintCloudLabel();
+    setCloudStatus('已換成雲端版。', 'ok');
   });
   $('btn-duty').addEventListener('click', applyDuty);
   $('duty-mode').addEventListener('change', syncDutyMode);
@@ -649,8 +779,10 @@ body.timing .notes{padding-bottom:20vh}
   load();
   if (!state.duty.base) state.duty.base = todayKey();
   paintDate();
-  paintNotes();
+  paintNotes();     // 先畫上次存下的內容：離線也立刻有東西、不閃白
   paintDuty();
+  paintCloudLabel();
+  applyCloud(false);   // 再非強制抓雲端：有網路就自動帶入當天聯絡簿
   poke();
   loop();
 })();
