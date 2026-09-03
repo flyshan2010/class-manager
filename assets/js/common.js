@@ -9,29 +9,45 @@
   /* 解析老師貼上的名單。支援：
    *   1 王小明        （座號 空白 姓名）
    *   1.王小明 / 1、王小明 / 1號 王小明
-   *   王小明          （沒有座號時，依行序自動編號）
+   *   王小明          （沒有座號時，補進最小的空號，不會佔用別人已寫的座號）
+   * 回傳 { students, duplicates }；duplicates 是被略過的重複座號，呼叫端要顯示出來，
+   * 不可無聲丟掉——名單少一個人在課堂上不會報錯，只會抽不到那位學生。
    */
   function parseRoster(text) {
-    var students = [];
-    var seen = {};
+    var rows = [];
     String(text || '').split(/\r?\n/).forEach(function (raw) {
       var line = raw.trim();
       if (!line) return;
       var m = line.match(/^(\d{1,3})\s*(?:號|\.|、|,|:|：|-)?\s*(.+)$/);
-      var seat, name;
-      if (m) {
-        seat = parseInt(m[1], 10);
-        name = m[2].trim();
+      if (m && m[2].trim()) {
+        rows.push({ seat: parseInt(m[1], 10), name: m[2].trim() });
       } else {
-        seat = students.length + 1;
-        name = line;
+        rows.push({ seat: null, name: line });
       }
-      if (!name || seen[seat]) return;
-      seen[seat] = true;
-      students.push({ seat: seat, name: name });
     });
+
+    // 第一輪：先放有寫座號的，重複的記下來但不丟進名單
+    var used = {};
+    var students = [];
+    var duplicates = [];
+    rows.forEach(function (r) {
+      if (r.seat === null) return;
+      if (used[r.seat]) { duplicates.push(r.seat + ' ' + r.name); return; }
+      used[r.seat] = true;
+      students.push({ seat: r.seat, name: r.name });
+    });
+
+    // 第二輪：沒寫座號的補進最小空號，不會覆蓋上面已占用的號碼
+    var next = 1;
+    rows.forEach(function (r) {
+      if (r.seat !== null) return;
+      while (used[next]) next++;
+      used[next] = true;
+      students.push({ seat: next, name: r.name });
+    });
+
     students.sort(function (a, b) { return a.seat - b.seat; });
-    return students;
+    return { students: students, duplicates: duplicates };
   }
 
   function save(students, className) {

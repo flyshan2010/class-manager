@@ -93,7 +93,8 @@
   }
 
   $('btn-save').addEventListener('click', function () {
-    var students = ClassManager.parseRoster(input.value);
+    var parsed = ClassManager.parseRoster(input.value);
+    var students = parsed.students;
     if (!students.length) {
       status.className = 'status warn';
       status.textContent = '沒有讀到任何一位學生，請確認格式是「座號 姓名」。';
@@ -104,9 +105,16 @@
       status.textContent = '瀏覽器不允許儲存，請關閉無痕模式後再試一次。';
       return;
     }
-    status.className = 'status ok';
-    status.textContent = '已儲存 ' + students.length + ' 位（座號 ' +
+    var msg = '已儲存 ' + students.length + ' 位（座號 ' +
       students[0].seat + '–' + students[students.length - 1].seat + '）。';
+    if (parsed.duplicates.length) {
+      status.className = 'status warn';
+      status.textContent = msg + ' 座號重複、沒有存進去的有：' +
+        parsed.duplicates.join('、') + '，請改好座號再存一次。';
+    } else {
+      status.className = 'status ok';
+      status.textContent = msg;
+    }
     refresh();
   });
 
