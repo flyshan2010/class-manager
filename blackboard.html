@@ -53,6 +53,8 @@ body.timing .notes{padding-bottom:20vh}
 .note .txt{flex:1 1 auto;text-orientation:upright;letter-spacing:.02em}
 /* 半形數字直排時合併成一格（縱中橫），P.10-11 讀起來跟中文一樣是直的 */
 .note .txt .tcy{text-combine-upright:all;letter-spacing:normal}
+/* 範圍號（P.3-13 中間那一橫）直書時轉成直線，才跟上下的數字同一個方向 */
+.note .txt .dash{display:inline-block;transform:rotate(90deg);transform-origin:50% 50%}
 .note.done{color:var(--chalk-3);text-decoration:line-through;text-decoration-thickness:.06em}
 .note.hi .txt{color:var(--mark)}
 .note.head{font-size:calc(var(--note-fs,clamp(40px,6.2vh,84px)) * .68);font-weight:800;color:var(--duty);
@@ -296,9 +298,10 @@ body.timing .notes{padding-bottom:20vh}
   // 直書排版：中文與標點本來就正立，半形數字改用「縱中橫」合併成一格，
   // 英文字母靠 CSS 的 text-orientation:upright 立起來——整行看起來才一致（不會只有數字橫躺）。
   function appendVertical(el, text) {
-    String(text).split(/(\d{1,4})/).forEach(function (part) {
+    String(text).split(/(\d{1,4}|[-–—~～])/).forEach(function (part) {
       if (!part) return;
       if (/^\d{1,4}$/.test(part)) { var s2 = document.createElement('span'); s2.className = 'tcy'; s2.textContent = part; el.appendChild(s2); }
+      else if (/^[-–—~～]$/.test(part)) { var s3 = document.createElement('span'); s3.className = 'dash'; s3.textContent = part; el.appendChild(s3); }
       else el.appendChild(document.createTextNode(part));
     });
   }
