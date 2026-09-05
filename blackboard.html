@@ -505,10 +505,14 @@ body.timing .notes{padding-bottom:20vh}
       subtitle(text, 'say'); return;
     }
     var token = subtitle(text, 'say', '', true);        // 先出字幕，語音講完才收
-    var fallback = setTimeout(function () { clearSubtitle(token); }, subDuration(text));
+    var shownAt = Date.now(), minMs = subDuration(text);
+    // 語音講完就收，但字幕至少撐滿「字數÷4.5、下限 3 秒」——
+    // 裝置沒有中文語音時 onerror 會立刻回來，這道下限保證學生還讀得到。
+    function done() { setTimeout(function () { clearSubtitle(token); }, Math.max(600, minMs - (Date.now() - shownAt))); }
+    var fallback = setTimeout(done, minMs + 15000);     // 語音卡住不回 onend 的保險
     try {
       var u = new SpeechSynthesisUtterance(text); u.lang = 'zh-TW'; u.rate = 0.95; u.pitch = 1;
-      u.onend = u.onerror = function () { clearTimeout(fallback); setTimeout(function () { clearSubtitle(token); }, 600); };
+      u.onend = u.onerror = function () { clearTimeout(fallback); done(); };
       window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
       if (st) st.textContent = '';
     } catch (e) { /* 字幕已經出來了，語音失敗不影響 */ }
