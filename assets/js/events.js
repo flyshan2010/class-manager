@@ -159,7 +159,42 @@
     return write(db);
   }
 
+  /* ── 四點提醒（2026-09-06）─────────────────────────────
+     全自動送出做不到也不該做：待送事件在這台電腦的 localStorage，排程讀不到；
+     而口令依 §3.4 永不落地（投影時全班看得到畫面）。所以只提醒，送出仍是老師按的那一下。
+     16:00 之後、還有待送、今天沒按過「不再提醒」→ due。 */
+  /* 放學時間依星期不同（2026-09-06 老師定）：週三、五 12:40 放學，週一、二、四 16:00。
+     週六日沒有放學時間，沿用 16:00（週末還留著待送就是該送了）。改時間改這張表就好。 */
+  var REMIND_AT = {            // 0=週日 … 6=週六，值＝當天幾點幾分開始提醒（分鐘）
+    0: 16 * 60, 1: 16 * 60, 2: 16 * 60, 3: 12 * 60 + 40,
+    4: 16 * 60, 5: 12 * 60 + 40, 6: 16 * 60
+  };
+  var DISMISS_KEY = 'classManager.events.remindOff';
+
+  /* 今天幾點開始提醒，回 "16:00" 這種字串供畫面顯示。 */
+  function remindAtText(d) {
+    var m = REMIND_AT[(d || new Date()).getDay()];
+    return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  }
+
+  function remindDue() {
+    var n = merged().length;
+    if (!n) return { due: false, n: 0, at: remindAtText() };
+    var now = new Date();
+    if (now.getHours() * 60 + now.getMinutes() < REMIND_AT[now.getDay()]) {
+      return { due: false, n: n, at: remindAtText(now) };
+    }
+    var off = null;
+    try { off = localStorage.getItem(DISMISS_KEY); } catch (e) {}
+    return { due: off !== today(), n: n, at: remindAtText(now) };
+  }
+
+  function dismissRemind() {
+    try { localStorage.setItem(DISMISS_KEY, today()); return true; } catch (e) { return false; }
+  }
+
   global.CMEvents = {
+    REMIND_AT: REMIND_AT, remindAtText: remindAtText, remindDue: remindDue, dismissRemind: dismissRemind,
     KEY: KEY, today: today, push: push, list: list, count: count,
     merged: merged, buildPayloads: buildPayloads, markSent: markSent,
     removeAt: removeAt, clearAll: clearAll

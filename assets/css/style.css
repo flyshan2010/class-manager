@@ -75,6 +75,10 @@ button:focus-visible{outline:2px solid var(--duty);outline-offset:2px}
 footer{position:relative;z-index:1;margin-top:56px;padding-top:16px;border-top:1px solid var(--line);
   font-size:12.5px;color:var(--ink-3)}
 
+.remind{position:relative;z-index:1;border-left:3px solid var(--warn);background:rgba(240,149,78,.14);
+  border-radius:0 12px 12px 0;padding:14px 16px;margin:0 0 16px;font-size:14.5px;color:var(--ink-2)}
+.remind b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.remind .row{margin-top:10px}
 /* ── 今日待送（工作台 T0 管線面板）── */
 .sendlist{display:grid;gap:14px}
 .sendday{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:rgba(0,0,0,.22)}

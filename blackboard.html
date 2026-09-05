@@ -158,6 +158,8 @@ body.timing .notes{padding-bottom:20vh}
 <div class="timer idle" id="timer"><div class="t" id="timer-t">00:00</div><div class="cap" id="timer-cap">計時</div></div>
 <div class="toast" id="toast"></div>
 
+<a class="sendtip" id="sendtip" href="index.html" hidden>⏰ <b id="sendtip-n">0</b> 筆未送出　·　回工作台收班</a>
+
 <div class="hud" id="hud">
   <button type="button" class="blue" data-say="請小朋友回到教室，準備上課。">回教室</button>
   <button type="button" class="orange" data-say="請到走廊排隊。">走廊排隊</button>
@@ -233,6 +235,8 @@ body.timing .notes{padding-bottom:20vh}
 
 <script src="assets/js/common.js?v=20260904-1"></script>
 <script src="assets/js/tool.js?v=20260904-1"></script>
+<script src="assets/js/common.js?v=20260906-2"></script>
+<script src="assets/js/events.js?v=20260906-2"></script>
 <script>
 (function () {
   'use strict';
@@ -669,6 +673,21 @@ body.timing .notes{padding-bottom:20vh}
   paintDate(); paintNotes(); paintDuty(); paintCloudLabel();
   applyCloud(false); loadSched(); loadFest(); loadRules(); loadLunch();
   loop();
+})();
+</script>
+<script>
+/* 放學提醒（投影版）：只顯示筆數，不含姓名、不含內容；送出仍要回工作台打口令（§3.4）。 */
+(function () {
+  'use strict';
+  var tip = document.getElementById('sendtip');
+  function tick() {
+    if (!window.CMEvents) return;
+    var r = CMEvents.remindDue();
+    tip.hidden = !r.due;
+    if (r.due) document.getElementById('sendtip-n').textContent = r.n;
+  }
+  tick();
+  setInterval(tick, 60000);
 })();
 </script>
 </body>

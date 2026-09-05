@@ -119,3 +119,11 @@ body::before{
   .hud{gap:5px;padding:7px 8px}
   .hud button{font-size:12px;padding:6px 10px}
 }
+
+/* 放學提醒膠囊（左下，避開置中 HUD 與右下計時） */
+.sendtip{position:fixed;left:2vw;bottom:2vh;z-index:6;text-decoration:none;
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:17px;font-weight:600;color:#2a1a06;background:var(--mark,#f0c85a);
+  padding:9px 16px;border-radius:999px;box-shadow:0 10px 26px rgba(0,0,0,.35)}
+.sendtip b{font-size:20px}
+.sendtip:hover{filter:brightness(1.06)}

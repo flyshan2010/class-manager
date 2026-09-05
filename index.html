@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>教師工作台｜班級管理系統</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20260906-1" />
+<link rel="stylesheet" href="assets/css/style.css?v=20260906-2" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎒</text></svg>" />
 </head>
 <body>
@@ -50,6 +50,15 @@
   <p class="hint">課堂工具記下的加減分只留在這台電腦，下課按「收班送出」才一次進 Notion 收件匣，
     由排程 Agent 入帳。<b>只有這裡能送出</b>，投影工具頁不持有口令。</p>
 
+  <div id="send-remind" class="remind" hidden>
+    <b>⏰ <span id="remind-at">放學</span> 放學了，今天還有 <span id="remind-n">0</span> 筆課堂紀錄沒送出。</b>
+    <span class="hint" style="margin:0">送出後由排程 Agent 入庫，下一個整點就會處理。</span>
+    <span class="row" style="margin-top:10px">
+      <button id="btn-remind-go" type="button">現在送出</button>
+      <button id="btn-remind-off" class="ghost" type="button">今天不再提醒</button>
+    </span>
+  </div>
+
   <div class="panel">
     <div id="send-list" class="sendlist"></div>
     <div class="row">
@@ -87,8 +96,8 @@
   </footer>
 
 </div>
-<script src="assets/js/common.js?v=20260906-1"></script>
-<script src="assets/js/events.js?v=20260906-1"></script>
+<script src="assets/js/common.js?v=20260906-2"></script>
+<script src="assets/js/events.js?v=20260906-2"></script>
 <script>
 (function () {
   'use strict';
@@ -249,7 +258,29 @@
     }).then(function () { $('btn-send').disabled = false; });
   });
 
+  /* 放學提醒：只提醒不代送——口令永不落地（§3.4），送出仍是老師按的那一下。 */
+  function refreshRemind() {
+    var r = CMEvents.remindDue();
+    var box = $('send-remind');
+    box.hidden = !r.due;
+    if (r.due) { $('remind-n').textContent = r.n; $('remind-at').textContent = r.at; }
+  }
+
+  $('btn-remind-go').addEventListener('click', function () {
+    $('send-pw').scrollIntoView({ block: 'center' });
+    $('send-pw').focus();
+  });
+
+  $('btn-remind-off').addEventListener('click', function () {
+    CMEvents.dismissRemind();
+    refreshRemind();
+  });
+
+  var _origRefreshSend = refreshSend;
+  refreshSend = function () { _origRefreshSend(); refreshRemind(); };
+
   refreshSend();
+  setInterval(refreshRemind, 60000);   // 每分鐘看一次，跨過四點就跳出來
 })();
 </script>
 </body>
