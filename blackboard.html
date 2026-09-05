@@ -19,7 +19,7 @@
 .date .d2{font-size:clamp(15px,1.9vh,23px);color:var(--chalk-3);margin-top:.15em}
 .top .grow{flex:1 1 auto}
 .duty{display:flex;align-items:center;gap:.8vw}
-.duty .label{font-size:clamp(15px,1.9vh,23px);color:var(--chalk-3);letter-spacing:.14em}
+.duty .label{font-size:clamp(15px,1.9vh,23px);color:var(--chalk-3);letter-spacing:.14em;white-space:nowrap}
 .duty .seats{display:flex;gap:.4vw}
 .duty .seat{font-size:clamp(28px,3.8vh,54px);font-weight:800;color:var(--duty);
   border:3px solid var(--duty);border-radius:12px;padding:.02em .26em;min-width:1.7em;text-align:center;line-height:1.25}
@@ -508,9 +508,11 @@ body.timing .notes{padding-bottom:20vh}
   }
   function paintLunch() {
     var box = $('lunch'), cards = $('lunch-cards');
+    var wk = findWeek(weeksData);
+    var nowLabel = wk ? (wk.w['標籤'] || '') : '';
+    if (nowLabel !== weekLabel) { weekLabel = nowLabel; paintDate(); }   // 週次標在日期那一行
     if (!lunchData || !lunchData.rotation || !lunchData.rotation.length || !weeksData) { box.hidden = true; return; }
     var hit = findWeek(weeksData); if (!hit) { box.hidden = true; return; }
-    weekLabel = hit.w['標籤'] || '';
     var cycle = lunchData['完整輪替週數'] || lunchData.rotation.length;
     var round = ((hit.w['週次'] - 1) % cycle) + 1;                 // 與班網同一條規則
     var row = null;
@@ -529,7 +531,7 @@ body.timing .notes{padding-bottom:20vh}
   function loadLunch() {
     // 兩份都拿到才畫（要週次才算得出這週輪到誰）；任一失敗就安靜不顯示，不猜。
     fetch(CLOUD_WEEKS + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
-      .then(function (d) { weeksData = d; paintLunch(); paintDate(); }).catch(function () {});
+      .then(function (d) { weeksData = d; paintLunch(); }).catch(function () {});
     fetch(CLOUD_LUNCH + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
       .then(function (d) { lunchData = d; paintLunch(); }).catch(function () {});
   }
