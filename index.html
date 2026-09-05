@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>教師工作台｜班級管理系統</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20260904-1" />
+<link rel="stylesheet" href="assets/css/style.css?v=20260906-1" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎒</text></svg>" />
 </head>
 <body>
@@ -46,6 +46,22 @@
       <p>整組每人加分與小組競賽分。</p></a>
   </div>
 
+  <h2>今日待送 <span id="send-badge" class="badge">0 筆</span></h2>
+  <p class="hint">課堂工具記下的加減分只留在這台電腦，下課按「收班送出」才一次進 Notion 收件匣，
+    由排程 Agent 入帳。<b>只有這裡能送出</b>，投影工具頁不持有口令。</p>
+
+  <div class="panel">
+    <div id="send-list" class="sendlist"></div>
+    <div class="row">
+      <input id="send-pw" type="password" placeholder="教師口令" autocomplete="off" />
+      <button id="btn-send" type="button">收班送出</button>
+      <button id="btn-preview" class="ghost" type="button">預覽送出內容</button>
+      <button id="btn-drop" class="ghost" type="button">全部丟棄</button>
+      <span id="send-status" class="status"></span>
+    </div>
+    <pre id="send-preview" class="preview" hidden></pre>
+  </div>
+
   <h2>班級座號</h2>
   <p class="hint">課堂工具用座號指認學生，不存姓名。填人數就好；有轉學生留下的空號才需要逐段指定。</p>
 
@@ -71,7 +87,8 @@
   </footer>
 
 </div>
-<script src="assets/js/common.js?v=20260904-1"></script>
+<script src="assets/js/common.js?v=20260906-1"></script>
+<script src="assets/js/events.js?v=20260906-1"></script>
 <script>
 (function () {
   'use strict';
@@ -128,6 +145,111 @@
   });
 
   refresh();
+
+  /* ── 今日待送（T0 管線・設計書 §3）───────────────────────────────
+     口令只留 sessionStorage 內的輸入框，送出後清空、永不寫 localStorage（§3.4）。 */
+  var CFG_URL = 'https://flyshan2010.github.io/class-website/data/site-config.json';
+  var proxyUrl = null;
+
+  function fmtRow(r) {
+    var coin = r.coin === undefined ? '' : (r.coin > 0 ? '+' + r.coin : String(r.coin)) + ' 幣';
+    var bits = ['座號 ' + r.seat, r.act || '(未填行為)'];
+    if (r.subj) bits.push(r.subj);
+    if (r.period) bits.push(r.period);
+    if (r.count > 1) bits.push(r.count + ' 次');
+    if (coin) bits.push(coin);
+    return bits.join('　·　');
+  }
+
+  function refreshSend() {
+    var rows = CMEvents.merged();
+    var badge = $('send-badge');
+    var list = $('send-list');
+    badge.textContent = rows.length + ' 筆';
+    badge.className = 'badge' + (rows.length ? ' soon' : '');
+    if (!rows.length) {
+      list.innerHTML = '<p class="hint" style="margin:0">目前沒有待送事件。課堂工具記下的加減分會出現在這裡。</p>';
+      return;
+    }
+    var byDate = {};
+    rows.forEach(function (r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
+    var html = '';
+    Object.keys(byDate).sort().forEach(function (d) {
+      html += '<div class="sendday"><b>' + d + '</b>';
+      byDate[d].forEach(function (r) {
+        html += '<div class="senditem"><span class="tag ' + (r.kind === 'bad' ? 'bad' : 'good') + '">' +
+                (r.tool || '') + '</span>' + fmtRow(r) + '</div>';
+      });
+      html += '</div>';
+    });
+    list.innerHTML = html;
+  }
+
+  function post(text) {
+    return fetch(proxyUrl, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'submit_task', pw: $('send-pw').value, text: text })
+    }).then(function (r) { return r.json(); });
+  }
+
+  $('btn-preview').addEventListener('click', function () {
+    var pre = $('send-preview');
+    var packs = CMEvents.buildPayloads();
+    if (!packs.length) { pre.hidden = true; return; }
+    pre.hidden = false;
+    pre.textContent = packs.map(function (t, i) {
+      return '── 第 ' + (i + 1) + ' 包（' + t.length + ' 字）──\n' + t;
+    }).join('\n\n');
+  });
+
+  $('btn-drop').addEventListener('click', function () {
+    if (!CMEvents.count()) return;
+    if (!confirm('要丟棄全部待送事件嗎？丟掉就不會入帳，也救不回來。')) return;
+    CMEvents.clearAll();
+    refreshSend();
+    $('send-status').className = 'status warn';
+    $('send-status').textContent = '待送事件已全部丟棄。';
+  });
+
+  $('btn-send').addEventListener('click', function () {
+    var st = $('send-status');
+    var packs = CMEvents.buildPayloads();
+    if (!packs.length) { st.className = 'status'; st.textContent = '沒有待送事件。'; return; }
+    if (!$('send-pw').value) { st.className = 'status warn'; st.textContent = '請先輸入教師口令。'; return; }
+    st.className = 'status'; st.textContent = '送出中…';
+    $('btn-send').disabled = true;
+
+    var cfg = proxyUrl ? Promise.resolve(proxyUrl)
+      : fetch(CFG_URL + '?t=' + Date.now(), { cache: 'no-store' })
+          .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+          .then(function (j) { proxyUrl = j.updateProxyUrl; return proxyUrl; });
+
+    cfg.then(function (url) {
+      if (!url) throw new Error('讀不到代理網址');
+      // 逐包依序送出；任何一包失敗就整批留在本機（§3.2 失敗即保留）
+      var done = 0;
+      return packs.reduce(function (chain, text) {
+        return chain.then(function () {
+          return post(text).then(function (res) {
+            if (!res || !res.ok) throw new Error(res && res.error ? res.error : '代理回應失敗');
+            done++;
+          });
+        });
+      }, Promise.resolve()).then(function () { return done; });
+    }).then(function (done) {
+      CMEvents.markSent();       // 成功才清、批次號才往前推
+      $('send-pw').value = '';
+      refreshSend();
+      st.className = 'status ok';
+      st.textContent = '已送出 ' + done + ' 包，進了收件匣，排程 Agent 會入帳。';
+    }).catch(function (err) {
+      st.className = 'status warn';
+      st.textContent = '沒送出去（' + (err && err.message ? err.message : '網路或口令有問題') +
+                       '）。待送 ' + CMEvents.merged().length + ' 筆仍留在這台電腦，稍後再按一次即可。';
+    }).then(function () { $('btn-send').disabled = false; });
+  });
+
+  refreshSend();
 })();
 </script>
 </body>

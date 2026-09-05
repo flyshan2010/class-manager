@@ -74,6 +74,24 @@ button:focus-visible{outline:2px solid var(--duty);outline-offset:2px}
 
 footer{position:relative;z-index:1;margin-top:56px;padding-top:16px;border-top:1px solid var(--line);
   font-size:12.5px;color:var(--ink-3)}
+
+/* ── 今日待送（工作台 T0 管線面板）── */
+.sendlist{display:grid;gap:14px}
+.sendday{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:rgba(0,0,0,.22)}
+.sendday>b{display:block;font-size:13px;color:var(--ink-3);letter-spacing:.04em;margin-bottom:8px}
+.senditem{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:15px;color:var(--ink-2);
+  padding:6px 0;border-top:1px solid var(--line)}
+.sendday .senditem:first-of-type{border-top:0}
+.senditem .tag{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;
+  background:rgba(86,197,150,.16);color:var(--ok)}
+.senditem .tag.bad{background:rgba(240,149,78,.16);color:var(--warn)}
+input[type=password]{width:100%;max-width:200px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
+  background:rgba(0,0,0,.3);color:var(--ink);font-family:inherit;font-size:17px}
+input[type=password]:focus-visible{outline:2px solid var(--duty);outline-offset:1px}
+button:disabled{opacity:.5;cursor:progress}
+.preview{margin:16px 0 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.35);
+  color:var(--ink-2);font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-all;
+  max-height:320px;overflow:auto}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* ── RWD ── */
@@ -85,5 +103,5 @@ footer{position:relative;z-index:1;margin-top:56px;padding-top:16px;border-top:1
   .tools{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
   .tool{padding:18px 16px 16px}
   .tool .icon{width:48px;height:48px;font-size:26px}
-  input[type=text]{max-width:100%}
+  input[type=text],input[type=password]{max-width:100%}
 }
