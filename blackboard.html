@@ -25,6 +25,17 @@
   border:3px solid var(--duty);border-radius:12px;padding:.02em .26em;min-width:1.7em;text-align:center;line-height:1.25}
 .duty .seat.none{color:var(--chalk-3);border-color:var(--chalk-3);border-style:dashed;
   font-size:clamp(16px,2vh,24px);font-weight:500}
+/* 午餐值週生（每週換一次，讀班網公開名單；只在畫面上顯示，不落地） */
+.lunch{display:flex;align-items:center;gap:.5vw;flex:0 0 auto}
+.lunch .label{font-size:clamp(13px,1.6vh,19px);color:var(--chalk-3);letter-spacing:.12em;line-height:1.25}
+.lunch .label b{display:block;font-size:.86em;color:var(--pink);letter-spacing:.04em;font-weight:700}
+.lunch .cards{display:flex;gap:.35vw}
+.lunch .lc{background:var(--board-2);border:1px solid var(--line);border-radius:10px;
+  padding:.35vh .5vw;text-align:center;min-width:3.6em}
+.lunch .lc .slot{display:block;font-size:clamp(11px,1.3vh,15px);color:var(--chalk-3)}
+.lunch .lc .who{display:block;font-size:clamp(15px,2vh,24px);font-weight:700;color:var(--chalk);white-space:nowrap}
+.lunch .none{font-size:clamp(13px,1.6vh,19px);color:var(--chalk-3)}
+
 .clock{text-align:right;font-variant-numeric:tabular-nums}
 .clock .hm{font-size:clamp(40px,5.6vh,80px);font-weight:300;line-height:1}
 .clock .sec{font-size:.4em;color:var(--chalk-3);margin-left:.12em}
@@ -110,6 +121,9 @@ body.timing .notes{padding-bottom:20vh}
 @media (max-width:900px){
   .top{flex-wrap:wrap;gap:8px 12px}
   .fest{padding:4px 8px} .fest .fday{font-size:clamp(17px,2.2vh,24px)}
+  .lunch{flex-basis:100%;order:6;flex-wrap:wrap}
+  .lunch .cards{flex-wrap:wrap;gap:6px}
+  .lunch .lc{min-width:3.2em;padding:2px 6px}
   .toast{font-size:clamp(22px,4vh,40px);max-width:88vw;padding:1.4vh 4vw}
   .top .grow{flex-basis:100%;height:0;order:5}
   .clock .hm{font-size:clamp(34px,5vh,64px)}
@@ -128,6 +142,7 @@ body.timing .notes{padding-bottom:20vh}
     <div class="fest" id="fest" hidden><span class="fg" id="fest-g">🎉</span>
       <span class="ft"><span class="fname" id="fest-n">—</span><span class="fday" id="fest-d"></span></span></div>
     <div class="grow"></div>
+    <div class="lunch" id="lunch" hidden><span class="label">午餐<b>值週生</b></span><div class="cards" id="lunch-cards"></div></div>
     <div class="duty"><span class="label">值日生</span><div class="seats" id="duty-seats"></div></div>
     <div class="clock"><span class="hm" id="clock-hm">--:--</span><span class="sec" id="clock-sec"></span></div>
   </div>
@@ -207,6 +222,7 @@ body.timing .notes{padding-bottom:20vh}
   <label class="toggle"><input type="checkbox" id="opt-bell" /> 上下課自動鐘聲（依課表時間，離線可用；響鈴同時出字幕，寫出這節是什麼課、要準備什麼）</label>
   <label class="toggle"><input type="checkbox" id="opt-sched" checked /> 顯示今日課表</label>
 
+  <p class="hint" style="margin:6px 0 0">右上角的「<b>午餐值週生</b>」讀班網公開的午餐輪值表（正本在 Notion「🧹 班級工作分配」），<b>每週自動換一班</b>，跟班網「關於我們 → 工作分配」看到的是同一份。姓名已去識別化；這份名單<b>只在畫面上顯示，不存進這台電腦</b>，所以斷網時會暫時不顯示。</p>
   <p class="hint" style="margin:6px 0 0">左上角的「節慶倒數」讀班網公開的行事曆（正本在 Notion），<b>只顯示今天之後最近的一個</b>；要改日期請到 Notion 改。右下角的「計時」是上課用的分鐘計時器，兩者不同。</p>
 
   <div class="note-box"><b>資料只留在這台電腦。</b>聯絡簿與設定存在瀏覽器，不上傳、不進版控、不出現在班網，也不存學生姓名。</div>
@@ -224,6 +240,8 @@ body.timing .notes{padding-bottom:20vh}
   var CLOUD_SCHED = 'https://flyshan2010.github.io/class-website/data/schedule.json';
   var CLOUD_COUNTDOWN = 'https://flyshan2010.github.io/class-website/data/countdown.json';
   var CLOUD_RULES = 'https://flyshan2010.github.io/class-website/data/class-rules.json';
+  var CLOUD_LUNCH = 'https://flyshan2010.github.io/class-website/data/lunch.json';
+  var CLOUD_WEEKS = 'https://flyshan2010.github.io/class-website/data/weeks.json';
 
   var state = {
     text: '', source: 'local', localEditDate: '', cloudSyncedAt: '',
@@ -261,8 +279,9 @@ body.timing .notes{padding-bottom:20vh}
   }
   function paintDate() {
     var now = new Date();
-    $('date-1').textContent = '民國 ' + (now.getFullYear() - 1911) + ' 年 ' + (now.getMonth() + 1) + ' 月 ' + now.getDate() + ' 日';
-    $('date-2').textContent = now.toLocaleDateString('zh-TW', { weekday: 'long' }) + '　' + now.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    var wd = now.toLocaleDateString('zh-TW', { weekday: 'long' });
+    $('date-1').textContent = '民國 ' + (now.getFullYear() - 1911) + ' 年 ' + (now.getMonth() + 1) + ' 月 ' + now.getDate() + ' 日　' + wd;
+    $('date-2').textContent = now.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) + (weekLabel ? '　' + weekLabel : '');
     var m = moonPhase(now); $('moon-g').textContent = m.g; $('moon-n').textContent = m.n;
   }
 
@@ -271,7 +290,7 @@ body.timing .notes{padding-bottom:20vh}
     var now = new Date();
     $('clock-hm').textContent = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     $('clock-sec').textContent = String(now.getSeconds()).padStart(2, '0');
-    if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() < 2) { paintDate(); paintDuty(); paintFest(festData); }
+    if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() < 2) { paintDate(); paintDuty(); paintFest(festData); paintLunch(); }
   }
 
   /* ── 聯絡簿 ── */
@@ -469,6 +488,52 @@ body.timing .notes{padding-bottom:20vh}
     return steps.slice(0, 2).join('　➜　');
   }
 
+  /* ── 午餐值週生（每週換一次） ──
+     來源＝班網公開的 lunch.json（正本在 Notion「🧹 班級工作分配」），姓名已去識別化。
+     ⚠️ 依本站硬規則 2「不存學生姓名」，這份名單**只在畫面上顯示，不寫進 localStorage、不落地**，
+     所以斷網時不顯示（而不是顯示過期名單）；其餘看板功能照常，不受影響。 */
+  var weekLabel = '', lunchData = null, weeksData = null;
+  function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function findWeek(data) {
+    if (!data || !data['學期']) return null;
+    var t = ymd(new Date()), best = null;
+    data['學期'].forEach(function (term) {
+      (term['週'] || []).forEach(function (w) {
+        if (t >= w['起'] && t <= w['迄']) best = { term: term, w: w, exact: true };
+        else if (!best && w['迄'] < t) best = { term: term, w: w, exact: false };   // 假期沿用上一週
+        else if (best && !best.exact && w['迄'] < t && w['迄'] > best.w['迄']) best = { term: term, w: w, exact: false };
+      });
+    });
+    return best;
+  }
+  function paintLunch() {
+    var box = $('lunch'), cards = $('lunch-cards');
+    if (!lunchData || !lunchData.rotation || !lunchData.rotation.length || !weeksData) { box.hidden = true; return; }
+    var hit = findWeek(weeksData); if (!hit) { box.hidden = true; return; }
+    weekLabel = hit.w['標籤'] || '';
+    var cycle = lunchData['完整輪替週數'] || lunchData.rotation.length;
+    var round = ((hit.w['週次'] - 1) % cycle) + 1;                 // 與班網同一條規則
+    var row = null;
+    lunchData.rotation.forEach(function (r) { if (r.week === round) row = r; });
+    if (!row || !row.assign || !row.assign.length) { box.hidden = true; return; }
+    cards.textContent = '';
+    row.assign.forEach(function (a) {
+      var c = document.createElement('div'); c.className = 'lc';
+      var slot = document.createElement('span'); slot.className = 'slot';
+      slot.textContent = String(a.slot || '').replace(/^搬餐桶[・·]?/, '').replace(/[（(](\d)[）)]/, '$1');
+      var who = document.createElement('span'); who.className = 'who'; who.textContent = a.name || '—';
+      c.appendChild(slot); c.appendChild(who); cards.appendChild(c);
+    });
+    box.hidden = false;
+  }
+  function loadLunch() {
+    // 兩份都拿到才畫（要週次才算得出這週輪到誰）；任一失敗就安靜不顯示，不猜。
+    fetch(CLOUD_WEEKS + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { weeksData = d; paintLunch(); paintDate(); }).catch(function () {});
+    fetch(CLOUD_LUNCH + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { lunchData = d; paintLunch(); }).catch(function () {});
+  }
+
   /* ── 上下課鐘聲 ── */
   var rungKeys = {};
   function checkBell() {
@@ -598,7 +663,7 @@ body.timing .notes{padding-bottom:20vh}
   load();
   if (!state.duty.base) state.duty.base = todayKey();
   paintDate(); paintNotes(); paintDuty(); paintCloudLabel();
-  applyCloud(false); loadSched(); loadFest(); loadRules();
+  applyCloud(false); loadSched(); loadFest(); loadRules(); loadLunch();
   loop();
 })();
 </script>
