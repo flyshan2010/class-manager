@@ -79,9 +79,21 @@ body.timing .notes{padding-bottom:20vh}
 .toast{position:fixed;left:50%;top:12vh;transform:translateX(-50%) translateY(-20px);
   background:rgba(14,20,33,.94);border:1px solid var(--line);border-radius:16px;padding:2vh 3vw;
   font-size:clamp(30px,5vh,64px);font-weight:800;z-index:40;opacity:0;pointer-events:none;
-  transition:opacity .3s,transform .3s;box-shadow:0 16px 50px rgba(0,0,0,.5)}
+  transition:opacity .3s,transform .3s;box-shadow:0 16px 50px rgba(0,0,0,.5);
+  max-width:80vw;white-space:pre-line;text-align:center;line-height:1.35}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.up{color:var(--ok)} .toast.down{color:var(--warn)}
+.toast.up{color:var(--ok)} .toast.down{color:var(--warn)} .toast.say{color:var(--blue)}
+/* 字幕第二行（要準備什麼）小一級，避免長句在 1600x900 溢出 */
+.toast .sub{display:block;font-size:.52em;font-weight:600;color:var(--chalk-2);margin-top:.5em;letter-spacing:.04em}
+
+/* 節慶倒數（月相時鐘旁） */
+.fest{flex:0 0 auto;display:flex;align-items:center;gap:.45em;
+  background:var(--board-2);border:1px solid var(--line);border-radius:14px;padding:.5vh 1vw}
+.fest .fg{font-size:clamp(24px,3.2vh,44px);line-height:1}
+.fest .ft{display:flex;flex-direction:column;line-height:1.2}
+.fest .fname{font-size:clamp(14px,1.7vh,21px);color:var(--chalk-3);letter-spacing:.06em}
+.fest .fday{font-size:clamp(20px,2.6vh,34px);font-weight:800;color:var(--pink)}
+.fest .fday .u{font-size:.55em;font-weight:600;color:var(--chalk-3);margin-left:.15em}
 
 /* 廣播小按鈕在 HUD 內用彩色膠囊 */
 .panel .bcast-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
@@ -93,6 +105,8 @@ body.timing .notes{padding-bottom:20vh}
 .panel .toggle input{width:auto}
 @media (max-width:900px){
   .top{flex-wrap:wrap;gap:8px 12px}
+  .fest{padding:4px 8px} .fest .fday{font-size:clamp(17px,2.2vh,24px)}
+  .toast{font-size:clamp(22px,4vh,40px);max-width:88vw;padding:1.4vh 4vw}
   .top .grow{flex-basis:100%;height:0;order:5}
   .clock .hm{font-size:clamp(34px,5vh,64px)}
   .duty .seat{font-size:clamp(24px,3.4vh,44px)}
@@ -107,6 +121,8 @@ body.timing .notes{padding-bottom:20vh}
   <div class="top">
     <div class="moon"><div class="glyph" id="moon-g">🌘</div><div class="mname" id="moon-n">—</div></div>
     <div class="date"><div class="d1" id="date-1">—</div><div class="d2" id="date-2"></div></div>
+    <div class="fest" id="fest" hidden><span class="fg" id="fest-g">🎉</span>
+      <span class="ft"><span class="fname" id="fest-n">—</span><span class="fday" id="fest-d"></span></span></div>
     <div class="grow"></div>
     <div class="duty"><span class="label">值日生</span><div class="seats" id="duty-seats"></div></div>
     <div class="clock"><span class="hm" id="clock-hm">--:--</span><span class="sec" id="clock-sec"></span></div>
@@ -118,7 +134,7 @@ body.timing .notes{padding-bottom:20vh}
 </div>
 
 <div class="overflow-tip" id="overflow-tip" hidden></div>
-<div class="timer idle" id="timer"><div class="t" id="timer-t">00:00</div><div class="cap" id="timer-cap">倒數</div></div>
+<div class="timer idle" id="timer"><div class="t" id="timer-t">00:00</div><div class="cap" id="timer-cap">計時</div></div>
 <div class="toast" id="toast"></div>
 
 <div class="hud" id="hud">
@@ -129,7 +145,7 @@ body.timing .notes{padding-bottom:20vh}
   <button type="button" class="pink" data-say="收拾好桌面，準備下課。">準備下課</button>
   <span class="sep"></span>
   <button type="button" id="btn-panel" class="primary">寫聯絡簿</button>
-  <button type="button" data-min="5">倒數5分</button>
+  <button type="button" data-min="5">計時5分</button>
   <button type="button" id="btn-full">全螢幕</button>
   <a class="tip" href="index.html">← 工作台</a>
 </div>
@@ -156,7 +172,7 @@ body.timing .notes{padding-bottom:20vh}
   </div>
 
   <h3>廣播</h3>
-  <p class="hint">用瀏覽器內建語音唸出來（離線可用）。上面 HUD 有快捷鈕，這裡可唸自訂句子。</p>
+  <p class="hint">用瀏覽器內建語音唸出來（離線可用），<b>同時在畫面上出大字字幕</b>——這台裝置沒有中文語音時，學生照樣看得到。上面 HUD 有快捷鈕，這裡可唸自訂句子。</p>
   <div class="row">
     <input id="say-custom" type="text" placeholder="要唸的話…" />
   </div>
@@ -184,8 +200,10 @@ body.timing .notes{padding-bottom:20vh}
   <div class="note-box" id="seat-warn" hidden>還沒設定班級座號，值日生無法自動輪值。請先回 <a href="index.html">教師工作台</a> 設定。</div>
 
   <h3>看板選項</h3>
-  <label class="toggle"><input type="checkbox" id="opt-bell" /> 上下課自動鐘聲（依課表時間，離線可用）</label>
+  <label class="toggle"><input type="checkbox" id="opt-bell" /> 上下課自動鐘聲（依課表時間，離線可用；響鈴同時出字幕，寫出這節是什麼課、要準備什麼）</label>
   <label class="toggle"><input type="checkbox" id="opt-sched" checked /> 顯示今日課表</label>
+
+  <p class="hint" style="margin:6px 0 0">左上角的「節慶倒數」讀班網公開的行事曆（正本在 Notion），<b>只顯示今天之後最近的一個</b>；要改日期請到 Notion 改。右下角的「計時」是上課用的分鐘計時器，兩者不同。</p>
 
   <div class="note-box"><b>資料只留在這台電腦。</b>聯絡簿與設定存在瀏覽器，不上傳、不進版控、不出現在班網，也不存學生姓名。</div>
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
@@ -200,6 +218,8 @@ body.timing .notes{padding-bottom:20vh}
   var KEY = 'classManager.blackboard.v1';
   var CLOUD_CONTACT = 'https://flyshan2010.github.io/class-website/data/contactbook.json';
   var CLOUD_SCHED = 'https://flyshan2010.github.io/class-website/data/schedule.json';
+  var CLOUD_COUNTDOWN = 'https://flyshan2010.github.io/class-website/data/countdown.json';
+  var CLOUD_RULES = 'https://flyshan2010.github.io/class-website/data/class-rules.json';
 
   var state = {
     text: '', source: 'local', localEditDate: '', cloudSyncedAt: '',
@@ -247,7 +267,7 @@ body.timing .notes{padding-bottom:20vh}
     var now = new Date();
     $('clock-hm').textContent = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     $('clock-sec').textContent = String(now.getSeconds()).padStart(2, '0');
-    if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() < 2) { paintDate(); paintDuty(); }
+    if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() < 2) { paintDate(); paintDuty(); paintFest(festData); }
   }
 
   /* ── 聯絡簿 ── */
@@ -377,6 +397,64 @@ body.timing .notes{padding-bottom:20vh}
       .then(function (d) { schedData = d; schedCache.set(d); paintSched(d); }).catch(function () {});
   }
 
+  /* ── 節慶倒數（同源讀班網 countdown.json；正本在 Notion；只顯示最近 1 筆） ── */
+  var festCache = Tool.store('classManager.blackboard.countdown');
+  function daysUntil(ymd) {
+    var m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!m) return null;
+    var t = new Date(+m[1], +m[2] - 1, +m[3]).setHours(0, 0, 0, 0);
+    var today = new Date().setHours(0, 0, 0, 0);
+    return Math.round((t - today) / 86400000);
+  }
+  function paintFest(list) {
+    var box = $('fest');
+    if (!list || !list.length) { box.hidden = true; return; }
+    var best = null, bestD = null;
+    list.forEach(function (it) {
+      var d = daysUntil(it && it.date); if (d === null || d < 0) return;   // 過去的不顯示
+      if (bestD === null || d < bestD) { bestD = d; best = it; }
+    });
+    if (!best) { box.hidden = true; return; }                              // 全部過期＝不顯示
+    box.hidden = false;
+    $('fest-g').textContent = best.emoji || '🎉';
+    $('fest-n').textContent = String(best.title || '').slice(0, 12);
+    $('fest-d').innerHTML = bestD === 0 ? '就是今天' : ('還有 ' + bestD + '<span class="u">天</span>');
+  }
+  var festData = null;
+  function loadFest() {
+    festData = festCache.get(null); paintFest(festData);
+    fetch(CLOUD_COUNTDOWN + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { if (!d || !d.length) return; festData = d; festCache.set(d); paintFest(d); }).catch(function () {});
+  }
+
+  /* ── 這節上什麼課／要準備什麼（科目來自 schedule.json，準備文案來自 Notion 的班規 daily.sop） ── */
+  function subjectOf(period) {
+    if (!schedData || !schedData.periods || !schedData.table) return '';
+    var day = new Date().getDay(); if (day === 0 || day === 6) return '';
+    var i = schedData.periods.indexOf(period); if (i < 0) return '';
+    var cell = (schedData.table[i] || [])[day - 1];
+    if (cell == null) return '';
+    return String(typeof cell === 'object' ? (cell.subject || '') : cell).replace(/[<>&]/g, '');
+  }
+  var rulesCache = Tool.store('classManager.blackboard.rules'), rulesData = null;
+  function loadRules() {
+    rulesData = rulesCache.get(null);
+    fetch(CLOUD_RULES + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { if (!d || !d.daily) return; rulesData = d; rulesCache.set(d); }).catch(function () {});
+  }
+  function prepText() {
+    if (!rulesData || !rulesData.daily) return '';
+    var nowMin = new Date().getHours() * 60 + new Date().getMinutes(), hit = null;
+    rulesData.daily.forEach(function (seg) {
+      var mt = String(seg.label || '').match(/(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2}):(\d{2})/); if (!mt) return;
+      var a = +mt[1] * 60 + +mt[2], b = +mt[3] * 60 + +mt[4];
+      if (nowMin >= a && nowMin < b) hit = seg;
+    });
+    if (!hit || !hit.sop) return '';
+    // 老師在 Notion 寫的 SOP，取前兩個步驟當提示；文案不寫死在程式裡
+    var steps = String(hit.sop).split(/[➜➔→]/).map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+    return steps.slice(0, 2).join('　➜　');
+  }
+
   /* ── 上下課鐘聲 ── */
   var rungKeys = {};
   function checkBell() {
@@ -389,27 +467,54 @@ body.timing .notes{padding-bottom:20vh}
       var mt = String(p.time || '').match(/(\d{1,2}:\d{2})\s*[-–~]\s*(\d{1,2}:\d{2})/); if (!mt) return;
       var start = mt[1].length === 4 ? '0' + mt[1] : mt[1], end = mt[2].length === 4 ? '0' + mt[2] : mt[2];
       var kS = todayKey() + 'S' + start, kE = todayKey() + 'E' + end;
-      if (hm === start && !rungKeys[kS]) { rungKeys[kS] = 1; ring(true, p.name + ' 上課'); }
-      if (hm === end && !rungKeys[kE]) { rungKeys[kE] = 1; ring(false, p.name + ' 下課'); }
+      if (hm === start && !rungKeys[kS]) {
+        rungKeys[kS] = 1;
+        var subj = subjectOf(p); ring(true, p.name + (subj ? ' ' + subj : '') + ' 上課了', prepText());
+      }
+      if (hm === end && !rungKeys[kE]) { rungKeys[kE] = 1; ring(false, p.name + ' 下課', prepText()); }
     });
   }
-  function ring(isUp, label) {
+  function ring(isUp, label, sub) {
     Tool.beep(isUp ? 2 : 3, isUp ? 700 : 520);
-    var t = $('toast'); t.className = 'toast show ' + (isUp ? 'up' : 'down'); t.textContent = (isUp ? '🔔 ' : '🎒 ') + label;
-    setTimeout(function () { t.className = 'toast ' + (isUp ? 'up' : 'down'); }, 4000);
+    subtitle((isUp ? '🔔 ' : '🎒 ') + label, isUp ? 'up' : 'down', sub);
   }
 
-  /* ── 語音廣播 ── */
+  /* ── 字幕（廣播與鐘聲共用；沒有語音引擎時字幕就是主要通道） ── */
+  var subToken = 0;
+  function subDuration(text) { return Math.max(3000, Math.round(String(text || '').length / 4.5 * 1000)); }
+  function subtitle(text, kind, sub, holdUntilCleared) {
+    var t = $('toast'); t.className = 'toast show ' + (kind || '');
+    t.textContent = text;
+    if (sub) { var e = document.createElement('span'); e.className = 'sub'; e.textContent = sub; t.appendChild(e); }
+    var my = ++subToken;
+    if (holdUntilCleared) return my;                    // 交給 onend 收
+    setTimeout(function () { clearSubtitle(my); }, subDuration(text + (sub ? '　' + sub : '')));
+    return my;
+  }
+  function clearSubtitle(token) {
+    if (token && token !== subToken) return;            // 已被新的字幕接手
+    var t = $('toast'); t.className = t.className.replace(' show', '');
+  }
+
+  /* ── 語音廣播（一律配字幕） ── */
   function speak(text) {
     if (!text) return;
+    var st = $('say-status');
+    if (!('speechSynthesis' in window)) {
+      if (st) st.textContent = '這台裝置不支援語音，改用畫面字幕。';
+      subtitle(text, 'say'); return;
+    }
+    var token = subtitle(text, 'say', '', true);        // 先出字幕，語音講完才收
+    var fallback = setTimeout(function () { clearSubtitle(token); }, subDuration(text));
     try {
-      if (!('speechSynthesis' in window)) { $('say-status').textContent = '這台裝置不支援語音，改用畫面提示。'; ring(true, text); return; }
       var u = new SpeechSynthesisUtterance(text); u.lang = 'zh-TW'; u.rate = 0.95; u.pitch = 1;
+      u.onend = u.onerror = function () { clearTimeout(fallback); setTimeout(function () { clearSubtitle(token); }, 600); };
       window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
-    } catch (e) {}
+      if (st) st.textContent = '';
+    } catch (e) { /* 字幕已經出來了，語音失敗不影響 */ }
   }
 
-  /* ── 倒數 ── */
+  /* ── 計時（右下角；與「節慶倒數」是兩件事） ── */
   var timer = { endAt: 0, left: 0, running: false, total: 0 }, rang = false;
   function fmt(ms) { var neg = ms < 0, s = Math.ceil(Math.abs(ms) / 1000), m = Math.floor(s / 60); return (neg ? '-' : '') + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
   function startTimer(min) { timer.total = min * 60000; timer.endAt = Date.now() + timer.total; timer.running = true; rang = false; Tool.beep(2, 660); paintTimer(); }
@@ -422,7 +527,7 @@ body.timing .notes{padding-bottom:20vh}
     var left = timer.running ? timer.endAt - Date.now() : timer.left, cls = 'timer';
     if (!timer.running) cls += ' paused';
     if (left <= 0) { cls += ' over'; if (!rang) { rang = true; Tool.beep(3, 880); } } else if (left <= 60000) cls += ' warn';
-    el.className = cls; $('timer-t').textContent = fmt(left); $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '倒數' : '暫停');
+    el.className = cls; $('timer-t').textContent = fmt(left); $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '計時' : '暫停');
   }
 
   /* ── 面板 ── */
@@ -475,7 +580,7 @@ body.timing .notes{padding-bottom:20vh}
   load();
   if (!state.duty.base) state.duty.base = todayKey();
   paintDate(); paintNotes(); paintDuty(); paintCloudLabel();
-  applyCloud(false); loadSched();
+  applyCloud(false); loadSched(); loadFest(); loadRules();
   loop();
 })();
 </script>
