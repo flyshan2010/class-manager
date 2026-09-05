@@ -79,4 +79,6 @@
 ## 完工定義
 
 - push 後 `curl -s -o /dev/null -w '%{http_code}'` 確認 200，未 200 不得宣稱上線。
+  ⚠️ **單發 curl 會誤判**（U46）：GitHub Pages 首次啟用 404→200 約 1 分鐘、後續部署約 45–90 秒。
+  一律**輪詢到 200／到指紋字串出現為止**：`until curl -s <url> | grep -q <指紋>; do sleep 10; done`。
 - 新增功能同步更新 `docs/老師操作手冊.md`（班級鐵則 8）。
