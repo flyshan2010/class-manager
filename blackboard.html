@@ -50,7 +50,9 @@ body.timing .notes{padding-bottom:20vh}
   font-size:var(--note-fs,clamp(40px,6.2vh,84px));font-weight:600;line-height:1.5;letter-spacing:.06em}
 .note .no{color:var(--mark);font-weight:800;flex:0 0 auto;font-size:.78em;padding-top:.1em}
 .note .no .num{text-combine-upright:all}
-.note .txt{flex:1 1 auto}
+.note .txt{flex:1 1 auto;text-orientation:upright;letter-spacing:.02em}
+/* 半形數字直排時合併成一格（縱中橫），P.10-11 讀起來跟中文一樣是直的 */
+.note .txt .tcy{text-combine-upright:all;letter-spacing:normal}
 .note.done{color:var(--chalk-3);text-decoration:line-through;text-decoration-thickness:.06em}
 .note.hi .txt{color:var(--mark)}
 .note.head{font-size:calc(var(--note-fs,clamp(40px,6.2vh,84px)) * .68);font-weight:800;color:var(--duty);
@@ -286,10 +288,19 @@ body.timing .notes{padding-bottom:20vh}
       else { if (txt.charAt(0) === '*') { cls += ' hi'; txt = txt.slice(1).trim(); } else if (txt.charAt(0) === '~') { cls += ' done'; txt = txt.slice(1).trim(); } n++; }
       var el = document.createElement('div'); el.className = cls;
       if (cls.indexOf('head') === -1) { var no = document.createElement('span'); no.className = 'no'; no.innerHTML = '<span class="num">' + n + '</span>.'; el.appendChild(no); }
-      var t = document.createElement('span'); t.className = 'txt'; t.textContent = txt; el.appendChild(t);
+      var t = document.createElement('span'); t.className = 'txt'; appendVertical(t, txt); el.appendChild(t);
       box.appendChild(el);
     });
     fitNotes();
+  }
+  // 直書排版：中文與標點本來就正立，半形數字改用「縱中橫」合併成一格，
+  // 英文字母靠 CSS 的 text-orientation:upright 立起來——整行看起來才一致（不會只有數字橫躺）。
+  function appendVertical(el, text) {
+    String(text).split(/(\d{1,4})/).forEach(function (part) {
+      if (!part) return;
+      if (/^\d{1,4}$/.test(part)) { var s2 = document.createElement('span'); s2.className = 'tcy'; s2.textContent = part; el.appendChild(s2); }
+      else el.appendChild(document.createTextNode(part));
+    });
   }
   function fitNotes() {
     var box = $('notes'), tip = $('overflow-tip');
