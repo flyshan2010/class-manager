@@ -189,7 +189,8 @@
       ? '班規' + (CIRCLED[r.rule_n] || ('第' + r.rule_n + '條')) + '「' + (r.act || '') + '」'
       : (r.act || '');
     var tail = [];
-    if (r.subj) tail.push(r.subj);
+    // period 常常已經含科目（「第一節·數學」），再列一次科目會變「數學・第一節·數學」
+    if (r.subj && String(r.period || '').indexOf(r.subj) < 0) tail.push(r.subj);
     if (r.period) tail.push(r.period);
     if (r.count > 1) tail.push(r.count + ' 次');
     var c = parseFloat(String(r.coin === undefined ? '' : r.coin).replace('−', '-'));

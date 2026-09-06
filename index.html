@@ -159,7 +159,7 @@
     // 補了會變「++5 幣」（"+5" > 0 在 JS 是 true）。2-1 線上實測抓到。
     var coin = r.coin === undefined || r.coin === '' ? '' : String(r.coin) + ' 幣';
     var bits = ['座號 ' + r.seat, r.act || '(未填行為)'];
-    if (r.subj) bits.push(r.subj);
+    if (r.subj && String(r.period || '').indexOf(r.subj) < 0) bits.push(r.subj);
     if (r.period) bits.push(r.period);
     if (r.count > 1) bits.push(r.count + ' 次');
     if (coin) bits.push(coin);
