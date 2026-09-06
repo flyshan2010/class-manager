@@ -4,9 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>電子看板｜班級管理系統</title>
+<title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260906-3" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260906-5" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -56,6 +56,7 @@
   display:flex;flex-direction:column;flex-wrap:nowrap;align-items:flex-start;
   gap:1.6vw;overflow-x:auto;overflow-y:hidden;padding-bottom:.6vh}
 body.timing .notes{padding-bottom:20vh}
+.notes[hidden]{display:none}
 .notes::-webkit-scrollbar{height:8px}.notes::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
 .note{display:flex;align-items:flex-start;gap:.5em;
   font-size:var(--note-fs,clamp(40px,6.2vh,84px));font-weight:600;line-height:1.5;letter-spacing:.06em}
@@ -118,6 +119,125 @@ body.timing .notes{padding-bottom:20vh}
 .panel .cloud-head .grow{flex:1 1 auto}
 .panel .toggle{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--chalk-2)}
 .panel .toggle input{width:auto}
+/* ── 主區：白板本體（自動情境／聯絡簿／重點板／座位加分／小組／抽問共用一塊版面） ── */
+.boardbar{flex:0 0 auto;display:flex;align-items:center;gap:.8vw;margin-bottom:1vh;flex-wrap:wrap}
+.boardbar .cap{font-size:clamp(15px,2vh,24px);color:var(--chalk-2);display:flex;gap:.6em;align-items:baseline}
+.boardbar .cap b{font-size:clamp(19px,2.6vh,32px);color:var(--chalk);font-weight:800}
+.boardbar .cap span{font-size:.72em;color:var(--chalk-3)}
+.boardbar .grow{flex:1 1 auto}
+.mchip{font-family:inherit;font-size:clamp(13px,1.7vh,18px);font-weight:600;color:var(--chalk-2);
+  background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;
+  padding:.45vh .9vw;cursor:pointer;white-space:nowrap}
+.mchip.on{background:var(--duty);border-color:transparent;color:#08201d}
+#mode-chips{display:flex;gap:.5vw;flex-wrap:wrap}
+
+.main{flex:1 1 auto;display:flex;min-height:0;gap:1.6vw;position:relative}
+#slot-left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;min-height:0}
+.dyn{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+#slot-rules{flex:0 0 min(28vw,430px);border-left:1px solid var(--line);padding-left:1.4vw;
+  overflow-y:auto;min-height:0}
+#slot-rules h2{margin:0 0 1vh;font-size:clamp(19px,2.6vh,30px);font-weight:800;color:var(--duty)}
+#slot-rules .rlabel{font-size:.62em;color:var(--chalk-3);font-weight:500;letter-spacing:.04em}
+.rsop{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:.5vh}
+.rsop li{font-size:clamp(17px,2.2vh,26px);line-height:1.45;color:var(--chalk-2)}
+.rexp{margin-top:1.2vh;font-size:clamp(15px,2vh,23px);color:var(--chalk-3);line-height:1.5}
+.rexp b{display:block;color:var(--mark);font-size:.86em;letter-spacing:.1em;margin-bottom:.2em}
+.rnone{color:var(--chalk-3);font-size:clamp(18px,2.4vh,28px);line-height:1.7}
+
+/* 重點板／進度／時段流程 */
+.lesson h2{margin:0 0 1.4vh;font-size:clamp(26px,3.6vh,50px);font-weight:800}
+.lesson h3.bsub{margin:1.6vh 0 .8vh;font-size:clamp(19px,2.6vh,30px);color:var(--duty)}
+.lpoints{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:1vh}
+.lpoints li{font-size:clamp(22px,3vh,40px);line-height:1.4}
+.lpoints.big li{font-size:clamp(24px,3.4vh,44px)}
+.lfrom{margin-top:1.6vh;font-size:clamp(14px,1.8vh,20px);color:var(--chalk-3)}
+.brules{display:flex;gap:.8vw;flex-wrap:wrap;margin-bottom:1.4vh}
+.brule{font-size:clamp(20px,2.8vh,36px);font-weight:800;color:var(--mark);
+  border:2px solid var(--mark);border-radius:14px;padding:.3vh 1vw}
+
+/* Morning Launch */
+.mlwrap h2{margin:0 0 1.4vh;font-size:clamp(26px,3.4vh,46px);font-weight:800}
+.mlcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(15em,1fr));gap:1.2vw}
+.mlc{background:var(--board-2);border:1px solid var(--line);border-radius:16px;padding:1.4vh 1.2vw}
+.mlh{font-size:clamp(18px,2.4vh,30px);font-weight:800;color:var(--duty);margin-bottom:.4em}
+.mlq{font-size:clamp(19px,2.6vh,32px);line-height:1.4}
+.mlo{display:flex;gap:.6em;flex-wrap:wrap;margin-top:.6em}
+.mlo span{font-size:clamp(15px,2vh,24px);color:var(--chalk-2);background:rgba(255,255,255,.06);
+  border-radius:999px;padding:.2em .7em}
+
+/* 座位加分板 */
+.seathead{display:flex;align-items:baseline;gap:1vw;flex-wrap:wrap;margin-bottom:1.2vh}
+.seathead b{font-size:clamp(20px,2.6vh,32px)}
+.seathead span{font-size:clamp(14px,1.9vh,22px);color:var(--chalk-3)}
+.seathead .stot{margin-left:auto;color:var(--mark);font-weight:700}
+.seatgrid{display:flex;flex-direction:column;gap:.8vmin;align-items:center}
+.seatgrid .srow{display:flex;gap:.8vmin}
+.podium{font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);border:1px dashed var(--line-2);
+  border-radius:8px;padding:.2em 2em;margin-bottom:.6vmin}
+.scell{width:3.2em;height:2.4em;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(20px,3vh,40px);font-weight:700;background:var(--board-2);
+  border:2px solid var(--line-2);border-radius:12px;cursor:pointer;user-select:none;
+  transition:transform .1s,border-color .12s}
+.scell:active{transform:scale(.93)}
+.scell.gap{border:none;background:transparent;cursor:default}
+.scell.hit{border-color:var(--mark);color:var(--mark)}
+.scell .badge{font-size:.45em;margin-left:.15em;color:var(--chalk-3)}
+
+/* 小組計分 */
+.gcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(11em,1fr));gap:1.2vw}
+.gcard{background:var(--board-2);border:2px solid var(--line);border-top:5px solid var(--ac);
+  border-radius:16px;padding:1.2vh 1vw;text-align:center}
+.gcard.lead{border-color:var(--ac)}
+.gname{font-size:clamp(17px,2.2vh,28px);font-weight:800;color:var(--ac)}
+.gmem{font-size:clamp(12px,1.6vh,18px);color:var(--chalk-3);margin:.2em 0 .3em}
+.gscore{font-size:clamp(40px,7vh,96px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.gbtns{display:flex;gap:.4em;justify-content:center;margin-top:.6em}
+.gbtns button{font-family:inherit;font-size:clamp(14px,1.9vh,22px);font-weight:700;cursor:pointer;
+  border-radius:10px;padding:.25em .7em;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--chalk)}
+
+/* 抽籤問答 */
+.quizwrap{display:flex;gap:2vw;height:100%;min-height:0}
+.qmain{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.qnum{font-size:clamp(90px,26vh,280px);font-weight:800;line-height:.95;color:var(--mark);font-variant-numeric:tabular-nums}
+.qnum.idle{font-size:clamp(24px,4vh,44px);color:var(--chalk-3);font-weight:600}
+.qnum.rolling{color:var(--chalk-2)}
+.qans{display:flex;gap:2vw;margin-top:2vh}
+.qans button{font-family:inherit;font-weight:700;font-size:clamp(22px,3.6vh,46px);
+  padding:.3em 1.1em;border-radius:16px;cursor:pointer;border:3px solid;background:transparent}
+.qans .yes{color:var(--ok);border-color:var(--ok)}
+.qans .no{color:var(--warn);border-color:var(--warn)}
+.qboard{flex:0 0 min(26vw,360px);border-left:1px solid var(--line);padding-left:1.4vw;overflow-y:auto}
+.qboard h3{margin:0 0 1vh;font-size:clamp(15px,2vh,24px);color:var(--duty)}
+.qrk{display:flex;align-items:center;gap:.7em;font-size:clamp(17px,2.4vh,30px);padding:.2em .4em}
+.qrk .s{font-weight:700;min-width:2em}
+.qrk .c{margin-left:auto;color:var(--ok);font-weight:700}
+.qrk .w{color:var(--warn);font-size:.72em}
+
+/* 白板畫記層 */
+#doodle{position:absolute;inset:0;z-index:8;pointer-events:none;touch-action:none}
+#doodle.on{pointer-events:auto;cursor:crosshair}
+.drawbar{position:fixed;right:2.4vw;bottom:12vh;z-index:22;display:flex;gap:8px;align-items:center;
+  background:rgba(14,20,33,.9);border:1px solid var(--line);border-radius:999px;padding:8px 12px}
+.drawbar button{font-family:inherit;font-size:14px;color:var(--chalk);cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+.drawbar .pen{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid transparent}
+.drawbar .pen.on{border-color:var(--chalk)}
+.hud button.on{background:var(--mark);border-color:transparent;color:#2a1a06;font-weight:700}
+
+/* 班規紀錄後的修復大字條（與常規檢核台同一套） */
+.fixbar{position:fixed;left:50%;bottom:11vh;transform:translateX(-50%);z-index:20;
+  max-width:92vw;background:var(--board-2);border:2px solid var(--mark);border-radius:18px;
+  padding:1.2vh 2vw;box-shadow:0 18px 48px rgba(0,0,0,.5);display:none}
+.fixbar.show{display:block}
+.fixbar .who{font-size:clamp(20px,2.8vh,36px);font-weight:800;margin-bottom:.25em}
+.fixbar .fix{font-size:clamp(18px,2.4vh,30px);color:var(--mark);line-height:1.5}
+.fixbar .coin{font-size:clamp(16px,2.1vh,26px);color:var(--chalk-3);margin-left:.6em}
+.rule{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0;cursor:pointer;background:rgba(255,255,255,.03)}
+.rule:hover{background:rgba(255,255,255,.08)}
+.rule .ract{font-size:15px;font-weight:600}
+.rule .rmeta{font-size:12.5px;color:var(--chalk-3);margin-top:2px}
+.rule.good{border-left:3px solid var(--ok)} .rule.bad{border-left:3px solid var(--pink)}
+
 @media (max-width:900px){
   .top{flex-wrap:wrap;gap:8px 12px}
   .fest{padding:4px 8px} .fest .fday{font-size:clamp(17px,2.2vh,24px)}
@@ -132,6 +252,12 @@ body.timing .notes{padding-bottom:20vh}
   .duty .seat{font-size:clamp(24px,3.4vh,44px)}
   .note{font-size:var(--note-fs,clamp(34px,5.4vh,64px))}
   .timer .t{font-size:clamp(48px,9vh,120px)}
+  .main{flex-direction:column;gap:1.2vh}
+  #slot-rules{flex:0 0 auto;border-left:none;border-top:1px solid var(--line);padding-left:0;padding-top:1vh;max-height:36vh}
+  .quizwrap{flex-direction:column}
+  .qboard{flex:0 0 auto;border-left:none;border-top:1px solid var(--line);padding-left:0;padding-top:1vh;max-height:30vh}
+  .qnum{font-size:clamp(64px,16vh,140px)}
+  .drawbar{right:auto;left:50%;transform:translateX(-50%);bottom:auto;top:8vh}
 }
 </style>
 </head>
@@ -139,19 +265,50 @@ body.timing .notes{padding-bottom:20vh}
 
 <div class="stage">
   <div class="top">
-    <div class="moon"><div class="glyph" id="moon-g">🌘</div><div class="mname" id="moon-n">—</div></div>
+    <div class="moon" id="moon"><div class="glyph" id="moon-g">🌘</div><div class="mname" id="moon-n">—</div></div>
     <div class="date"><div class="d1" id="date-1">—</div><div class="d2" id="date-2"></div></div>
     <div class="fest" id="fest" hidden><span class="fg" id="fest-g">🎉</span>
       <span class="ft"><span class="fname" id="fest-n">—</span><span class="fday" id="fest-d"></span></span></div>
     <div class="grow"></div>
     <div class="lunch" id="lunch" hidden><span class="label">午餐<b>值週生</b></span><div class="cards" id="lunch-cards"></div></div>
-    <div class="duty"><span class="label">值日生</span><div class="seats" id="duty-seats"></div></div>
-    <div class="clock"><span class="hm" id="clock-hm">--:--</span><span class="sec" id="clock-sec"></span></div>
+    <div class="duty" id="duty-wrap"><span class="label">值日生</span><div class="seats" id="duty-seats"></div></div>
+    <div class="clock" id="clock"><span class="hm" id="clock-hm">--:--</span><span class="sec" id="clock-sec"></span></div>
   </div>
 
   <div class="sched" id="sched"><span class="none">讀取今日課表…</span></div>
 
-  <div class="notes" id="notes"></div>
+  <div class="boardbar">
+    <span class="cap" id="board-cap"></span>
+    <span class="grow"></span>
+    <span id="mode-chips"></span>
+  </div>
+
+  <div class="main" id="board-main">
+    <div id="slot-left">
+      <div class="notes" id="notes"></div>
+      <div class="dyn" id="slot-dyn"></div>
+    </div>
+    <aside id="slot-rules" hidden></aside>
+    <canvas id="doodle"></canvas>
+  </div>
+</div>
+
+<div class="fixbar" id="fixbar"></div>
+<div class="drawbar" id="saybar" hidden>
+  <button type="button" data-say="請小朋友回到教室，準備上課。">回教室</button>
+  <button type="button" data-say="請到走廊排隊。">走廊排隊</button>
+  <button type="button" data-say="請安靜集合，看老師這裡。">集合</button>
+  <button type="button" data-say="請安靜，眼睛看老師。">安靜</button>
+  <button type="button" data-say="收拾好桌面，準備下課。">準備下課</button>
+  <button type="button" id="say-off">收起</button>
+</div>
+<div class="drawbar" id="drawbar" hidden>
+  <button type="button" class="pen on" id="pen-w" style="background:#f4f6fb" title="白"></button>
+  <button type="button" class="pen" id="pen-y" style="background:#f0c85a" title="黃"></button>
+  <button type="button" class="pen" id="pen-p" style="background:#f2789b" title="粉"></button>
+  <button type="button" id="pen-erase">橡皮擦</button>
+  <button type="button" id="pen-clear">清空</button>
+  <button type="button" id="pen-off">收起</button>
 </div>
 
 <div class="overflow-tip" id="overflow-tip" hidden></div>
@@ -161,21 +318,28 @@ body.timing .notes{padding-bottom:20vh}
 <a class="sendtip" id="sendtip" href="index.html" hidden>⏰ <b id="sendtip-n">0</b> 筆未送出　·　回工作台收班</a>
 
 <div class="hud" id="hud">
-  <button type="button" class="blue" data-say="請小朋友回到教室，準備上課。">回教室</button>
-  <button type="button" class="orange" data-say="請到走廊排隊。">走廊排隊</button>
-  <button type="button" class="green" data-say="請安靜集合，看老師這裡。">集合</button>
-  <button type="button" class="purple" data-say="請安靜，眼睛看老師。">安靜</button>
-  <button type="button" class="pink" data-say="收拾好桌面，準備下課。">準備下課</button>
+  <button type="button" id="btn-quiz" class="primary">抽一位</button>
+  <button type="button" id="btn-end" class="pink">結束課程</button>
   <span class="sep"></span>
-  <button type="button" id="btn-panel" class="primary">寫聯絡簿</button>
+  <button type="button" id="btn-draw" class="purple">畫記</button>
+  <button type="button" id="btn-quiet" class="blue">精簡</button>
+  <button type="button" id="btn-focus" class="orange">寫重點</button>
+  <button type="button" id="btn-say-menu" class="green">廣播</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-panel">設定</button>
   <button type="button" data-min="5">計時5分</button>
   <button type="button" id="btn-full">全螢幕</button>
   <a class="tip" href="index.html">← 工作台</a>
 </div>
 
 <div class="scrim" id="scrim"></div>
-<aside class="panel" id="panel" aria-label="看板設定">
-  <h2>寫聯絡簿</h2>
+<aside class="panel" id="panel2" aria-label="班規紀錄">
+  <div id="panel-body"></div>
+  <div class="row"><button type="button" class="ghost" id="btn-close2">關閉</button></div>
+</aside>
+<aside class="panel" id="panel" aria-label="白板設定">
+  <h2>白板設定</h2>
+  <h3>聯絡簿</h3>
   <p class="hint">一行一項，直接寫在看板上。<br>
     行首 <b>#</b> 是分隔標題（例 <code>#國語</code>）；<b>*</b> 是重點（黃字）；<b>~</b> 是已完成（劃掉）。</p>
   <textarea id="ta" spellcheck="false" placeholder="國習 P.28-29&#10;數習 P.15&#10;*明天帶直笛&#10;#提醒&#10;運動服穿學校"></textarea>
@@ -222,9 +386,52 @@ body.timing .notes{padding-bottom:20vh}
     <span class="status" id="duty-status"></span></div>
   <div class="note-box" id="seat-warn" hidden>還沒設定班級座號，值日生無法自動輪值。請先回 <a href="index.html">教師工作台</a> 設定。</div>
 
+  <h3>本節重點</h3>
+  <p class="hint">一行一點，直接投影在白板上。<b id="focus-key">—</b> 這一節專用，換節自動換一份。
+    課程進度會自動從班網「教學單元」帶入，這裡寫了就以這裡為準。</p>
+  <textarea id="focus-ta" spellcheck="false" placeholder="今天要學會的三件事…"></textarea>
+  <div class="row">
+    <button type="button" id="btn-focus-apply">寫上白板</button>
+    <button type="button" class="ghost" id="btn-focus-pull">用課程進度帶入</button>
+    <button type="button" class="ghost" id="btn-focus-clear">清空</button>
+    <span class="status" id="focus-status"></span>
+  </div>
+
+  <h3>白板顯示</h3>
+  <p class="hint">投影時想讓學生專心，就把用不到的資訊關掉（HUD 的「精簡」是一次全關）。</p>
+  <label class="toggle"><input type="checkbox" id="vw-moon" /> 月相</label>
+  <label class="toggle"><input type="checkbox" id="vw-fest" /> 節慶倒數</label>
+  <label class="toggle"><input type="checkbox" id="vw-lunch" /> 午餐值週生</label>
+  <label class="toggle"><input type="checkbox" id="vw-duty" /> 值日生</label>
+  <label class="toggle"><input type="checkbox" id="vw-sched" /> 今日課表</label>
+  <label class="toggle"><input type="checkbox" id="vw-clock" /> 時鐘</label>
+  <label class="toggle"><input type="checkbox" id="vw-rules" /> 自動模式的常規側欄</label>
+
+  <h3>小組計分</h3>
+  <p class="hint">分組與分數沿用原本的小組計分工具，換到白板不會歸零。</p>
+  <div class="row">
+    <div class="col"><label for="g-n">組數</label><input id="g-n" type="number" min="2" max="8" value="4" /></div>
+    <div class="col"><label for="g-mode">分法</label>
+      <select id="g-mode">
+        <option value="serial">依座號平均分（連號）</option>
+        <option value="snake">依座號蛇形分（S 形較平均）</option>
+        <option value="manual">手動指定</option>
+      </select></div>
+  </div>
+  <div id="g-wrap-manual" hidden>
+    <label for="g-manual">每組一行，填座號（逗號分隔）</label>
+    <textarea id="g-manual" style="min-height:110px"></textarea>
+  </div>
+  <label for="g-names">組名（可留白，一行一組）</label>
+  <textarea id="g-names" style="min-height:80px"></textarea>
+  <div class="row">
+    <button type="button" id="btn-g-apply">套用分組</button>
+    <button type="button" class="ghost" id="btn-g-reset">分數歸零</button>
+    <span class="status" id="g-status"></span>
+  </div>
+
   <h3>看板選項</h3>
   <label class="toggle"><input type="checkbox" id="opt-bell" /> 上下課自動鐘聲（依課表時間，離線可用；響鈴同時出字幕，寫出這節是什麼課、要準備什麼）</label>
-  <label class="toggle"><input type="checkbox" id="opt-sched" checked /> 顯示今日課表</label>
 
   <p class="hint" style="margin:6px 0 0">右上角的「<b>午餐值週生</b>」讀班網公開的午餐輪值表（正本在 Notion「🧹 班級工作分配」），<b>每週自動換一班</b>，跟班網「關於我們 → 工作分配」看到的是同一份。姓名已去識別化；這份名單<b>只在畫面上顯示，不存進這台電腦</b>，所以斷網時會暫時不顯示。</p>
   <p class="hint" style="margin:6px 0 0">左上角的「節慶倒數」讀班網公開的行事曆（正本在 Notion），<b>只顯示今天之後最近的一個</b>；要改日期請到 Notion 改。右下角的「計時」是上課用的分鐘計時器，兩者不同。</p>
@@ -233,9 +440,10 @@ body.timing .notes{padding-bottom:20vh}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260906-3"></script>
-<script src="assets/js/tool.js?v=20260906-3"></script>
-<script src="assets/js/events.js?v=20260906-3"></script>
+<script src="assets/js/common.js?v=20260906-5"></script>
+<script src="assets/js/tool.js?v=20260906-5"></script>
+<script src="assets/js/events.js?v=20260906-5"></script>
+<script src="assets/js/board.js?v=20260906-5"></script>
 <script>
 (function () {
   'use strict';
@@ -408,7 +616,9 @@ body.timing .notes{padding-bottom:20vh}
   var schedCache = Tool.store('classManager.blackboard.sched');
   function paintSched(data) {
     var box = $('sched');
-    if (!state.opt.sched) { box.style.display = 'none'; return; }
+    // 課表的顯示由「白板顯示」開關（Board.view.sched）與舊的看板選項一起決定——
+    // 少了前者，HUD 的「精簡」關掉課表後會被這支 250ms 的迴圈立刻打開（實測抓到）。
+    if (!state.opt.sched || (window.Board && !Board.view.sched)) { box.style.display = 'none'; return; }
     box.style.display = '';
     var day = new Date().getDay(); // 0 日..6 六
     if (day === 0 || day === 6) { box.innerHTML = '<span class="none">今天是假日，沒有課表。</span>'; return; }
@@ -430,9 +640,9 @@ body.timing .notes{padding-bottom:20vh}
   }
   var schedData = null;
   function loadSched() {
-    schedData = schedCache.get(null); paintSched(schedData);
+    schedData = schedCache.get(null); paintSched(schedData); if (window.Board) Board.setSchedule(schedData);
     fetch(CLOUD_SCHED + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
-      .then(function (d) { schedData = d; schedCache.set(d); paintSched(d); }).catch(function () {});
+      .then(function (d) { schedData = d; schedCache.set(d); paintSched(d); if (window.Board) Board.setSchedule(d); }).catch(function () {});
   }
 
   /* ── 節慶倒數（同源讀班網 countdown.json；正本在 Notion；只顯示最近 1 筆） ── */
@@ -627,8 +837,8 @@ body.timing .notes{padding-bottom:20vh}
     $('ta').value = state.text;
     $('duty-mode').value = state.duty.mode; $('duty-per').value = state.duty.per;
     $('duty-base').value = state.duty.base || todayKey(); $('duty-start').value = state.duty.start; $('duty-manual').value = state.duty.manual || '';
-    $('opt-bell').checked = !!state.opt.bell; $('opt-sched').checked = !!state.opt.sched;
-    paintCloudLabel(); syncDutyMode();
+    $('opt-bell').checked = !!state.opt.bell;
+    paintCloudLabel(); syncDutyMode(); syncFocus(); syncGroups();
   }
   function syncDutyMode() { var m = $('duty-mode').value; $('wrap-auto').hidden = m !== 'auto'; $('wrap-per').hidden = m !== 'auto'; $('wrap-manual').hidden = m !== 'manual'; $('seat-warn').hidden = !!ClassManager.requireSeats() || m !== 'auto'; }
   function applyNotes() { state.text = $('ta').value; state.source = 'local'; state.localEditDate = todayKey(); var ok = save(); var st = $('notes-status'); st.className = ok ? 'status ok' : 'status warn'; st.textContent = ok ? '已寫上看板。' : '瀏覽器不允許儲存（無痕模式？），畫面有，但關掉會不見。'; paintNotes(); }
@@ -646,11 +856,83 @@ body.timing .notes{padding-bottom:20vh}
   $('btn-say').addEventListener('click', function () { speak($('say-custom').value.trim()); });
   $('say-custom').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btn-say').click(); });
   $('opt-bell').addEventListener('change', function () { state.opt.bell = $('opt-bell').checked; save(); });
-  $('opt-sched').addEventListener('change', function () { state.opt.sched = $('opt-sched').checked; save(); paintSched(schedData); });
 
-  Array.prototype.forEach.call(document.querySelectorAll('.hud [data-say]'), function (b) { b.addEventListener('click', function () { speak(b.dataset.say); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-say]'), function (b) { b.addEventListener('click', function () { speak(b.dataset.say); }); });
   Array.prototype.forEach.call(document.querySelectorAll('.hud [data-min]'), function (b) { b.addEventListener('click', function () { startTimer(parseInt(b.dataset.min, 10)); }); });
   $('btn-full').addEventListener('click', Tool.fullscreen);
+
+  /* ── 電子白板（board.js）接線 ─────────────────────────────────
+     白板把抽籤問答／小組計分／座位加分板收在同一塊版面，並依日課表自動換內容。 */
+  var panel2 = Tool.panel($('panel2'), $('scrim'));
+  function toggleBar(id, on) { var el = $(id); if (el) el.hidden = !on; }
+
+  Board.init({
+    seats: ClassManager.requireSeats() || [],
+    hooks: {
+      onNotes: fitNotes,
+      onResize: fitNotes,
+      subtitle: subtitle,
+      panel: function (html) { $('panel-body').innerHTML = html; panel.close(); panel2.open(); },
+      closePanel: function () { panel2.close(); }
+    }
+  });
+  $('btn-close2').addEventListener('click', function () { panel2.close(); });
+
+  $('btn-quiz').addEventListener('click', Board.drawQuiz);
+  $('btn-end').addEventListener('click', Board.endPeriod);
+  $('btn-quiet').addEventListener('click', Board.toggleQuiet);
+  $('btn-draw').addEventListener('click', function () { Board.setDraw(!Board.isDraw()); });
+  $('btn-say-menu').addEventListener('click', function () { toggleBar('saybar', $('saybar').hidden); });
+  $('say-off').addEventListener('click', function () { toggleBar('saybar', false); });
+  $('pen-off').addEventListener('click', function () { Board.setDraw(false); });
+  $('pen-clear').addEventListener('click', Board.clearDraw);
+  $('pen-erase').addEventListener('click', function () { Board.setPen(null, null, true); });
+  [['pen-w', '#f4f6fb'], ['pen-y', '#f0c85a'], ['pen-p', '#f2789b']].forEach(function (it) {
+    $(it[0]).addEventListener('click', function () {
+      Board.setPen(it[1], null, false);
+      Array.prototype.forEach.call(document.querySelectorAll('.drawbar .pen'), function (b) { b.classList.remove('on'); });
+      $(it[0]).classList.add('on');
+    });
+  });
+  $('btn-focus').addEventListener('click', function () { openPanel(true); setTimeout(function () { $('focus-ta').focus(); }, 80); });
+
+  function syncFocus() {
+    $('focus-key').textContent = Board.focusKey();
+    $('focus-ta').value = Board.focusText();
+  }
+  $('btn-focus-apply').addEventListener('click', function () {
+    Board.focusText($('focus-ta').value);
+    if (Board.mode() === 'auto') Board.render(); else Board.setMode('focus');
+    $('focus-status').className = 'status ok'; $('focus-status').textContent = '已寫上白板。';
+  });
+  $('btn-focus-pull').addEventListener('click', function () {
+    var L = Board.lessonPoints();
+    if (!L) { $('focus-status').className = 'status warn'; $('focus-status').textContent = '今天這一節在班網找不到對應的教學單元。'; return; }
+    $('focus-ta').value = L.points.join('\n');
+    $('focus-status').className = 'status ok'; $('focus-status').textContent = '已帶入「' + L.title + '」的重點，可再改。';
+  });
+  $('btn-focus-clear').addEventListener('click', function () { $('focus-ta').value = ''; Board.focusText(''); $('focus-status').textContent = '已清空。'; });
+
+  ['moon', 'fest', 'lunch', 'duty', 'sched', 'clock', 'rules'].forEach(function (k) {
+    $('vw-' + k).addEventListener('change', function () { Board.setViewFlag(k, $('vw-' + k).checked); });
+  });
+
+  function syncGroups() {
+    var c = Board.groupsConfig();
+    $('g-n').value = c.n; $('g-mode').value = c.mode;
+    $('g-manual').value = c.manual || ''; $('g-names').value = c.names || '';
+    $('g-wrap-manual').hidden = c.mode !== 'manual';
+  }
+  $('g-mode').addEventListener('change', function () { $('g-wrap-manual').hidden = $('g-mode').value !== 'manual'; });
+  $('btn-g-apply').addEventListener('click', function () {
+    Board.groupsConfig({ n: Math.max(2, Math.min(8, parseInt($('g-n').value, 10) || 4)),
+      mode: $('g-mode').value, manual: $('g-manual').value, names: $('g-names').value });
+    $('g-status').className = 'status ok'; $('g-status').textContent = '已重新分組，分數保留。';
+  });
+  $('btn-g-reset').addEventListener('click', function () {
+    if (!confirm('所有小組分數歸零？')) return;
+    Board.groupsReset(); $('g-status').className = 'status ok'; $('g-status').textContent = '已歸零。';
+  });
 
   document.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') { if (e.key === 'Escape') openPanel(false); return; }
@@ -659,6 +941,9 @@ body.timing .notes{padding-bottom:20vh}
     else if (k === 'f') Tool.fullscreen();
     else if (k === ' ') { e.preventDefault(); toggleTimer(); }
     else if (k === '5') startTimer(5);
+    else if (k === 'q') { e.preventDefault(); Board.drawQuiz(); }
+    else if (k === 'd') Board.setDraw(!Board.isDraw());
+    else if (k === 'h') Board.toggleQuiet();
     else if (k === '0') stopTimer();
     else if (k === 'escape') openPanel(false);
   });
