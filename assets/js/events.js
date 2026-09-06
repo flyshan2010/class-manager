@@ -180,7 +180,9 @@
 
   /* 預覽用：把同一批包翻成老師看得懂的任務說明（2026-09-06 老師回饋：原本直接倒 JSON 看不懂）。
      這裡只負責描述，送出去的仍是 pack() 產生的 #CM-EVENTS 原文。 */
-  var TOOL_NAMES = { board: '電子白板', cleanup: '常規檢核台・晨掃', routine: '常規檢核台・課堂', homework: '作業清點' };
+  var TOOL_NAMES = { board: '電子白板', arrive: '工作檢核台・到校簽到', cleanup: '工作檢核台・打掃',
+                     homework: '工作檢核台・作業清點', lunch: '工作檢核台・午餐', teeth: '工作檢核台・潔牙',
+                     routine: '常規檢核台・課堂（3-2 已移除，舊資料才會出現）' };
   var CIRCLED = ['⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
 
   function describeRow(r, i) {
