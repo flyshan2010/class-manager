@@ -57,6 +57,7 @@
       <button id="btn-send" type="button">收班送出</button>
       <button id="btn-preview" class="ghost" type="button">預覽送出內容</button>
       <button id="btn-drop" class="ghost" type="button">全部丟棄</button>
+      <button id="btn-raw" class="ghost" type="button" hidden>顯示原始封包</button>
       <span id="send-status" class="status"></span>
     </div>
     <pre id="send-preview" class="preview" hidden></pre>
@@ -151,6 +152,8 @@
   var CFG_URL = 'https://flyshan2010.github.io/class-website/data/site-config.json';
   var proxyUrl = null;
 
+  var TOOL_LABEL = { board: '電子白板', cleanup: '晨掃檢核', routine: '常規檢核', homework: '作業清點' };
+
   function fmtRow(r) {
     // coin 是 class-rules.json 的原文（已含 + 或 −），不要再補符號——
     // 補了會變「++5 幣」（"+5" > 0 在 JS 是 true）。2-1 線上實測抓到。
@@ -180,7 +183,7 @@
       html += '<div class="sendday"><b>' + d + '</b>';
       byDate[d].forEach(function (r) {
         html += '<div class="senditem"><span class="tag ' + (r.kind === 'bad' ? 'bad' : 'good') + '">' +
-                (r.tool || '') + '</span>' + fmtRow(r) + '</div>';
+                (TOOL_LABEL[r.tool] || r.tool || '') + '</span>' + fmtRow(r) + '</div>';
       });
       html += '</div>';
     });
@@ -194,15 +197,23 @@
     }).then(function (r) { return r.json(); });
   }
 
+  /* 預覽＝老師看得懂的任務說明（2026-09-06 改；原本直接倒 #CM-EVENTS JSON，老師反映看不懂）。
+     原始封包退到「顯示原始封包」按鈕後面，除錯時才需要。 */
+  var rawOn = false;
+  function renderPreview() {
+    var pre = $('send-preview'), btn = $('btn-raw');
+    var desc = CMEvents.describePayloads();
+    if (!desc) { pre.hidden = true; btn.hidden = true; return; }
+    pre.hidden = false; btn.hidden = false;
+    pre.textContent = rawOn ? CMEvents.rawPayloads() : desc;
+    btn.textContent = rawOn ? '改看任務說明' : '顯示原始封包';
+  }
   $('btn-preview').addEventListener('click', function () {
     var pre = $('send-preview');
-    var packs = CMEvents.buildPayloads();
-    if (!packs.length) { pre.hidden = true; return; }
-    pre.hidden = false;
-    pre.textContent = packs.map(function (t, i) {
-      return '── 第 ' + (i + 1) + ' 包（' + t.length + ' 字）──\n' + t;
-    }).join('\n\n');
+    if (!pre.hidden) { pre.hidden = true; $('btn-raw').hidden = true; return; }  // 再按一次收起
+    rawOn = false; renderPreview();
   });
+  $('btn-raw').addEventListener('click', function () { rawOn = !rawOn; renderPreview(); });
 
   $('btn-drop').addEventListener('click', function () {
     if (!CMEvents.count()) return;

@@ -125,7 +125,7 @@
   }
 
   /* 產生要 POST 的任務原文；超過長度就切成多包（part i/n），每包都是完整可解析的 JSON。 */
-  function buildPayloads() {
+  function buildPacks() {
     var rows = merged();
     if (!rows.length) return [];
     var db = read();
@@ -168,10 +168,67 @@
         chunks.push(rest.slice(0, take));
         rest = rest.slice(take);
       }
-      chunks.forEach(function (c, i) { payloads.push(pack(c, i + 1, chunks.length)); });
+      chunks.forEach(function (c, i) {
+        payloads.push({ text: pack(c, i + 1, chunks.length), rows: c, part: i + 1, parts: chunks.length });
+      });
     });
     return payloads;
   }
+
+  /* 對外仍回「字串陣列」，送出端不受影響。 */
+  function buildPayloads() { return buildPacks().map(function (p) { return p.text; }); }
+
+  /* 預覽用：把同一批包翻成老師看得懂的任務說明（2026-09-06 老師回饋：原本直接倒 JSON 看不懂）。
+     這裡只負責描述，送出去的仍是 pack() 產生的 #CM-EVENTS 原文。 */
+  var TOOL_NAMES = { board: '電子白板', cleanup: '常規檢核台・晨掃', routine: '常規檢核台・課堂', homework: '作業清點' };
+  var CIRCLED = ['⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+
+  function describeRow(r, i) {
+    var head = ' ' + (i + 1) + '. 座號 ' + r.seat;
+    var what = r.src === 'rule'
+      ? '班規' + (CIRCLED[r.rule_n] || ('第' + r.rule_n + '條')) + '「' + (r.act || '') + '」'
+      : (r.act || '');
+    var tail = [];
+    if (r.subj) tail.push(r.subj);
+    if (r.period) tail.push(r.period);
+    if (r.count > 1) tail.push(r.count + ' 次');
+    var c = parseFloat(String(r.coin === undefined ? '' : r.coin).replace('−', '-'));
+    var coin = (isNaN(c) || c === 0) ? '只記次數，不動金幣' : (c > 0 ? '+' : '') + c + ' 幣';
+    return head + '　' + what + (tail.length ? '（' + tail.join('・') + '）' : '') + '　' + coin;
+  }
+
+  function describePayloads() {
+    var packs = buildPacks();
+    if (!packs.length) return '';
+    var total = packs.reduce(function (a, p) { return a + p.rows.length; }, 0);
+    var out = ['這次會送出 ' + packs.length + ' 個任務包，共 ' + total + ' 筆紀錄。',
+               '送出後進「📥 任務收件匣」，排程每小時整點處理；處理完下方「任務狀態」會變成「已完成」。'];
+    packs.forEach(function (p, pi) {
+      var sum = 0, tally = 0;
+      p.rows.forEach(function (r) {
+        var c = parseFloat(String(r.coin === undefined ? '' : r.coin).replace('−', '-'));
+        if (isNaN(c) || c === 0) tally++; else sum += c;
+      });
+      var money = (tally === p.rows.length)
+        ? '這包不動金幣（' + tally + ' 筆只記次數）'
+        : '金幣合計：' + (sum > 0 ? '+' : '') + sum + ' 幣' +
+          (tally ? '（另有 ' + tally + ' 筆只記次數、不動金幣）' : '');
+      out.push('');
+      out.push('── 任務包 ' + (pi + 1) + '／' + packs.length + ' ' + Array(20).join('─'));
+      out.push('來源：' + (TOOL_NAMES[p.rows[0].tool] || p.rows[0].tool) +
+               '　日期：' + p.rows[0].date +
+               '　' + p.rows.length + ' 筆　' + money +
+               (p.parts > 1 ? '　（本組第 ' + p.part + '／' + p.parts + ' 段）' : ''));
+      out.push('');
+      p.rows.forEach(function (r, i) { out.push(describeRow(r, i)); });
+      out.push('');
+      out.push('（原始封包 ' + p.text.length + ' 字，格式 #CM-EVENTS v1——那是排程端讀的，不必看懂）');
+    });
+    return out.join('\n');
+  }
+
+  /* 除錯用：還是拿得到原始封包 */
+  function rawPayloads() { return buildPayloads().join('\n\n'); }
 
   /* 送出全部成功後才呼叫：清空待送、把當天批次號往前推一格。 */
   function markSent() {
@@ -220,7 +277,9 @@
   global.CMEvents = {
     REMIND_AT: REMIND_AT, remindAtText: remindAtText, remindDue: remindDue, dismissRemind: dismissRemind,
     KEY: KEY, today: today, push: push, list: list, count: count, clearTool: clearTool,
-    merged: merged, buildPayloads: buildPayloads, markSent: markSent,
+    merged: merged, buildPayloads: buildPayloads,
+    describePayloads: describePayloads, rawPayloads: rawPayloads,
+    markSent: markSent,
     removeAt: removeAt, clearAll: clearAll
   };
 })(window);
