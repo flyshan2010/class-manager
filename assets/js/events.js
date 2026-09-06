@@ -55,7 +55,7 @@
       tool: ev.tool, date: ev.date || today(), seat: Number(ev.seat), src: ev.src,
       kind: ev.kind || 'good', act: ev.act || '', at: ev.at || new Date().toTimeString().slice(0, 5)
     };
-    ['rule_n', 'act_i', 'coin', 'level', 'period', 'subj', 'note', 'fix'].forEach(function (k) {
+    ['rule_n', 'act_i', 'coin', 'level', 'period', 'subj', 'note', 'fix', 'dedupe'].forEach(function (k) {
       if (ev[k] !== undefined && ev[k] !== '') rec[k] = ev[k];
     });
     db.pending.push(rec);
@@ -102,11 +102,14 @@
         }
         return;
       }
-      // id ＝ 防重複鍵（U44）。
-      //  src:'rule' **不帶批次號**：同一生×同一天×同一班規項一天就是一列，
-      //    帶了批次號會讓「同一天送第二次」變成新 id → R18 去重失效 → 重複發錢。
-      //  src:'tally' **帶批次號**：同一天分兩次收班要各記各的次數，不能互相蓋掉（§6 拍板 #10）。
-      var stamp = ev.date.replace(/-/g, '') + (ev.src === 'rule' ? '' : '-b' + batch);
+      // id ＝ 防重複鍵（U44）。判準是「這個事件一天只該有一列嗎」，**不是 src**：
+      //  · 狀態式（一天一態，可以改來改去再重新結算）→ **不帶批次號**，重送同 id → R18 去重。
+      //    包含 src:'rule' 的全部，以及晨掃那種帶 dedupe:'day' 的 tally。
+      //  · 計次式（同一天分兩批收班要各記各的次數，例如抽問／座位板）→ **帶批次號**（§6 拍板 #10）。
+      // 2026-09-06 模擬驗收抓到：晨掃的「打掃缺席」是 tally 卻是狀態式，
+      // 只看 src 會讓同一天結算兩次變成兩列，週結薪水**多扣一次出勤**。
+      var perDay = ev.src === 'rule' || ev.dedupe === 'day';
+      var stamp = ev.date.replace(/-/g, '') + (perDay ? '' : '-b' + batch);
       var m = {
         id: ev.tool + '-' + stamp + '-s' + ev.seat + '-' + sig(ev),
         tool: ev.tool, date: ev.date, seat: ev.seat, src: ev.src, kind: ev.kind,

@@ -128,8 +128,8 @@
       setState(seat, nv);
       Tool.beep(1, nv === 0 ? 720 : 520);
       paintClean(); paintPend();
-      if (nv === 1) flashFix(seat + ' 號 · ③打掃要認真－' + shortAct(3, 'bad', 0),
-                            fixOf(3, 'bad', 0), coinOf(3, 'bad', 0));
+      if (nv === 1) flashFix(seat + ' 號 · 打掃未達標（這次不扣幣）',
+                            fixOf(3, 'bad', 0) + '　·　同一週第 3 次起才會扣 5 幣', '');
       if (nv === 2) flashFix(seat + ' 號 · 打掃缺席', '週結薪水會少算一次出勤（不扣幣）', '');
       if (nv === 3) flashFix(seat + ' 號 · 臨時支援', '這次支援會記進週結（加一次支援）', '');
     });
@@ -213,6 +213,12 @@
   function recordRule(seat, n, kind, i) {
     var c = cardOf(n), a = c && (c[kind] || [])[i];
     if (!a) return;
+    // 幣值 ≥ 10 的重手處分要二次確認：⑩重大安全事件是 −200，
+    // 卻和「打斷同學發言 −5」並排在同一個清單裡，投影時手指滑一下就是 −200（模擬驗收抓到）。
+    if (Math.abs(Number(String(a.coin).replace('−', '-'))) >= 10) {
+      if (!confirm('這一項是 ' + a.coin + ' 幣（重手處分）：\n\n座號 ' + seat + ' · ' + a.act +
+                   '\n\n確定要記嗎？')) return;
+    }
     var note = '';
     if (String(a.act).indexOf('遲到') >= 0) {
       var m = prompt('遲到幾分鐘？（下課靜坐同樣分鐘數；直接按確定＝不記分鐘）', '');
@@ -235,20 +241,24 @@
 
   /* ── 結算（晨掃專用；課堂是即時記錄，不需要結算）──────────────────── */
   function collectClean() {
-    var out = [], c3 = cardOf(3);
+    var out = [];
     Object.keys(st.clean).forEach(function (k) {
       var seat = Number(k), v = st.clean[k];
       if (v === 1) {
-        if (!c3) return;
-        var a = c3.bad[0];
-        out.push({ tool: TOOL_CLEAN, date: st.date, seat: seat, src: 'rule', rule_n: 3,
-                   kind: 'bad', act_i: 0, act: a.act, coin: a.coin, level: a.level, period: '環境晨掃' });
+        // △ 到位未達標＝**只計次，不扣幣**（2026-09-06 老師裁示）。
+        // 既有制度（班經中心使用說明第 11 條）是「1～2 次沒做到不扣幣只補做、3 次以上才 −5」，
+        // 當場記班規③ −5 等於第一次犯就重罰，與制度牴觸。
+        // 累計判斷交給週結（本系統只收資料，加減點一律在任務處理端算）。
+        out.push({ tool: TOOL_CLEAN, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
+                   kind: 'bad', act: '打掃未達標', period: '環境晨掃' });
       } else if (v === 2) {
-        // 缺席不是班規項：走 tally（金幣 0），週結薪水的「−缺席次數」用它
-        out.push({ tool: TOOL_CLEAN, date: st.date, seat: seat, src: 'tally',
+        // 缺席不是班規項：走 tally（金幣 0），週結薪水的「−缺席次數」用它。
+        // dedupe:'day' ＝一天一列（狀態式）：同一天重新結算再送一次要是**同一個 id**，
+        // 否則紀錄庫會出現兩列「打掃缺席」，週結就多扣一次出勤（2026-09-06 模擬抓到）。
+        out.push({ tool: TOOL_CLEAN, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
                    kind: 'bad', act: '打掃缺席', period: '環境晨掃' });
       } else if (v === 3) {
-        out.push({ tool: TOOL_CLEAN, date: st.date, seat: seat, src: 'tally',
+        out.push({ tool: TOOL_CLEAN, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
                    kind: 'good', act: '打掃支援', period: '環境晨掃' });
       }
     });
@@ -257,15 +267,16 @@
 
   function settle() {
     var evs = collectClean();
-    var need3 = evs.some(function (e) { return e.src === 'rule'; });
-    if (need3 && !cardOf(3)) { alert('讀不到班規③，沒辦法結算「到位未達標」（避免用到過期幣值）。'); return; }
     if (!evs.length) { alert('晨掃全部達標，沒有要送的事件（這是好事，✓ 不產生任何紀錄）。'); return; }
     var t = { bad: 0, miss: 0, help: 0 };
-    evs.forEach(function (e) { t[e.src === 'rule' ? 'bad' : (e.kind === 'bad' ? 'miss' : 'help')]++; });
-    if (!confirm('把晨掃結果結算到「待送」嗎？\n\n' +
-      '　△ 到位未達標（' + cardOf(3).bad[0].coin + '）　' + t.bad + ' 人\n' +
-      '　✗ 未到（不扣幣，週結少算一次出勤）　' + t.miss + ' 人\n' +
-      '　＋ 臨時支援（不加幣，週結加一次支援）　' + t.help + ' 人\n\n' +
+    evs.forEach(function (e) {
+      t[e.act === '打掃未達標' ? 'bad' : (e.act === '打掃缺席' ? 'miss' : 'help')]++;
+    });
+    // 三種例外**全部只計次、都不動錢**，扣不扣由週結累計判斷（老師 2026-09-06 裁示）
+    if (!confirm('把晨掃結果結算到「待送」嗎？（這三種都只記次數，不會當場加減幣）\n\n' +
+      '　△ 到位未達標　' + t.bad + ' 人　→ 週結累計：1～2 次不扣幣只補做，3 次以上才 −5\n' +
+      '　✗ 未到　　　　' + t.miss + ' 人　→ 週結少算一次出勤（那次沒薪水）\n' +
+      '　＋ 臨時支援　　' + t.help + ' 人　→ 週結加一次支援\n\n' +
       '再按一次是重新結算，不會疊加。送出仍在工作台按。')) return;
     CMEvents.clearTool(TOOL_CLEAN, st.date);
     evs.forEach(function (e) { CMEvents.push(e); });
