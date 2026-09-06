@@ -39,7 +39,9 @@
 
   /* 合併特徵：同一學生×同一天×同一工具×同一類 合併成一列（§3.3）。 */
   function sig(ev) {
-    if (ev.src === 'rule') return 'r' + ev.rule_n + '.' + (ev.act_i == null ? 0 : ev.act_i);
+    // 「kind」必須進特徵：班規卡的 good 與 bad 各自從 0 編號，不分就會把
+    // 「作業未交(bad0,−5)」和「訂正完成(good0,+5)」合併成同一列（2-1 實作時抓到）。
+    if (ev.src === 'rule') return 'r' + ev.rule_n + (ev.kind === 'good' ? 'g' : 'b') + '.' + (ev.act_i == null ? 0 : ev.act_i);
     // tally：同科目同行為才合併（「座號N 在○○課舉手回答」）
     return 't' + (ev.subj || '') + '.' + (ev.act || '');
   }
@@ -57,6 +59,14 @@
       if (ev[k] !== undefined && ev[k] !== '') rec[k] = ev[k];
     });
     db.pending.push(rec);
+    return write(db);
+  }
+
+  /* 工具頁「重新結算」：清掉本工具當天**還沒送出**的事件，再由工具頁整批重 push。
+     沒有這支，老師按第二次結算就會把同一批再疊一次（次數變兩倍）。 */
+  function clearTool(tool, date) {
+    var db = read(), d = date || today();
+    db.pending = db.pending.filter(function (ev) { return !(ev.tool === tool && ev.date === d); });
     return write(db);
   }
 
@@ -84,10 +94,21 @@
       if (byKey[key]) {
         byKey[key].count += 1;
         byKey[key].rawIdx.push(i);
+        // note 是「哪幾份／哪一項」，合併時全部留下（去重、以「、」串接），
+        // 只取第一筆會讓老師在紀錄庫看到「未交 3 次」卻不知道是哪三份。
+        // 用「、」包起來整串比對，不用 split——作業名稱本身就可能含頓號（「乙本 L2、預習國 L2」）。
+        if (ev.note && ('、' + (byKey[key].note || '') + '、').indexOf('、' + ev.note + '、') < 0) {
+          byKey[key].note = (byKey[key].note ? byKey[key].note + '、' : '') + ev.note;
+        }
         return;
       }
+      // id ＝ 防重複鍵（U44）。
+      //  src:'rule' **不帶批次號**：同一生×同一天×同一班規項一天就是一列，
+      //    帶了批次號會讓「同一天送第二次」變成新 id → R18 去重失效 → 重複發錢。
+      //  src:'tally' **帶批次號**：同一天分兩次收班要各記各的次數，不能互相蓋掉（§6 拍板 #10）。
+      var stamp = ev.date.replace(/-/g, '') + (ev.src === 'rule' ? '' : '-b' + batch);
       var m = {
-        id: ev.tool + '-' + ev.date.replace(/-/g, '') + '-b' + batch + '-s' + ev.seat + '-' + sig(ev),
+        id: ev.tool + '-' + stamp + '-s' + ev.seat + '-' + sig(ev),
         tool: ev.tool, date: ev.date, seat: ev.seat, src: ev.src, kind: ev.kind,
         act: ev.act, count: 1, rawIdx: [i]
       };
@@ -195,7 +216,7 @@
 
   global.CMEvents = {
     REMIND_AT: REMIND_AT, remindAtText: remindAtText, remindDue: remindDue, dismissRemind: dismissRemind,
-    KEY: KEY, today: today, push: push, list: list, count: count,
+    KEY: KEY, today: today, push: push, list: list, count: count, clearTool: clearTool,
     merged: merged, buildPayloads: buildPayloads, markSent: markSent,
     removeAt: removeAt, clearAll: clearAll
   };

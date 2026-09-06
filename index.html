@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>教師工作台｜班級管理系統</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20260906-2" />
+<link rel="stylesheet" href="assets/css/style.css?v=20260906-3" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎒</text></svg>" />
 </head>
 <body>
@@ -96,8 +96,8 @@
   </footer>
 
 </div>
-<script src="assets/js/common.js?v=20260906-2"></script>
-<script src="assets/js/events.js?v=20260906-2"></script>
+<script src="assets/js/common.js?v=20260906-3"></script>
+<script src="assets/js/events.js?v=20260906-3"></script>
 <script>
 (function () {
   'use strict';
@@ -161,7 +161,9 @@
   var proxyUrl = null;
 
   function fmtRow(r) {
-    var coin = r.coin === undefined ? '' : (r.coin > 0 ? '+' + r.coin : String(r.coin)) + ' 幣';
+    // coin 是 class-rules.json 的原文（已含 + 或 −），不要再補符號——
+    // 補了會變「++5 幣」（"+5" > 0 在 JS 是 true）。2-1 線上實測抓到。
+    var coin = r.coin === undefined || r.coin === '' ? '' : String(r.coin) + ' 幣';
     var bits = ['座號 ' + r.seat, r.act || '(未填行為)'];
     if (r.subj) bits.push(r.subj);
     if (r.period) bits.push(r.period);
