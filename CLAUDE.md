@@ -45,9 +45,13 @@
 改配色改這兩處即可，六支工具用同一組 CSS 變數（--duty/--mark/--ok/--warn/--pink/--blue/--purple/--lime/--board*/--chalk*），不要在個別工具硬寫色。
 **全站 RWD**：每頁都有 `@media (max-width:900px/560px)` 斷點；投影仍是主場景（1600×900），但平板／手機開也不得橫向捲動（改版後一律在 390 寬回讀 `scrollWidth<=innerWidth`）。星空是內嵌 SVG data-URI，非外部資源，不違反離線硬規則。
 
-## 課堂工具共用資產（2026-09-03 Phase 1 六支上線）
+## 課堂工具共用資產（Phase 1 六支上線 → 3-1／3-2 收成三頁）
 
-六支工具（blackboard／draw／timer／quiz／homework／groups）共用兩個同源資產，改它們＝改全部工具，改完把版本號往前推、逐支回讀：
+現行三頁：**`blackboard.html` 電子白板**（含抽籤問答／計時／小組計分／座位加分板）、
+**`routine.html` 工作檢核台**（到校簽到→打掃→作業清點→午餐→潔牙五站）、
+**`teacher.html` 教師專區**（待送送出／當節活動紀錄／座號設定）。
+`draw/quiz/groups/timer/homework.html` 都已刪除，內容併進上面三頁。
+共用兩個同源資產，改它們＝改全部工具，改完把版本號往前推、逐頁回讀：
 - `assets/css/projection.css`：投影外殼（板面底色、HUD 底列、側邊面板、按鈕、空狀態）。
 - `assets/js/tool.js`：共用底層 `Tool.*`（座號守門 `requireSeats`、HUD 自動隱藏、全螢幕、提示音、localStorage、洗牌）。個別工具的邏輯不寫這裡。
 座號一律 `Tool.requireSeats(stageEl)`，回 null 就換成「請先回工作台設定」（計時不需座號，例外）。
