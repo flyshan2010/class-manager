@@ -35,6 +35,16 @@
      加上「任何時段都可叫出」的⑥⑩。卡 ① 在課堂只出「上課遲到」那一項（§4.4）。 */
   var CLASS_CARDS = [5, 9, 1, 4, 2, 8, 6, 10];
 
+  /* 「本分」項：已經由工作薪水（週結）支付，再記一次班規正向就是同一件事付兩次錢。
+     老師 2026-09-06 裁示：**只限有工作薪水撐著的③打掃與⑦幹部職務**（午餐同理，
+     但午餐時段要到 2-6 才做）。其餘卡的 good[0]（有禮貌、先聽完再回應…）沒有薪水對應，
+     照常入帳——一刀切會把那些正向獎勵平白取消掉。
+     這兩項改成只記次數；**超過本分**（③good[1] 主動幫忙、⑦good[2] 克服困難）照常入帳。 */
+  var DUTY_PAID = { '3': [0], '7': [1] };
+  function isDutyPaid(n, kind, i) {
+    return kind === 'good' && (DUTY_PAID[String(n)] || []).indexOf(i) >= 0;
+  }
+
   var sdb = Tool.store('classManager.routine.v1');
   var st = sdb.get({ date: '', clean: {}, week: {} });
   if (st.date !== Tool.todayKey()) st = { date: Tool.todayKey(), clean: {}, week: st.week || {} };
@@ -196,9 +206,17 @@
           // 卡①在課堂只出「上課遲到」一項：「上學遲到」與兩個正向項（準時到校／整週沒遲到）
           // 講的都是「到校」，屬晨間報到板的範圍（§4.4），放在課堂分頁點不出道理。
           if (Number(n) === 1 && (kind === 'good' || String(a.act).indexOf('上課') < 0)) return;
+          var meta = isDutyPaid(n, kind, i)
+            ? '本分・週薪已支付 → 只記次數不加幣'
+            : esc(a.coin) + ' 幣' + (a.fix ? '　·　修復：' + esc(a.fix) : '');
+          // ⑤ 的「被記 2 個 ×」是升級處分，不是另一件事：同一行為第 3 次才用
+          //（第 1 次改過不扣、第 2 次 −5、第 3 次 −10）。不寫清楚會被當成可以額外加記的一條。
+          if (Number(n) === 5 && kind === 'bad' && String(a.act).indexOf('被記') >= 0) {
+            meta += '　·　同一行為第 3 次才用（第 1 次改過不扣、第 2 次 −5）';
+          }
           html += '<div class="rule ' + kind + '" data-n="' + n + '" data-k="' + kind + '" data-i="' + i + '">' +
             '<div class="ract">' + esc(a.act) + '</div>' +
-            '<div class="rmeta">' + esc(a.coin) + ' 幣' + (a.fix ? '　·　修復：' + esc(a.fix) : '') + '</div></div>';
+            '<div class="rmeta">' + meta + '</div></div>';
         });
       });
     });
@@ -218,6 +236,17 @@
     if (Math.abs(Number(String(a.coin).replace('−', '-'))) >= 10) {
       if (!confirm('這一項是 ' + a.coin + ' 幣（重手處分）：\n\n座號 ' + seat + ' · ' + a.act +
                    '\n\n確定要記嗎？')) return;
+    }
+    if (isDutyPaid(n, kind, i)) {
+      CMEvents.push({
+        tool: TOOL_CLASS, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
+        kind: 'good', act: a.act, period: '上午課堂'
+      });
+      Tool.beep(2, 720);
+      closePanel(); paintClass(); paintPend();
+      flashFix(seat + ' 號 · ' + c.rule + '－' + a.act,
+               '這是本分，週薪已經在付了，所以只記錄不加幣　·　做得超過本分才另外給', '');
+      return;
     }
     var note = '';
     if (String(a.act).indexOf('遲到') >= 0) {
@@ -346,7 +375,7 @@
     $('tab-class').classList.toggle('on', t === 'class');
     $('view-clean').hidden = t !== 'clean';
     $('view-class').hidden = t !== 'class';
-    $('zonesel').style.display = t === 'clean' ? '' : 'none';
+    $('zonetabs').style.display = t === 'clean' ? '' : 'none';
     $('btn-settle').style.display = t === 'clean' ? '' : 'none';
     $('btn-undo').style.display = t === 'class' ? '' : 'none';
     $('btn-week').style.display = t === 'clean' ? '' : 'none';
@@ -356,18 +385,56 @@
     if (t === 'clean') paintClean(); else paintClass();
   }
 
-  function paintZoneSel() {
-    var sel = $('zonesel'), sup = (data.duties && data.duties.supervisors) || {};
-    var keys = Object.keys(sup);
-    sel.innerHTML = '<option value="all">全部（老師檢核）</option>' +
-      keys.map(function (k) { return '<option value="' + k + '">我是 ' + k + ' 號監督（' + sup[k].length + ' 組）</option>'; }).join('');
-    sel.value = zoneFilter;
-    sel.style.visibility = keys.length ? '' : 'hidden';
+  /* 一個掃區一頁（老師 2026-09-06 指定）。頁籤名不寫死——寫死了換掃區時它不會跟著改，
+     就變成一份會說謊的第二正本。做法：取該監督負責的所有組別名裡**共同出現的字**
+     （圖書室那兩組共同有「圖書室」、樓梯四段共同有「樓梯」），沒有共同字就只用區名。 */
+  function commonTag(names) {
+    if (names.length < 2) return '';
+    var first = names[0], best = '';
+    for (var i = 0; i < first.length; i++) {
+      for (var j = i + 2; j <= first.length; j++) {          // 至少兩個字才算得上標籤
+        var sub = first.slice(i, j);
+        if (/[（）()・\-–]/.test(sub)) continue;
+        if (names.every(function (n) { return n.indexOf(sub) >= 0; }) && sub.length > best.length) best = sub;
+      }
+    }
+    return best;
+  }
+
+  function zoneTabs() {
+    var sup = (data.duties && data.duties.supervisors) || {};
+    return Object.keys(sup).map(function (k) {
+      // supervisors 的值長這樣：「外掃區・二樓圖書室（內）」
+      var zones = [], names = [];
+      sup[k].forEach(function (full) {
+        var p = String(full).split('・');
+        zones.push(p[0]); names.push(p.slice(1).join('・'));
+      });
+      var zone = zones[0], tag = commonTag(names);
+      var same = Object.keys(sup).filter(function (o) {
+        return String(sup[o][0]).split('・')[0] === zone;
+      }).length;
+      return { key: k, label: zone + (same > 1 && tag ? '・' + tag : ''), n: sup[k].length };
+    });
+  }
+
+  function paintZoneTabs() {
+    var box = $('zonetabs'), tabs = zoneTabs();
+    if (!tabs.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<button type="button" data-z="all"' + (zoneFilter === 'all' ? ' class="on"' : '') + '>全部</button>' +
+      tabs.map(function (t) {
+        return '<button type="button" data-z="' + t.key + '"' + (zoneFilter === t.key ? ' class="on"' : '') + '>' +
+               esc(t.label) + '<span class="n">' + t.key + '號</span></button>';
+      }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) {
+      b.addEventListener('click', function () {
+        zoneFilter = b.dataset.z; paintZoneTabs(); paintClean();
+      });
+    });
   }
 
   $('tab-clean').addEventListener('click', function () { setTab('clean'); });
   $('tab-class').addEventListener('click', function () { setTab('class'); });
-  $('zonesel').addEventListener('change', function () { zoneFilter = this.value; paintClean(); });
   $('btn-settle').addEventListener('click', settle);
   $('btn-undo').addEventListener('click', undo);
   $('btn-week').addEventListener('click', weekOverview);
@@ -378,10 +445,10 @@
   });
   Tool.autoHideHud($('hud'));
 
-  setTab('clean'); paintZoneSel(); paintPend();
+  setTab('clean'); paintZoneTabs(); paintPend();
   Promise.all([
     pull('class-rules.json', 'rules', function (j) { return j && j.cards; }),
     pull('duties-seats.json', 'duties'),
     pull('seating-seats.json', 'seating')
-  ]).then(function () { paintZoneSel(); if (tab === 'clean') paintClean(); else paintClass(); });
+  ]).then(function () { paintZoneTabs(); if (tab === 'clean') paintClean(); else paintClass(); });
 })();

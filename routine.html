@@ -14,8 +14,12 @@
   background:var(--board-2);border:2px solid var(--line);border-radius:999px;padding:.5em 1.2em;cursor:pointer}
 .tabs button.on{background:var(--duty);border-color:transparent;color:#08201d}
 .tabs .grow{flex:1 1 auto}
-.tabs select{font-family:inherit;font-size:clamp(14px,1.9vh,20px);color:var(--chalk);
-  background:var(--board-3);border:1px solid var(--line-2);border-radius:12px;padding:.45em .8em}
+/* 掃區子頁籤：一區一頁，監督同學只點自己那一頁（2026-09-06 老師指定） */
+.ztabs{display:flex;gap:.5vw;flex-wrap:wrap}
+.ztabs button{font-family:inherit;font-size:clamp(14px,1.9vh,21px);font-weight:600;color:var(--chalk-2);
+  background:var(--board-3);border:2px solid var(--line-2);border-radius:999px;padding:.35em .95em;cursor:pointer}
+.ztabs button.on{background:var(--blue);border-color:transparent;color:#08152a;font-weight:800}
+.ztabs button .n{font-size:.8em;opacity:.85;margin-left:.35em}
 .tabs .legend{display:flex;gap:1vw;font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);flex-wrap:wrap}
 .tabs .legend b{font-weight:800}
 
@@ -93,7 +97,7 @@
   <div class="tabs">
     <button type="button" id="tab-clean" class="on">🧹 環境晨掃</button>
     <button type="button" id="tab-class">📖 上午課堂</button>
-    <select id="zonesel" aria-label="檢核範圍"></select>
+    <span class="ztabs" id="zonetabs"></span>
     <span class="grow"></span>
     <span class="legend" id="legend"></span>
   </div>
