@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>教師工作台｜班級管理系統</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20260906-6" />
+<link rel="stylesheet" href="assets/css/style.css?v=20260907-1" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎒</text></svg>" />
 </head>
 <body>
@@ -29,58 +29,18 @@
     <a class="tool" href="blackboard.html"><span class="icon">▣</span>
       <h3>電子白板</h3>
       <p>依日課表自動換內容（聯絡簿／Morning Launch／本節重點／下課常規）；座位加分、小組計分、抽籤問答、計時、畫記都在這一頁。</p></a>
-    <a class="tool" href="homework.html"><span class="icon">▤</span>
-      <h3>作業清點</h3>
-      <p>逐項清點作業繳交：未交／已交／要訂正／完成，完成即消失。</p></a>
     <a class="tool" href="routine.html"><span class="icon">✔</span>
-      <h3>常規檢核台</h3>
-      <p>環境晨掃逐人檢核（✓／△／✗／支援）與上午課堂班規紀錄，點完當場投影修復方式。</p></a>
-  </div>
-
-  <h2>今日待送 <span id="send-badge" class="badge">0 筆</span></h2>
-  <p class="hint">課堂工具記下的加減分只留在這台電腦，下課按「收班送出」才一次進 Notion 收件匣，
-    由排程 Agent 入帳。<b>只有這裡能送出</b>，投影工具頁不持有口令。</p>
-
-  <div id="send-remind" class="remind" hidden>
-    <b>⏰ <span id="remind-at">放學</span> 放學了，今天還有 <span id="remind-n">0</span> 筆課堂紀錄沒送出。</b>
-    <span class="hint" style="margin:0">送出後由排程 Agent 入庫，下一個整點就會處理。</span>
-    <span class="row" style="margin-top:10px">
-      <button id="btn-remind-go" type="button">現在送出</button>
-      <button id="btn-remind-off" class="ghost" type="button">今天不再提醒</button>
-    </span>
-  </div>
-
-  <div class="panel">
-    <div id="send-list" class="sendlist"></div>
-    <div class="row">
-      <input id="send-pw" type="password" placeholder="教師口令" autocomplete="off" />
-      <button id="btn-send" type="button">收班送出</button>
-      <button id="btn-preview" class="ghost" type="button">預覽送出內容</button>
-      <button id="btn-drop" class="ghost" type="button">全部丟棄</button>
-      <button id="btn-raw" class="ghost" type="button" hidden>顯示原始封包</button>
-      <span id="send-status" class="status"></span>
-    </div>
-    <pre id="send-preview" class="preview" hidden></pre>
-  </div>
-
-  <h2>班級座號</h2>
-  <p class="hint">課堂工具用座號指認學生，不存姓名。填人數就好；有轉學生留下的空號才需要逐段指定。</p>
-
-  <div class="panel">
-    <label for="seat-input" class="hint" style="display:block;margin-bottom:6px">班級人數，或座號範圍</label>
-    <input id="seat-input" type="text" inputmode="numeric" placeholder="27　或　1-12,14-28" />
-    <div class="row">
-      <button id="btn-save" type="button">儲存</button>
-      <button id="btn-clear" class="ghost" type="button">清除</button>
-      <span id="seat-status" class="status"></span>
-    </div>
-    <p id="seat-preview" class="hint" style="margin:14px 0 0"></p>
+      <h3>工作檢核台</h3>
+      <p>一天的時序收成一頁：到校簽到 → 打掃工作 → 作業清點 → 午餐工作 → 潔牙。預設全班達成，只點例外，點完當場投影修復方式。</p></a>
+    <a class="tool" href="teacher.html"><span class="icon">🔑</span>
+      <h3>教師專區</h3>
+      <p>今日待送 <b id="send-badge" class="badge">0 筆</b>、收班送出、當節活動紀錄、班級座號設定。</p></a>
   </div>
 
   <div class="notice">
-    <b>這裡不存學生姓名。</b>投影在教室前方時座號就足以指認，少了姓名，
-    這個網站的畫面、截圖與程式碼都不可能外洩個資。
-    座號設定只存在這台電腦的瀏覽器裡，換電腦要重設一次。
+    <b>送出與座號設定都在「教師專區」。</b>這一頁上課中會投影，
+    所以把「收班送出」「全部丟棄」「改座號」收進專區，學生誤按不到。
+    教師口令只在送出那一刻輸入，永遠不會存進這台電腦。
   </div>
 
   <footer>
@@ -88,203 +48,21 @@
   </footer>
 
 </div>
-<script src="assets/js/common.js?v=20260906-6"></script>
-<script src="assets/js/events.js?v=20260906-6"></script>
+<script src="assets/js/common.js?v=20260907-1"></script>
+<script src="assets/js/events.js?v=20260907-1"></script>
 <script>
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var input = $('seat-input');
-  var status = $('seat-status');
-  var summary = $('seat-summary');
-  var preview = $('seat-preview');
-
   $('today').textContent = new Date().toLocaleDateString('zh-TW', {
     year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long'
   });
-
-  function refresh() {
-    var data = ClassManager.load();
-    if (data) {
-      var seats = data.seats;
-      summary.textContent = '已設定 ' + seats.length + ' 個座號';
-      input.value = ClassManager.toText(seats);
-      preview.textContent = '目前座號：' + seats.join('、');
-    } else {
-      summary.textContent = '尚未設定座號';
-      preview.textContent = '';
-    }
-  }
-
-  $('btn-save').addEventListener('click', function () {
-    var parsed = ClassManager.parseSeats(input.value);
-    if (parsed.error) {
-      status.className = 'status warn';
-      status.textContent = parsed.error;
-      return;
-    }
-    if (!ClassManager.save(parsed.seats)) {
-      status.className = 'status warn';
-      status.textContent = '瀏覽器不允許儲存，請關閉無痕模式後再試一次。';
-      return;
-    }
-    status.className = 'status ok';
-    status.textContent = '已儲存 ' + parsed.seats.length + ' 個座號。';
-    refresh();
-  });
-
-  $('btn-clear').addEventListener('click', function () {
-    ClassManager.clear();
-    input.value = '';
-    status.className = 'status';
-    status.textContent = '座號設定已清除。';
-    refresh();
-  });
-
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); $('btn-save').click(); }
-  });
-
-  refresh();
-
-  /* ── 今日待送（T0 管線・設計書 §3）───────────────────────────────
-     口令只留 sessionStorage 內的輸入框，送出後清空、永不寫 localStorage（§3.4）。 */
-  var CFG_URL = 'https://flyshan2010.github.io/class-website/data/site-config.json';
-  var proxyUrl = null;
-
-  var TOOL_LABEL = { board: '電子白板', cleanup: '晨掃檢核', routine: '常規檢核', homework: '作業清點' };
-
-  function fmtRow(r) {
-    // coin 是 class-rules.json 的原文（已含 + 或 −），不要再補符號——
-    // 補了會變「++5 幣」（"+5" > 0 在 JS 是 true）。2-1 線上實測抓到。
-    var coin = r.coin === undefined || r.coin === '' ? '' : String(r.coin) + ' 幣';
-    var bits = ['座號 ' + r.seat, r.act || '(未填行為)'];
-    if (r.subj && String(r.period || '').indexOf(r.subj) < 0) bits.push(r.subj);
-    if (r.period) bits.push(r.period);
-    if (r.count > 1) bits.push(r.count + ' 次');
-    if (coin) bits.push(coin);
-    return bits.join('　·　');
-  }
-
-  function refreshSend() {
-    var rows = CMEvents.merged();
-    var badge = $('send-badge');
-    var list = $('send-list');
-    badge.textContent = rows.length + ' 筆';
-    badge.className = 'badge' + (rows.length ? ' soon' : '');
-    if (!rows.length) {
-      list.innerHTML = '<p class="hint" style="margin:0">目前沒有待送事件。課堂工具記下的加減分會出現在這裡。</p>';
-      return;
-    }
-    var byDate = {};
-    rows.forEach(function (r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
-    var html = '';
-    Object.keys(byDate).sort().forEach(function (d) {
-      html += '<div class="sendday"><b>' + d + '</b>';
-      byDate[d].forEach(function (r) {
-        html += '<div class="senditem"><span class="tag ' + (r.kind === 'bad' ? 'bad' : 'good') + '">' +
-                (TOOL_LABEL[r.tool] || r.tool || '') + '</span>' + fmtRow(r) + '</div>';
-      });
-      html += '</div>';
-    });
-    list.innerHTML = html;
-  }
-
-  function post(text) {
-    return fetch(proxyUrl, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'submit_task', pw: $('send-pw').value, text: text })
-    }).then(function (r) { return r.json(); });
-  }
-
-  /* 預覽＝老師看得懂的任務說明（2026-09-06 改；原本直接倒 #CM-EVENTS JSON，老師反映看不懂）。
-     原始封包退到「顯示原始封包」按鈕後面，除錯時才需要。 */
-  var rawOn = false;
-  function renderPreview() {
-    var pre = $('send-preview'), btn = $('btn-raw');
-    var desc = CMEvents.describePayloads();
-    if (!desc) { pre.hidden = true; btn.hidden = true; return; }
-    pre.hidden = false; btn.hidden = false;
-    pre.textContent = rawOn ? CMEvents.rawPayloads() : desc;
-    btn.textContent = rawOn ? '改看任務說明' : '顯示原始封包';
-  }
-  $('btn-preview').addEventListener('click', function () {
-    var pre = $('send-preview');
-    if (!pre.hidden) { pre.hidden = true; $('btn-raw').hidden = true; return; }  // 再按一次收起
-    rawOn = false; renderPreview();
-  });
-  $('btn-raw').addEventListener('click', function () { rawOn = !rawOn; renderPreview(); });
-
-  $('btn-drop').addEventListener('click', function () {
-    if (!CMEvents.count()) return;
-    if (!confirm('要丟棄全部待送事件嗎？丟掉就不會入帳，也救不回來。')) return;
-    CMEvents.clearAll();
-    refreshSend();
-    $('send-status').className = 'status warn';
-    $('send-status').textContent = '待送事件已全部丟棄。';
-  });
-
-  $('btn-send').addEventListener('click', function () {
-    var st = $('send-status');
-    var packs = CMEvents.buildPayloads();
-    if (!packs.length) { st.className = 'status'; st.textContent = '沒有待送事件。'; return; }
-    if (!$('send-pw').value) { st.className = 'status warn'; st.textContent = '請先輸入教師口令。'; return; }
-    st.className = 'status'; st.textContent = '送出中…';
-    $('btn-send').disabled = true;
-
-    var cfg = proxyUrl ? Promise.resolve(proxyUrl)
-      : fetch(CFG_URL + '?t=' + Date.now(), { cache: 'no-store' })
-          .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-          .then(function (j) { proxyUrl = j.updateProxyUrl; return proxyUrl; });
-
-    cfg.then(function (url) {
-      if (!url) throw new Error('讀不到代理網址');
-      // 逐包依序送出；任何一包失敗就整批留在本機（§3.2 失敗即保留）
-      var done = 0;
-      return packs.reduce(function (chain, text) {
-        return chain.then(function () {
-          return post(text).then(function (res) {
-            if (!res || !res.ok) throw new Error(res && res.error ? res.error : '代理回應失敗');
-            done++;
-          });
-        });
-      }, Promise.resolve()).then(function () { return done; });
-    }).then(function (done) {
-      CMEvents.markSent();       // 成功才清、批次號才往前推
-      $('send-pw').value = '';
-      refreshSend();
-      st.className = 'status ok';
-      st.textContent = '已送出 ' + done + ' 包，進了收件匣，排程 Agent 會入帳。';
-    }).catch(function (err) {
-      st.className = 'status warn';
-      st.textContent = '沒送出去（' + (err && err.message ? err.message : '網路或口令有問題') +
-                       '）。待送 ' + CMEvents.merged().length + ' 筆仍留在這台電腦，稍後再按一次即可。';
-    }).then(function () { $('btn-send').disabled = false; });
-  });
-
-  /* 放學提醒：只提醒不代送——口令永不落地（§3.4），送出仍是老師按的那一下。 */
-  function refreshRemind() {
-    var r = CMEvents.remindDue();
-    var box = $('send-remind');
-    box.hidden = !r.due;
-    if (r.due) { $('remind-n').textContent = r.n; $('remind-at').textContent = r.at; }
-  }
-
-  $('btn-remind-go').addEventListener('click', function () {
-    $('send-pw').scrollIntoView({ block: 'center' });
-    $('send-pw').focus();
-  });
-
-  $('btn-remind-off').addEventListener('click', function () {
-    CMEvents.dismissRemind();
-    refreshRemind();
-  });
-
-  var _origRefreshSend = refreshSend;
-  refreshSend = function () { _origRefreshSend(); refreshRemind(); };
-
-  refreshSend();
-  setInterval(refreshRemind, 60000);   // 每分鐘看一次，跨過四點就跳出來
+  var data = ClassManager.load();
+  $('seat-summary').textContent = data ? '已設定 ' + data.seats.length + ' 個座號' : '尚未設定座號';
+  var n = CMEvents.merged().length;
+  var badge = $('send-badge');
+  badge.textContent = n + ' 筆';
+  badge.className = 'badge' + (n ? ' soon' : '');
 })();
 </script>
 </body>

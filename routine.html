@@ -4,29 +4,31 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>常規檢核台｜班級管理系統</title>
+<title>工作檢核台｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✔</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260906-3" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-1" />
 <style>
-/* 分頁列＋掃區選擇 */
-.tabs{flex:0 0 auto;display:flex;gap:.8vw;align-items:center;flex-wrap:wrap;margin-bottom:1.2vh}
-.tabs button{font-family:inherit;font-size:clamp(16px,2.2vh,26px);font-weight:700;color:var(--chalk-2);
-  background:var(--board-2);border:2px solid var(--line);border-radius:999px;padding:.5em 1.2em;cursor:pointer}
+/* 分頁列＝一天的時序：到校 → 打掃 → 作業 → 午餐 → 潔牙（老師 2026-09-06 拍板） */
+.tabs{flex:0 0 auto;display:flex;gap:.6vw;align-items:center;flex-wrap:wrap;margin-bottom:1.2vh}
+.tabs button{font-family:inherit;font-size:clamp(15px,2.1vh,24px);font-weight:700;color:var(--chalk-2);
+  background:var(--board-2);border:2px solid var(--line);border-radius:999px;padding:.5em 1.1em;cursor:pointer}
 .tabs button.on{background:var(--duty);border-color:transparent;color:#08201d}
+.tabs button .step{font-size:.72em;opacity:.7;margin-right:.35em;font-variant-numeric:tabular-nums}
 .tabs .grow{flex:1 1 auto}
+.tabs .legend{display:flex;gap:1vw;font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);flex-wrap:wrap}
+.tabs .legend b{font-weight:800}
+
 /* 掃區子頁籤：一區一頁，監督同學只點自己那一頁（2026-09-06 老師指定） */
 .ztabs{display:flex;gap:.5vw;flex-wrap:wrap}
 .ztabs button{font-family:inherit;font-size:clamp(14px,1.9vh,21px);font-weight:600;color:var(--chalk-2);
   background:var(--board-3);border:2px solid var(--line-2);border-radius:999px;padding:.35em .95em;cursor:pointer}
 .ztabs button.on{background:var(--blue);border-color:transparent;color:#08152a;font-weight:800}
 .ztabs button .n{font-size:.8em;opacity:.85;margin-left:.35em}
-.tabs .legend{display:flex;gap:1vw;font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);flex-wrap:wrap}
-.tabs .legend b{font-weight:800}
 
 .view{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1.2vh}
 .view[hidden]{display:none}
 
-/* 晨掃：一張卡＝一個掃區小組 */
+/* 檢核卡：一張卡＝一個小組／一個崗位 */
 .zcard{background:var(--board-2);border:1px solid var(--line);border-radius:16px;padding:1.1vh 1.2vw}
 .zcard .zhead{display:flex;align-items:baseline;gap:.8vw;flex-wrap:wrap;margin-bottom:.7vh}
 .zcard .zname{font-size:clamp(18px,2.5vh,32px);font-weight:800}
@@ -39,23 +41,52 @@
 .pcard .pn{font-size:clamp(20px,2.7vh,34px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
 .pcard .pm{font-size:clamp(11px,1.5vh,17px);color:var(--chalk-3);line-height:1.3}
 .pcard .ps{font-size:clamp(12px,1.6vh,18px);font-weight:700;line-height:1.2}
-.pcard.s0{border-color:var(--ok);background:rgba(86,197,150,.14)}   .pcard.s0 .ps{color:var(--ok)}
-.pcard.s1{border-color:var(--warn);background:rgba(240,149,78,.16)} .pcard.s1 .ps{color:var(--warn)}
-.pcard.s2{border-color:var(--pink);background:rgba(242,120,155,.16)}.pcard.s2 .ps{color:var(--pink)}
-.pcard.s3{border-color:var(--blue);background:rgba(106,166,240,.16)}.pcard.s3 .ps{color:var(--blue)}
+/* 顏色以「語意」命名，不綁狀態序號——各站的第 2 態不是同一件事（打掃 △ 是橘、午餐 ✗ 是粉） */
+.pcard.t-ok  {border-color:var(--ok);  background:rgba(86,197,150,.14)} .pcard.t-ok   .ps{color:var(--ok)}
+.pcard.t-warn{border-color:var(--warn);background:rgba(240,149,78,.16)} .pcard.t-warn .ps{color:var(--warn)}
+.pcard.t-pink{border-color:var(--pink);background:rgba(242,120,155,.16)}.pcard.t-pink .ps{color:var(--pink)}
+.pcard.t-blue{border-color:var(--blue);background:rgba(106,166,240,.16)}.pcard.t-blue .ps{color:var(--blue)}
 
-/* 上午課堂：座位網格（沒有座位表就退回一般座號列） */
+/* 到校簽到：座位表輕點（與電子白板同一套手勢） */
 .seatgrid{display:flex;flex-direction:column;gap:.8vmin;align-items:center}
 .seatgrid .srow{display:flex;gap:.8vmin}
 .podium{font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);border:1px dashed var(--line-2);
   border-radius:10px;padding:.25em 2.5em;margin-bottom:.6vh}
-.scell{width:3.2em;height:2.4em;display:flex;align-items:center;justify-content:center;
+.scell{width:3.2em;height:2.6em;display:flex;flex-direction:column;align-items:center;justify-content:center;
   font-size:clamp(20px,2.8vh,36px);font-weight:800;font-variant-numeric:tabular-nums;
   border:3px solid var(--line-2);border-radius:12px;background:var(--board-2);color:var(--chalk-2);cursor:pointer}
 .scell:active{transform:scale(.93)}
 .scell.gap{border:none;background:transparent;cursor:default}
-.scell.hit{border-color:var(--mark);color:var(--mark)}
-.scell .badge{font-size:.45em;margin-left:.15em;color:var(--chalk-3)}
+.scell .mk{font-size:.42em;line-height:1;margin-top:.1em}
+.scell.t-warn{border-color:var(--warn);color:var(--warn)}
+.scell.t-pink{border-color:var(--pink);color:var(--pink)}
+
+/* 作業清點／潔牙：座號 chip 一列排開 */
+.items{display:flex;flex-direction:column;gap:1.2vh}
+.itemrow{background:var(--board-2);border:1px solid var(--line);border-radius:16px;padding:1.2vh 1.2vw}
+.itemrow.clear{border-color:rgba(86,197,150,.4);background:rgba(86,197,150,.07)}
+.rowhead{display:flex;align-items:baseline;gap:1vw;flex-wrap:wrap;margin-bottom:.8vh}
+.rowhead .name{font-size:clamp(20px,2.8vh,36px);font-weight:800;color:var(--chalk)}
+.rowhead .cnt{font-size:clamp(14px,1.9vh,22px);color:var(--chalk-2);font-variant-numeric:tabular-nums}
+.rowhead .cnt b{font-weight:800}
+.rowhead .cnt .u{color:var(--chalk-3)} .rowhead .cnt .a{color:var(--blue)}
+.rowhead .cnt .c{color:var(--warn)} .rowhead .cnt .d{color:var(--ok)}
+.rowhead .grow{flex:1 1 auto}
+.rowhead .reset{font-family:inherit;font-size:13px;color:var(--chalk-3);background:transparent;
+  border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer}
+.rowhead .reset:hover{color:var(--chalk-2)}
+.chips{display:flex;flex-wrap:wrap;gap:.6vmin}
+.chip{display:inline-flex;align-items:center;justify-content:center;
+  font-size:clamp(22px,3vh,38px);font-weight:700;font-variant-numeric:tabular-nums;
+  min-width:1.9em;padding:.12em .18em;border:3px solid var(--chalk-3);border-radius:12px;cursor:pointer;
+  color:var(--chalk-2);background:var(--board-3);user-select:none;transition:transform .07s}
+.chip:active{transform:scale(.92)}
+.chip.s1{border-color:var(--blue);color:var(--blue);background:rgba(106,166,240,.14)}
+.chip.s2{border-color:var(--warn);color:var(--warn);background:rgba(240,149,78,.16)}
+.chip.s3{border-color:var(--ok);color:#0f1f14;background:var(--ok)}
+.chip.bad{border-color:var(--pink);color:var(--pink);background:rgba(242,120,155,.16)}
+.rowclear{color:var(--ok);font-size:clamp(18px,2.4vh,30px);font-weight:700}
+.rowclear .sub{color:var(--chalk-3);font-size:.6em;font-weight:400;margin-left:.6em}
 
 /* 點完之後的「修復方式」大字條（這支工具最大的教育價值，要投影得出來） */
 .fixbar{position:fixed;left:50%;bottom:11vh;transform:translateX(-50%);z-index:20;
@@ -64,46 +95,45 @@
 .fixbar.show{display:block}
 .fixbar .who{font-size:clamp(20px,2.8vh,36px);font-weight:800;margin-bottom:.25em}
 .fixbar .fix{font-size:clamp(18px,2.4vh,30px);color:var(--mark);line-height:1.5}
-.fixbar .coin{font-size:clamp(16px,2.1vh,26px);color:var(--chalk-3);margin-left:.6em}
-
-/* 班規選單（側邊面板） */
-.rule{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0;cursor:pointer;background:rgba(255,255,255,.03)}
-.rule:hover{background:rgba(255,255,255,.08)}
-.rule .ract{font-size:15px;font-weight:600}
-.rule .rmeta{font-size:12.5px;color:var(--chalk-3);margin-top:2px}
-.rule.good{border-left:3px solid var(--ok)} .rule.bad{border-left:3px solid var(--pink)}
 
 /* 本週總覽：座號 × 週一～週五 */
 .week{width:100%;border-collapse:collapse;font-size:13.5px}
 .week th,.week td{border:1px solid var(--line);padding:4px 6px;text-align:center}
 .week th{color:var(--chalk-3);font-weight:600}
-.week td.v0{color:var(--ok)} .week td.v1{color:var(--warn)} .week td.v2{color:var(--pink)} .week td.v3{color:var(--blue)}
 
 @media (max-width:900px){
   .pcard{min-width:4.4em}
-  .scell{width:2.6em;height:2em}
-  .tabs button{font-size:clamp(14px,2vh,20px)}
+  .scell{width:2.8em;height:2.3em}
+  .tabs button{font-size:clamp(13px,1.9vh,19px);padding:.45em .8em}
+  .itemrow{padding:1vh 3vw}
+  .chip{font-size:clamp(20px,2.6vh,32px)}
 }
 </style>
 </head>
 <body>
 <div class="stage" id="stage">
   <div class="head">
-    <h1>常規檢核台<span class="sub" id="subtitle">預設全班達成，只點例外</span></h1>
+    <h1>工作檢核台<span class="sub" id="subtitle">預設全班達成，只點例外</span></h1>
     <span class="grow"></span>
     <span class="stat">今日待送 <b id="pend">0</b> 筆</span>
   </div>
 
   <div class="tabs">
-    <button type="button" id="tab-clean" class="on">🧹 環境晨掃</button>
-    <button type="button" id="tab-class">📖 上午課堂</button>
+    <button type="button" id="tab-arrive" class="on"><span class="step">1</span>🚪 到校簽到</button>
+    <button type="button" id="tab-clean"><span class="step">2</span>🧹 打掃工作</button>
+    <button type="button" id="tab-hw"><span class="step">3</span>📚 作業清點</button>
+    <button type="button" id="tab-lunch"><span class="step">4</span>🍚 午餐工作</button>
+    <button type="button" id="tab-teeth"><span class="step">5</span>🦷 潔牙</button>
     <span class="ztabs" id="zonetabs"></span>
     <span class="grow"></span>
     <span class="legend" id="legend"></span>
   </div>
 
-  <div class="view" id="view-clean"></div>
-  <div class="view" id="view-class" hidden></div>
+  <div class="view" id="view-arrive"></div>
+  <div class="view" id="view-clean" hidden></div>
+  <div class="view" id="view-hw" hidden></div>
+  <div class="view" id="view-lunch" hidden></div>
+  <div class="view" id="view-teeth" hidden></div>
 </div>
 
 <div class="fixbar" id="fixbar">
@@ -112,11 +142,12 @@
 </div>
 
 <div class="hud" id="hud">
-  <button type="button" id="btn-settle" class="primary">📤 結算到待送</button>
+  <button type="button" id="btn-settle" class="primary">📤 結算本站到待送</button>
   <span class="tip" id="settled"></span>
   <span class="sep"></span>
-  <button type="button" id="btn-undo">↩ 復原上一筆</button>
-  <button type="button" id="btn-week">📅 本週總覽</button>
+  <button type="button" id="btn-show" hidden>顯示已完成</button>
+  <button type="button" id="btn-week" hidden>📅 本週總覽</button>
+  <button type="button" id="btn-reload">☁ 重讀雲端資料</button>
   <span class="sep"></span>
   <button type="button" id="btn-full">全螢幕</button>
   <a class="tip" href="index.html">← 工作台</a>
@@ -127,9 +158,9 @@
 </aside>
 <div class="scrim" id="scrim"></div>
 
-<script src="assets/js/common.js?v=20260906-3"></script>
-<script src="assets/js/tool.js?v=20260906-3"></script>
-<script src="assets/js/events.js?v=20260906-3"></script>
-<script src="assets/js/routine.js?v=20260906-3"></script>
+<script src="assets/js/common.js?v=20260907-1"></script>
+<script src="assets/js/tool.js?v=20260907-1"></script>
+<script src="assets/js/events.js?v=20260907-1"></script>
+<script src="assets/js/routine.js?v=20260907-1"></script>
 </body>
 </html>
