@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>常規檢核台｜班級管理系統</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✔</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260906-3" />
+<style>
+/* 分頁列＋掃區選擇 */
+.tabs{flex:0 0 auto;display:flex;gap:.8vw;align-items:center;flex-wrap:wrap;margin-bottom:1.2vh}
+.tabs button{font-family:inherit;font-size:clamp(16px,2.2vh,26px);font-weight:700;color:var(--chalk-2);
+  background:var(--board-2);border:2px solid var(--line);border-radius:999px;padding:.5em 1.2em;cursor:pointer}
+.tabs button.on{background:var(--duty);border-color:transparent;color:#08201d}
+.tabs .grow{flex:1 1 auto}
+.tabs select{font-family:inherit;font-size:clamp(14px,1.9vh,20px);color:var(--chalk);
+  background:var(--board-3);border:1px solid var(--line-2);border-radius:12px;padding:.45em .8em}
+.tabs .legend{display:flex;gap:1vw;font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);flex-wrap:wrap}
+.tabs .legend b{font-weight:800}
+
+.view{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1.2vh}
+.view[hidden]{display:none}
+
+/* 晨掃：一張卡＝一個掃區小組 */
+.zcard{background:var(--board-2);border:1px solid var(--line);border-radius:16px;padding:1.1vh 1.2vw}
+.zcard .zhead{display:flex;align-items:baseline;gap:.8vw;flex-wrap:wrap;margin-bottom:.7vh}
+.zcard .zname{font-size:clamp(18px,2.5vh,32px);font-weight:800}
+.zcard .zsub{font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3)}
+.zcard .zsup{margin-left:auto;font-size:clamp(13px,1.7vh,19px);color:var(--blue)}
+.people{display:flex;flex-wrap:wrap;gap:.7vmin}
+.pcard{min-width:5.2em;padding:.35em .5em;border:3px solid var(--ok);border-radius:14px;cursor:pointer;
+  background:rgba(86,197,150,.14);text-align:center;user-select:none;transition:transform .07s}
+.pcard:active{transform:scale(.94)}
+.pcard .pn{font-size:clamp(20px,2.7vh,34px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.pcard .pm{font-size:clamp(11px,1.5vh,17px);color:var(--chalk-3);line-height:1.3}
+.pcard .ps{font-size:clamp(12px,1.6vh,18px);font-weight:700;line-height:1.2}
+.pcard.s0{border-color:var(--ok);background:rgba(86,197,150,.14)}   .pcard.s0 .ps{color:var(--ok)}
+.pcard.s1{border-color:var(--warn);background:rgba(240,149,78,.16)} .pcard.s1 .ps{color:var(--warn)}
+.pcard.s2{border-color:var(--pink);background:rgba(242,120,155,.16)}.pcard.s2 .ps{color:var(--pink)}
+.pcard.s3{border-color:var(--blue);background:rgba(106,166,240,.16)}.pcard.s3 .ps{color:var(--blue)}
+
+/* 上午課堂：座位網格（沒有座位表就退回一般座號列） */
+.seatgrid{display:flex;flex-direction:column;gap:.8vmin;align-items:center}
+.seatgrid .srow{display:flex;gap:.8vmin}
+.podium{font-size:clamp(13px,1.7vh,19px);color:var(--chalk-3);border:1px dashed var(--line-2);
+  border-radius:10px;padding:.25em 2.5em;margin-bottom:.6vh}
+.scell{width:3.2em;height:2.4em;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(20px,2.8vh,36px);font-weight:800;font-variant-numeric:tabular-nums;
+  border:3px solid var(--line-2);border-radius:12px;background:var(--board-2);color:var(--chalk-2);cursor:pointer}
+.scell:active{transform:scale(.93)}
+.scell.gap{border:none;background:transparent;cursor:default}
+.scell.hit{border-color:var(--mark);color:var(--mark)}
+.scell .badge{font-size:.45em;margin-left:.15em;color:var(--chalk-3)}
+
+/* 點完之後的「修復方式」大字條（這支工具最大的教育價值，要投影得出來） */
+.fixbar{position:fixed;left:50%;bottom:11vh;transform:translateX(-50%);z-index:20;
+  max-width:92vw;background:var(--board-2);border:2px solid var(--mark);border-radius:18px;
+  padding:1.2vh 2vw;box-shadow:0 18px 48px rgba(0,0,0,.5);display:none}
+.fixbar.show{display:block}
+.fixbar .who{font-size:clamp(20px,2.8vh,36px);font-weight:800;margin-bottom:.25em}
+.fixbar .fix{font-size:clamp(18px,2.4vh,30px);color:var(--mark);line-height:1.5}
+.fixbar .coin{font-size:clamp(16px,2.1vh,26px);color:var(--chalk-3);margin-left:.6em}
+
+/* 班規選單（側邊面板） */
+.rule{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0;cursor:pointer;background:rgba(255,255,255,.03)}
+.rule:hover{background:rgba(255,255,255,.08)}
+.rule .ract{font-size:15px;font-weight:600}
+.rule .rmeta{font-size:12.5px;color:var(--chalk-3);margin-top:2px}
+.rule.good{border-left:3px solid var(--ok)} .rule.bad{border-left:3px solid var(--pink)}
+
+/* 本週總覽：座號 × 週一～週五 */
+.week{width:100%;border-collapse:collapse;font-size:13.5px}
+.week th,.week td{border:1px solid var(--line);padding:4px 6px;text-align:center}
+.week th{color:var(--chalk-3);font-weight:600}
+.week td.v0{color:var(--ok)} .week td.v1{color:var(--warn)} .week td.v2{color:var(--pink)} .week td.v3{color:var(--blue)}
+
+@media (max-width:900px){
+  .pcard{min-width:4.4em}
+  .scell{width:2.6em;height:2em}
+  .tabs button{font-size:clamp(14px,2vh,20px)}
+}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="head">
+    <h1>常規檢核台<span class="sub" id="subtitle">預設全班達成，只點例外</span></h1>
+    <span class="grow"></span>
+    <span class="stat">今日待送 <b id="pend">0</b> 筆</span>
+  </div>
+
+  <div class="tabs">
+    <button type="button" id="tab-clean" class="on">🧹 環境晨掃</button>
+    <button type="button" id="tab-class">📖 上午課堂</button>
+    <select id="zonesel" aria-label="檢核範圍"></select>
+    <span class="grow"></span>
+    <span class="legend" id="legend"></span>
+  </div>
+
+  <div class="view" id="view-clean"></div>
+  <div class="view" id="view-class" hidden></div>
+</div>
+
+<div class="fixbar" id="fixbar">
+  <div class="who" id="fix-who"></div>
+  <div class="fix" id="fix-text"></div>
+</div>
+
+<div class="hud" id="hud">
+  <button type="button" id="btn-settle" class="primary">📤 結算到待送</button>
+  <span class="tip" id="settled"></span>
+  <span class="sep"></span>
+  <button type="button" id="btn-undo">↩ 復原上一筆</button>
+  <button type="button" id="btn-week">📅 本週總覽</button>
+  <span class="sep"></span>
+  <button type="button" id="btn-full">全螢幕</button>
+  <a class="tip" href="index.html">← 工作台</a>
+</div>
+
+<aside class="panel" id="panel">
+  <div id="panel-body"></div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<script src="assets/js/common.js?v=20260906-3"></script>
+<script src="assets/js/tool.js?v=20260906-3"></script>
+<script src="assets/js/events.js?v=20260906-3"></script>
+<script src="assets/js/routine.js?v=20260906-3"></script>
+</body>
+</html>
