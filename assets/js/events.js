@@ -124,6 +124,11 @@
     return out;
   }
 
+  /* 工具中文名（任務標題與預覽共用，宣告在 buildPacks 之前才拿得到）。 */
+  var TOOL_NAMES = { board: '電子白板', arrive: '到校簽到', cleanup: '打掃工作',
+                     homework: '作業清點', lunch: '午餐工作', teeth: '潔牙',
+                     routine: '常規檢核（舊）' };
+
   /* 產生要 POST 的任務原文；超過長度就切成多包（part i/n），每包都是完整可解析的 JSON。 */
   function buildPacks() {
     var rows = merged();
@@ -148,7 +153,26 @@
           return e;
         })
       };
-      return '#CM-EVENTS v1\n' + JSON.stringify(body);
+      /* 第一行＝機器指紋 `#CM-EVENTS v1` ＋一句白話摘要，第二行起才是 JSON。
+         摘要放在指紋後面而不是前面，是為了**不動排程端 R18 的命中條件**（首行以 #CM-EVENTS 開頭）；
+         老師在 Notion 收件匣看到的標題因此變成
+         「#CM-EVENTS v1 · 📋 作業清點 09/07 · 27 筆：作業完成×24」——每一列都讀得懂。
+         （2026-09-07 老師要求：Notion 標題本身就要清楚，不要靠班網另外翻譯。） */
+      return '#CM-EVENTS v1 · ' + headline(body) + '\n' + JSON.stringify(body);
+    }
+
+    /* 一行摘要：📋 作業清點 09/07 · 27 筆：作業完成×24、未帶課本×3（第1/3包） */
+    function headline(body) {
+      var evs = body.events || [];
+      var by = {};
+      evs.forEach(function (e) { var k = e.act || '（未填行為）'; by[k] = (by[k] || 0) + 1; });
+      var acts = Object.keys(by).sort(function (a, b) { return by[b] - by[a]; });
+      var brief = acts.slice(0, 3).map(function (a) { return a + '×' + by[a]; }).join('、') +
+                  (acts.length > 3 ? ' 等' + acts.length + '種' : '');
+      return '📋 ' + (TOOL_NAMES[body.tool] || body.tool || '課堂工具') +
+             ' ' + String(body.date || '').slice(5).replace('-', '/') +
+             ' · ' + evs.length + ' 筆：' + brief +
+             (body.parts > 1 ? '（第' + body.part + '/' + body.parts + '包）' : '');
     }
 
     // 先切成「同一天同一工具」一組，再依長度切包
@@ -180,9 +204,7 @@
 
   /* 預覽用：把同一批包翻成老師看得懂的任務說明（2026-09-06 老師回饋：原本直接倒 JSON 看不懂）。
      這裡只負責描述，送出去的仍是 pack() 產生的 #CM-EVENTS 原文。 */
-  var TOOL_NAMES = { board: '電子白板', arrive: '工作檢核台・到校簽到', cleanup: '工作檢核台・打掃',
-                     homework: '工作檢核台・作業清點', lunch: '工作檢核台・午餐', teeth: '工作檢核台・潔牙',
-                     routine: '常規檢核台・課堂（3-2 已移除，舊資料才會出現）' };
+
   var CIRCLED = ['⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
 
   function describeRow(r, i) {
@@ -225,7 +247,7 @@
       out.push('');
       p.rows.forEach(function (r, i) { out.push(describeRow(r, i)); });
       out.push('');
-      out.push('（原始封包 ' + p.text.length + ' 字，格式 #CM-EVENTS v1——那是排程端讀的，不必看懂）');
+      out.push('（送出的任務標題就是這一行：' + p.text.split('\n')[0] + '）');
     });
     return out.join('\n');
   }
