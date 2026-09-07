@@ -509,7 +509,7 @@ body.wall .dyn{overflow:hidden}
 <script src="assets/js/tool.js?v=20260907-9"></script>
 <script src="assets/js/events.js?v=20260907-9"></script>
 <script src="assets/js/wall.js?v=20260907-12"></script>
-<script src="assets/js/board.js?v=20260907-12"></script>
+<script src="assets/js/board.js?v=20260907-13"></script>
 <script>
 (function () {
   'use strict';
@@ -966,6 +966,7 @@ body.wall .dyn{overflow:hidden}
     Board.setMode(Board.mode() === 'wall' ? 'auto' : 'wall');
     $('btn-wall').classList.toggle('on', Board.mode() === 'wall');
   });
+  $('btn-wall').classList.toggle('on', Board.mode() === 'wall');   /* 開頁預設就是公布欄，按鈕要亮著 */
   $('wall-ta').value = state.wallNotice || '';
   $('btn-wall-apply').addEventListener('click', function () {
     state.wallNotice = $('wall-ta').value; save(); Board.render();

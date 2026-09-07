@@ -31,8 +31,12 @@
   var sdb = Tool.store('classManager.board.v1');
   var st = sdb.get(null);
   if (!st || st.date !== Tool.todayKey()) {
-    st = { date: Tool.todayKey(), mode: 'auto', seat: {}, quiz: {}, focus: {}, log: (st && st.log) || [], curPeriod: '' };
+    /* 開頁預設＝公布欄（2026-09-07 老師拍板：白板定位是班級電子公布欄）。
+       當天切到別的模式會記住，隔天開頁再回到公布欄。 */
+    st = { date: Tool.todayKey(), mode: 'wall', seat: {}, quiz: {}, focus: {}, log: (st && st.log) || [], curPeriod: '' };
   }
+  /* 一次性遷移：舊資料的今天那筆 mode 還是 auto，補推到 wall（只做一次，之後尊重老師當天的選擇）。 */
+  if (!st.wallDefault) { st.wallDefault = 1; st.mode = 'wall'; }
   if (!st.seat) st.seat = {}; if (!st.quiz) st.quiz = {}; if (!st.focus) st.focus = {}; if (!st.log) st.log = [];
 
   /* 顯示開關（哪些資訊要出現在投影上）——分心來源可以一鍵關掉。 */
@@ -40,7 +44,7 @@
   var view = vdb.get(null) || { moon: 1, fest: 1, lunch: 1, duty: 1, sched: 1, clock: 1, rules: 1 };
 
   var seats = [], sched = null, hooks = {};
-  var mode = st.mode || 'auto';
+  var mode = st.mode || 'wall';
   var pressTimer = null, pressed = false;
 
   function save() { st.mode = mode; sdb.set(st); }
