@@ -38,16 +38,17 @@
     clean: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位達標', t: 'ok' },
             { m: '△', l: '到位未達標', t: 'warn' },
             { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
-    lunch: [{ m: '✓', l: '到位', t: 'ok' }, { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
-    teeth: [{ m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }]
+    lunch: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位', t: 'ok' },
+            { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
+    teeth: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }]
   };
 
   var TAB_TITLE = {
     arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
     clean: '點座號檢核：未檢核 → ✓ 到位達標 → △ 未達標 → ✗ 未到 → ＋ 支援',
     hw: '清點前一天派的作業，點一下往下一個狀態，完成就消失',
-    lunch: '午餐工作只有三態（✓ 到位 → ✗ 未到 → ＋ 臨時支援）',
-    teeth: '預設全班都潔牙，只點沒潔牙的（不扣幣、不記班規）'
+    lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 未到 → ＋ 臨時支援',
+    teeth: '點座號檢核：未點 → ✓ 已潔牙 → ✗ 沒潔牙（不扣幣、不記班規）'
   };
 
   /* 五站的狀態存一起，一天一份；week 留每天的打掃快照供「本週總覽」。 */
@@ -55,9 +56,9 @@
   var st = sdb.get(null);
   /* 狀態編號版本：v3 起到校／打掃多了第 0 態「未點」，舊號碼的語意整個位移，
      照舊資料畫會變成「昨天的出席今天顯示成遲到」。版本不合就重來，不硬搬。 */
-  if (st && st.sv !== 3) st = null;
+  if (st && st.sv !== 4) st = null;
   if (!st || st.date !== Tool.todayKey()) {
-    st = { date: Tool.todayKey(), sv: 3, arrive: {}, clean: {}, lunch: {}, teeth: {}, week: (st && st.week) || {} };
+    st = { date: Tool.todayKey(), sv: 4, arrive: {}, clean: {}, lunch: {}, teeth: {}, week: (st && st.week) || {} };
   }
   ['arrive', 'clean', 'lunch', 'teeth'].forEach(function (k) { if (!st[k]) st[k] = {}; });
   if (!st.week) st.week = {};
@@ -73,10 +74,13 @@
 
   /* 作業清點沿用 v2 舊 store：併頁不該讓老師今天已經點過的清點歸零。 */
   var hdb = Tool.store('classManager.homework.v2');
-  var hw = hdb.get({ date: '', srcDate: '', items: [], status: {} });
+  var hw = hdb.get({ date: '', srcDate: '', items: [], status: {}, carry: {}, due: {} });
   if (hw.date !== Tool.todayKey()) {
-    hw = { date: Tool.todayKey(), srcDate: hw.srcDate || '', items: hw.items || [], status: hw.status || {} };
+    hw = { date: Tool.todayKey(), srcDate: hw.srcDate || '', items: hw.items || [],
+           status: hw.status || {}, carry: hw.carry || {}, due: hw.due || {} };
   }
+  if (!hw.carry) hw.carry = {};
+  if (!hw.due) hw.due = {};
   var HW_STATES = ['未交', '已交', '要訂正', '完成'];
   var showDone = false;
 
@@ -191,10 +195,10 @@
       if (v === 3) flashFix(who + '打掃缺席', '週結薪水會少算一次出勤（不扣幣）');
       if (v === 4) flashFix(who + '臨時支援', '這次支援會記進週結（加一次支援）');
     } else if (kind === 'lunch') {
-      if (v === 1) flashFix(who + '午餐工作未到', '週結午餐薪水會少算一次（不扣幣）');
-      if (v === 2) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
+      if (v === 2) flashFix(who + '午餐工作未到', '週結午餐薪水會少算一次（不扣幣）');
+      if (v === 3) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
     } else if (kind === 'teeth') {
-      if (v === 1) flashFix(who + '今天沒潔牙',
+      if (v === 2) flashFix(who + '今天沒潔牙',
         '不扣幣、不記班規；週結時今天的班級常規獎勵 +1 不給，全勤獎也就沒有');
     } else if (kind === 'arrive') {
       if (v === 2) flashFix(who + '上學遲到', (actOf(1, 'bad', 0) || {}).fix || '結算時會照班規①記一筆');
@@ -306,18 +310,36 @@
     }
     var items = document.createElement('div'); items.className = 'items';
     hw.items.forEach(function (item) {
+      var isCarry = !!hw.carry[item];
       var c = hwCounts(item), rem = c[0] + c[1] + c[2];
-      var row = document.createElement('div'); row.className = 'itemrow' + (rem === 0 ? ' clear' : '');
+      var row = document.createElement('div');
+      row.className = 'itemrow' + (rem === 0 ? ' clear' : '') + (isCarry ? ' carry' : '');
       var head = document.createElement('div'); head.className = 'rowhead';
       head.innerHTML = '<span class="name">' + esc(item) + '</span>' +
+        (isCarry ? '<span class="tagold">⏳ ' + esc((hw.due[item] || '').slice(5) || '之前') +
+                   ' 派・還沒交完</span>' : '') +
         '<span class="cnt"><span class="u">未交 <b>' + c[0] + '</b></span>　<span class="a">已交 <b>' + c[1] +
         '</b></span>　<span class="c">要訂正 <b>' + c[2] + '</b></span>　<span class="d">完成 <b>' + c[3] +
         '</b></span></span><span class="grow"></span>';
-      var reset = document.createElement('button'); reset.className = 'reset'; reset.textContent = '全設未交';
+      var reset = document.createElement('button'); reset.className = 'reset';
+      reset.textContent = isCarry ? '✕ 不再追蹤' : '全設未交';
       reset.addEventListener('click', function () {
+        if (isCarry) {
+          if (!confirm('「' + item + '」不再追蹤？\n\n這一列會從清單消失（不影響已結算的紀錄）。')) return;
+          delete hw.carry[item]; delete hw.status[item]; delete hw.due[item];
+          hw.items = hw.items.filter(function (x) { return x !== item; });
+          hdb.set(hw); paintHw(); return;
+        }
         if (confirm('把「' + item + '」全班設回未交？')) { delete hw.status[item]; hdb.set(hw); paintHw(); }
       });
       head.appendChild(reset); row.appendChild(head);
+      if (isCarry) {
+        var who = seats.filter(function (sn) { return hwState(item, sn) !== 3; });
+        var line = document.createElement('div'); line.className = 'carryline';
+        line.textContent = '還沒交完：' + who.join('、') +
+          '　·　補交追蹤中，這一列不會再送出紀錄（不重複扣分）';
+        row.appendChild(line);
+      }
 
       var shown = seats.filter(function (s) { return showDone || hwState(item, s) !== 3; });
       if (!shown.length) {
@@ -355,8 +377,22 @@
         if (row) String(row.homework).split(/\n+/).map(function (s) { return s.trim(); })
           .filter(Boolean).forEach(function (l) { items.push(l); });
         items.push('聯絡簿');
-        var ns = {}; items.forEach(function (it) { if (hw.status[it]) ns[it] = hw.status[it]; });
-        hw.items = items; hw.status = ns; hw.srcDate = row ? row.date.slice(0, 10) : '';
+        var src = row ? row.date.slice(0, 10) : '';
+        items.forEach(function (it) { if (!hw.due[it]) hw.due[it] = src; });
+        /* 欠交結轉（2026-09-07 老師要求）：昨天派的作業如果還有人沒到「完成」，
+           今天照樣留在清單上，才提醒得了老師與學生。已全班完成的才會自然消失。
+           結轉項目只提醒、**不再進結算**——同一份作業天天結算就會天天扣一次 −5。 */
+        var carry = {};
+        Object.keys(hw.status).forEach(function (k) {
+          if (items.indexOf(k) >= 0) return;
+          var undone = seats.some(function (sn) { return (hw.status[k][sn] || 0) !== 3; });
+          if (undone) carry[k] = hw.carry[k] || hw.due[k] || '';
+        });
+        var keep = items.concat(Object.keys(carry));
+        var ns = {}; keep.forEach(function (it) { if (hw.status[it]) ns[it] = hw.status[it]; });
+        var nd = {}; keep.forEach(function (it) { if (hw.due[it]) nd[it] = hw.due[it]; });
+        hw.items = keep; hw.status = ns; hw.due = nd; hw.carry = carry;
+        hw.srcDate = src;
         hdb.set(hw);
       })
       .catch(function () { if (!hw.items.length) { hw.items = ['聯絡簿']; hdb.set(hw); } });
@@ -419,41 +455,46 @@
   }
 
   function paintLunch() {
-    $('legend').innerHTML = ST.lunch.map(function (s) {
-      return '<span><b>' + s.m + '</b> ' + s.l + '</span>';
-    }).join('') + '<span>午餐工作當場看得到成果，不做「未達標」累計</span>';
-    renderCards($('view-lunch'), 'lunch', lunchCards(),
+    $('legend').innerHTML = '<span>✗ 未到與 ＋ 支援都<b>只記次數</b>，不當場加減幣</span>';
+    var cards = lunchCards();
+    var seen = {}, list = [];
+    (cards || []).forEach(function (c) {
+      c.people.forEach(function (p) { if (!seen[p.seat]) { seen[p.seat] = 1; list.push(p.seat); } });
+    });
+    if (!list.length) list = seats.slice();
+    renderCards($('view-lunch'), 'lunch', cards,
       '<div class="empty"><span class="big">🍚</span>還讀不到午餐工作分配' +
       '<br><span style="font-size:.55em">連上網後會自動帶入班網的「🧹 班級工作分配－午餐」；' +
       '先用下面的一般座號檢核也可以</span></div>');
+    var box = $('view-lunch');
+    box.insertBefore(actionBar('lunch', list, '✅ 全部到位', 1), box.firstChild);
   }
 
   /* ── 5 潔牙 ───────────────────────────────────────────── */
   function paintTeeth() {
-    $('legend').innerHTML = '<span><b>✓</b> 已潔牙（預設）　<b>✗</b> 沒潔牙</span>' +
-      '<span>沒潔牙＝那天常規未達成：不扣幣、不記班規</span>';
+    $('legend').innerHTML = '<span>沒潔牙＝那天常規未達成：不扣幣、不記班規</span>';
     var box = $('view-teeth'); box.innerHTML = '';
-    var miss = seats.filter(function (s) { return stateOf('teeth', s) === 1; });
+    box.appendChild(actionBar('teeth', seats, '✅ 全部已潔牙', 1));
+    var miss = seats.filter(function (s) { return stateOf('teeth', s) === 2; });
+    var ok = seats.filter(function (s) { return stateOf('teeth', s) === 1; });
     var items = document.createElement('div'); items.className = 'items';
     var row = document.createElement('div'); row.className = 'itemrow' + (miss.length ? '' : ' clear');
     var head = document.createElement('div'); head.className = 'rowhead';
     head.innerHTML = '<span class="name">🦷 午餐後潔牙</span>' +
-      '<span class="cnt"><span class="d">已潔牙 <b>' + (seats.length - miss.length) + '</b></span>　' +
-      '<span class="c">沒潔牙 <b>' + miss.length + '</b></span></span><span class="grow"></span>';
-    var reset = document.createElement('button'); reset.className = 'reset'; reset.textContent = '全設已潔牙';
-    reset.addEventListener('click', function () {
-      if (confirm('把全班設回「已潔牙」？')) { st.teeth = {}; sdb.set(st); paintTeeth(); paintPend(); }
-    });
-    head.appendChild(reset); row.appendChild(head);
+      '<span class="cnt"><span class="d">已潔牙 <b>' + ok.length + '</b></span>　' +
+      '<span class="c">沒潔牙 <b>' + miss.length + '</b></span>　' +
+      '<span class="u">還沒點 <b>' + (seats.length - ok.length - miss.length) + '</b></span></span>' +
+      '<span class="grow"></span>';
+    row.appendChild(head);
     var chips = document.createElement('div'); chips.className = 'chips';
     seats.forEach(function (s) {
       var v = stateOf('teeth', s);
       var ch = document.createElement('div');
-      ch.className = 'chip' + (v ? ' bad' : ' s3'); ch.textContent = s;
+      ch.className = 'chip' + (v === 2 ? ' bad' : (v === 1 ? ' s3' : '')); ch.textContent = s;
       ch.title = ST.teeth[v].l;
       ch.addEventListener('click', function () {
-        var nv = v ? 0 : 1;
-        setState('teeth', s, nv); Tool.beep(1, nv ? 460 : 720);
+        var nv = (v + 1) % ST.teeth.length;
+        setState('teeth', s, nv); Tool.beep(1, nv === 2 ? 460 : 720);
         paintTeeth(); paintPend(); explain('teeth', s, nv);
       });
       chips.appendChild(ch);
@@ -493,16 +534,16 @@
     if (kind === 'lunch') {
       Object.keys(st.lunch).forEach(function (k) {
         var seat = Number(k), v = st.lunch[k];
-        if (!v) return;
+        if (v !== 2 && v !== 3) return;                // 0 未檢核、1 到位都不產生事件
         out.push({ tool: TOOL.lunch, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
-                   kind: v === 1 ? 'bad' : 'good', act: v === 1 ? '午餐缺席' : '午餐支援',
+                   kind: v === 2 ? 'bad' : 'good', act: v === 2 ? '午餐缺席' : '午餐支援',
                    period: '午餐工作' });
       });
       return out;
     }
     if (kind === 'teeth') {
       Object.keys(st.teeth).forEach(function (k) {
-        if (st.teeth[k] !== 1) return;
+        if (st.teeth[k] !== 2) return;                 // 2＝✗ 沒潔牙（1＝已潔牙不送出）
         out.push({ tool: TOOL.teeth, date: st.date, seat: Number(k), src: 'tally', dedupe: 'day',
                    kind: 'bad', act: '常規未達成', period: '午餐潔牙', note: '沒潔牙' });
       });
@@ -513,6 +554,7 @@
       if (!c4) return out;
       var MAP = { 0: ['bad', 0], 2: ['bad', 1] };
       hw.items.forEach(function (item) {
+        if (hw.carry[item]) return;         // 結轉的欠交列只提醒，不再結算（避免同一份作業天天扣分）
         seats.forEach(function (s) {
           var v = hwState(item, s);
           if (v === 1) return;                  // 已交：不產生事件
@@ -566,6 +608,7 @@
       '　要訂正（' + (c4.bad[1] || {}).coin + '）　' + c((c4.bad[1] || {}).act) + ' 人次\n' +
       '　完成（只記次數，不當場加幣）　' + c('作業完成') + ' 人次\n\n' +
       '同一人同一天多份會合併成一列並記次數（金幣算一次）。\n' +
+      '⏳ 標「還沒交完」的舊作業只留著提醒，不算進這次結算。\n' +
       '「完成」由週結看全週表現一次給，平日不逐天發幣。\n再按一次會重新結算，不會疊加。';
   }
 
