@@ -170,7 +170,7 @@
     if (dow && le && t >= le && t < le + 60) {
       var b4 = d.book || null;
       return wrap({ kick: hhmm(le) + ' 放學', title: '放學囉', sub: '',
-                    list: HOME_STEPS,
+                    list: HOME_STEPS, mark: true,      /* 口訣用黃字，投影時最醒目 */
                     hw: b4 && b4.homework ? lines(b4.homework).slice(0, 4) : [],
                     foot: b4 && b4.bring ? ['明天要帶：' + lines(b4.bring).join('、')] : ['路上小心，明天見'] });
     }

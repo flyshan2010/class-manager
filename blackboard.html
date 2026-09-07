@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-10" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-12" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -233,6 +233,8 @@ body.wall .dyn{overflow:hidden}
 .wlist{display:flex;flex-direction:column;gap:1vh;margin:.4vh 0 0;padding:0;max-width:90vw}
 .wlist li{list-style:none;font-size:clamp(20px,3.4vh,48px);line-height:1.45;color:var(--chalk-2)}
 .wlist.small li{font-size:clamp(18px,2.8vh,38px)}
+/* 放學口訣這種「要學生照做的話」用黃字，和一般說明分開（2026-09-07 老師指定） */
+.wlist.mark li{color:var(--mark);font-weight:800;font-size:clamp(26px,4.8vh,66px);line-height:1.5}
 .whw{display:flex;align-items:center;gap:.8vw;flex-wrap:wrap;justify-content:center;margin-top:.6vh}
 .whw .wl{font-size:clamp(14px,1.9vh,22px);color:var(--chalk-3);letter-spacing:.12em}
 .whw .wi{font-size:clamp(16px,2.4vh,30px);color:var(--chalk-2);background:var(--board-2);
@@ -506,8 +508,8 @@ body.wall .dyn{overflow:hidden}
 <script src="assets/js/common.js?v=20260907-9"></script>
 <script src="assets/js/tool.js?v=20260907-9"></script>
 <script src="assets/js/events.js?v=20260907-9"></script>
-<script src="assets/js/wall.js?v=20260907-11"></script>
-<script src="assets/js/board.js?v=20260907-10"></script>
+<script src="assets/js/wall.js?v=20260907-12"></script>
+<script src="assets/js/board.js?v=20260907-12"></script>
 <script>
 (function () {
   'use strict';

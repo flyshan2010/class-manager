@@ -199,7 +199,7 @@
     if (v.count != null && v.count >= 0) html += '<div class="wcount">還有 ' + v.count + ' 分鐘</div>';
     (v.notice || []).forEach(function (x) { html += '<div class="wnotice">📢 ' + esc(x) + '</div>'; });
     if ((v.list || []).length) {
-      html += '<ul class="wlist' + (v.list.length > 2 ? ' small' : '') + '">';
+      html += '<ul class="wlist' + (v.list.length > 2 ? ' small' : '') + (v.mark ? ' mark' : '') + '">';
       v.list.forEach(function (x) { html += '<li>' + esc(x) + '</li>'; });
       html += '</ul>';
     }

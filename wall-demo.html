@@ -7,7 +7,7 @@
 <title>公布欄模式・示範｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📢</text></svg>" />
 <link rel="stylesheet" href="assets/css/projection.css?v=20260907-10" />
-<script src="assets/js/wall.js?v=20260907-11"></script>
+<script src="assets/js/wall.js?v=20260907-12"></script>
 <style>
 /* 公布欄（電子公布欄）示範：整頁只講一件事。
    版面＝頂一行細資訊 → 中間單一重點 → 底一行資訊帶。時段由日課表與 Notion 班規時段驅動。 */
@@ -29,6 +29,7 @@
 .wlist li{list-style:none;font-size:clamp(20px,3.4vh,48px);line-height:1.45;color:var(--chalk-2)}
 .wlist li b{color:var(--chalk);font-weight:800}
 .wlist.small li{font-size:clamp(18px,2.8vh,38px)}
+.wlist.mark li{color:var(--mark);font-weight:800;font-size:clamp(26px,4.8vh,66px);line-height:1.5}
 .wcount{font-size:clamp(26px,5vh,72px);color:var(--warn);font-weight:800;font-variant-numeric:tabular-nums}
 
 .wfoot{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:2vw;flex-wrap:wrap;
@@ -186,10 +187,11 @@
       var li = document.createElement('li'); li.innerHTML = esc(x); ul.appendChild(li);
     });
     (v.hw || []).forEach(function (x) {
-      var li = document.createElement('li'); li.style.fontSize = 'clamp(16px,2.4vh,30px)';
+      var li = document.createElement('li');
+      li.style.cssText = 'font-size:clamp(16px,2.4vh,30px);color:var(--chalk-3);font-weight:400';
       li.textContent = '功課：' + x; ul.appendChild(li);
     });
-    ul.className = 'wlist' + ((v.list || []).length > 2 ? ' small' : '');
+    ul.className = 'wlist' + ((v.list || []).length > 2 ? ' small' : '') + (v.mark ? ' mark' : '');
     $('w-foot').innerHTML = (v.foot || []).map(function (x) { return '<span class="tag">' + esc(x) + '</span>'; }).join('');
   }
 
