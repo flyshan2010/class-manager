@@ -25,8 +25,8 @@
     return '';
   }
 
-  /* 放學前的整理五步（老師指定，寫死在這裡：這是每天一樣的固定流程，不必進 Notion）。 */
-  var HOME_STEPS = ['整理地板、抽屜', '桌子對齊、椅子搬起來', '排好路隊、安靜等待'];
+  /* 放學口訣（老師 2026-09-07 定稿，四句七言；每天一樣的固定流程，不必進 Notion）。 */
+  var HOME_STEPS = ['書包座位整理好', '功課餐袋記得帶', '快速安靜排路隊', '平平安安放學去'];
 
   function pad(n) { return String(n).padStart(2, '0'); }
   function hhmm(m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
@@ -169,7 +169,7 @@
     var le = lastEnd();
     if (dow && le && t >= le && t < le + 60) {
       var b4 = d.book || null;
-      return wrap({ kick: hhmm(le) + ' 放學', title: '放學囉', sub: '桌面收乾淨再走',
+      return wrap({ kick: hhmm(le) + ' 放學', title: '放學囉', sub: '',
                     list: HOME_STEPS,
                     hw: b4 && b4.homework ? lines(b4.homework).slice(0, 4) : [],
                     foot: b4 && b4.bring ? ['明天要帶：' + lines(b4.bring).join('、')] : ['路上小心，明天見'] });
