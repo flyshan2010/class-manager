@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-12" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-14" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -216,7 +216,14 @@ body.timing .notes{padding-bottom:20vh}
 
 /* ── 公布欄模式：整頁只講一件事（2026-09-07 老師定位「班級電子公布欄」）──
    進這個模式時把課表 chips、模式列、常規側欄全收起來，只留頂一行與中間的大重點。 */
-body.wall .sched, body.wall .boardbar, body.wall #slot-rules{display:none!important}
+body.wall .boardbar, body.wall #slot-rules{display:none!important}
+/* 公布欄保留今日課表，但縮成一條細帶（現在這一節仍高亮）——老師要「一眼看得出今天有什麼課」 */
+body.wall .sched{gap:.45vw;padding-bottom:.5vh;margin-bottom:.8vh;justify-content:center}
+body.wall .chip{min-width:0;padding:.3vh .7vw;border-radius:10px}
+body.wall .chip .p{font-size:clamp(10px,1.2vh,13px)}
+body.wall .chip .s{font-size:clamp(13px,1.8vh,21px);font-weight:600}
+body.wall .chip.now{border-width:2px}
+body.wall .chip.now .s{font-weight:800}
 body.wall .top{padding-bottom:.8vh;margin-bottom:0}
 body.wall .main{gap:0}
 body.wall .dyn{overflow:hidden}
