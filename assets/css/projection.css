@@ -74,7 +74,8 @@ body::before{
 .hud button.orange{background:var(--warn);border-color:transparent;color:#2a1408}
 .hud button.green{background:var(--ok);border-color:transparent;color:#082013}
 .hud button.purple{background:var(--purple);border-color:transparent;color:#1a1030}
-.hud button.pink,.hud button.blue,.hud button.orange,.hud button.green,.hud button.purple,.hud button.primary{font-weight:700}
+.hud button.lime{background:var(--lime);border-color:transparent;color:#16200c}
+.hud button.pink,.hud button.blue,.hud button.orange,.hud button.green,.hud button.purple,.hud button.lime,.hud button.primary{font-weight:700}
 .hud .sep{width:1px;align-self:stretch;background:var(--line);margin:0 3px}
 .hud .tip{font-size:14px;color:var(--chalk-3);padding:0 6px;text-decoration:none}
 /* HUD 收合：整條縮成底部一顆小把手（2026-09-07 老師反映底部工具列擋操作） */

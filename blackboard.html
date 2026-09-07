@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-9" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-10" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -214,6 +214,37 @@ body.timing .notes{padding-bottom:20vh}
 .qrk .c{margin-left:auto;color:var(--ok);font-weight:700}
 .qrk .w{color:var(--warn);font-size:.72em}
 
+/* ── 公布欄模式：整頁只講一件事（2026-09-07 老師定位「班級電子公布欄」）──
+   進這個模式時把課表 chips、模式列、常規側欄全收起來，只留頂一行與中間的大重點。 */
+body.wall .sched, body.wall .boardbar, body.wall #slot-rules{display:none!important}
+body.wall .top{padding-bottom:.8vh;margin-bottom:0}
+body.wall .main{gap:0}
+body.wall .dyn{overflow:hidden}
+.dyn-wall{display:flex;flex-direction:column;height:100%}
+.wall-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;gap:1.4vh;padding:1.4vh 0}
+.wkick{font-size:clamp(18px,2.6vh,34px);letter-spacing:.34em;color:var(--duty);font-weight:700}
+.wtitle{font-size:clamp(56px,15vh,200px);font-weight:800;line-height:1;letter-spacing:.02em}
+.wtitle.clock{font-variant-numeric:tabular-nums;font-weight:300;letter-spacing:-.02em}
+.wsub{font-size:clamp(22px,4vh,58px);color:var(--mark);font-weight:700;line-height:1.35;max-width:88vw}
+.wcount{font-size:clamp(26px,5vh,72px);color:var(--warn);font-weight:800;font-variant-numeric:tabular-nums}
+.wnotice{font-size:clamp(24px,4.2vh,58px);font-weight:800;color:var(--pink);line-height:1.35;max-width:88vw;
+  border:2px solid rgba(242,120,155,.5);border-radius:18px;padding:.5vh 1.4vw;background:rgba(242,120,155,.08)}
+.wlist{display:flex;flex-direction:column;gap:1vh;margin:.4vh 0 0;padding:0;max-width:90vw}
+.wlist li{list-style:none;font-size:clamp(20px,3.4vh,48px);line-height:1.45;color:var(--chalk-2)}
+.wlist.small li{font-size:clamp(18px,2.8vh,38px)}
+.whw{display:flex;align-items:center;gap:.8vw;flex-wrap:wrap;justify-content:center;margin-top:.6vh}
+.whw .wl{font-size:clamp(14px,1.9vh,22px);color:var(--chalk-3);letter-spacing:.12em}
+.whw .wi{font-size:clamp(16px,2.4vh,30px);color:var(--chalk-2);background:var(--board-2);
+  border:1px solid var(--line);border-radius:999px;padding:.25em .9em}
+.wall-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:1.4vw;flex-wrap:wrap;
+  padding-top:1.2vh;border-top:1px solid var(--line);font-size:clamp(15px,2.1vh,26px);color:var(--chalk-3)}
+.wall-foot .tag{background:var(--board-2);border:1px solid var(--line);border-radius:999px;padding:.3em 1em}
+@media (max-width:900px){
+  .wtitle{font-size:clamp(44px,11vh,110px)}
+  .wsub{font-size:clamp(19px,3.2vh,34px)}
+}
+
 /* 白板畫記層 */
 #doodle{position:absolute;inset:0;z-index:8;pointer-events:none;touch-action:none}
 #doodle.on{pointer-events:auto;cursor:crosshair}
@@ -341,6 +372,7 @@ body.timing .notes{padding-bottom:20vh}
   <button type="button" id="btn-quiz" class="primary">抽一位</button>
   <button type="button" id="btn-end" class="pink">結束課程</button>
   <span class="sep"></span>
+  <button type="button" id="btn-wall" class="lime">📢 公布欄</button>
   <button type="button" id="btn-draw" class="purple">畫記</button>
   <button type="button" id="btn-quiet" class="blue">精簡</button>
   <button type="button" id="btn-focus" class="orange">寫重點</button>
@@ -417,6 +449,17 @@ body.timing .notes{padding-bottom:20vh}
     <span class="status" id="focus-status"></span>
   </div>
 
+  <h3>公布欄公告</h3>
+  <p class="hint">公布欄模式（HUD 的「📢 公布欄」）會用到。<b>一行一則</b>：<br>
+    直接寫字 → 一直掛在畫面最下面（例：<code>今天要繳交回條</code>）；<br>
+    前面加時間 → 只在那段時間變成畫面上的粉紅色大字公告（例：<code>09:15-09:30 記得喝水</code>）。</p>
+  <textarea id="wall-ta" spellcheck="false" placeholder="09:15-09:30 記得喝水&#10;今天要繳交回條"></textarea>
+  <div class="row">
+    <button type="button" id="btn-wall-apply">存起來</button>
+    <button type="button" class="ghost" id="btn-wall-clear">清空</button>
+    <span class="status" id="wall-status"></span>
+  </div>
+
   <h3>白板顯示</h3>
   <p class="hint">投影時想讓學生專心，就把用不到的資訊關掉（HUD 的「精簡」是一次全關）。</p>
   <label class="toggle"><input type="checkbox" id="vw-moon" /> 月相</label>
@@ -463,7 +506,8 @@ body.timing .notes{padding-bottom:20vh}
 <script src="assets/js/common.js?v=20260907-9"></script>
 <script src="assets/js/tool.js?v=20260907-9"></script>
 <script src="assets/js/events.js?v=20260907-9"></script>
-<script src="assets/js/board.js?v=20260907-9"></script>
+<script src="assets/js/wall.js?v=20260907-10"></script>
+<script src="assets/js/board.js?v=20260907-10"></script>
 <script>
 (function () {
   'use strict';
@@ -477,12 +521,13 @@ body.timing .notes{padding-bottom:20vh}
   var CLOUD_WEEKS = 'https://flyshan2010.github.io/class-website/data/weeks.json';
 
   var state = {
-    text: '', source: 'local', localEditDate: '', cloudSyncedAt: '',
+    text: '', source: 'local', localEditDate: '', cloudSyncedAt: '', wallNotice: '',
     duty: { mode: 'auto', per: 2, base: '', start: 1, manual: '', skips: {} },
     opt: { bell: false, sched: true },
     savedAt: ''
   };
   var pendingCloudText = null;
+  var bookRow = null;              // 今天的聯絡簿原始列（公布欄用；聯絡簿本身仍走 state.text）
 
   function load() {
     try {
@@ -491,6 +536,7 @@ body.timing .notes{padding-bottom:20vh}
       if (typeof d.source === 'string') state.source = d.source;
       if (typeof d.localEditDate === 'string') state.localEditDate = d.localEditDate;
       if (typeof d.cloudSyncedAt === 'string') state.cloudSyncedAt = d.cloudSyncedAt;
+      if (typeof d.wallNotice === 'string') state.wallNotice = d.wallNotice;
       if (d.duty) { for (var k in state.duty) if (d.duty[k] !== undefined) state.duty[k] = d.duty[k]; if (!state.duty.skips) state.duty.skips = {}; }
       if (d.opt) { for (var o in state.opt) if (d.opt[o] !== undefined) state.opt[o] = d.opt[o]; }
       state.savedAt = d.savedAt || '';
@@ -588,6 +634,8 @@ body.timing .notes{padding-bottom:20vh}
       .then(function (rows) {
         var today = todayKey();
         var row = (rows || []).filter(function (x) { return x && String(x.date || '').slice(0, 10) === today; })[0];
+        bookRow = row || null;      // 公布欄的「回家功課／明天要帶」直接用這一列
+        Board.render();
         if (!row) { setCloudStatus('雲端今天沒有聯絡簿內容——內容改在 Notion「📒 聯絡簿」當天那列。', 'warn'); return; }
         var txt = rowToText(row);
         if (!txt.trim()) { setCloudStatus('雲端當天那列是空的。', 'warn'); return; }
@@ -899,6 +947,8 @@ body.timing .notes{padding-bottom:20vh}
       onNotes: fitNotes,
       onResize: fitNotes,
       subtitle: subtitle,
+      book: function () { return bookRow; },
+      notice: function () { return state.wallNotice; },
       onDraw: function (on) {
         /* 畫記時把底部 HUD 收起（不覆蓋老師平常的偏好），退出畫記再放回來。 */
         if (on) { foldedBeforeDraw = hudFold.isFolded(); hudFold.fold(true); }
@@ -909,6 +959,20 @@ body.timing .notes{padding-bottom:20vh}
     }
   });
   $('btn-close2').addEventListener('click', function () { panel2.close(); });
+
+  $('btn-wall').addEventListener('click', function () {
+    Board.setMode(Board.mode() === 'wall' ? 'auto' : 'wall');
+    $('btn-wall').classList.toggle('on', Board.mode() === 'wall');
+  });
+  $('wall-ta').value = state.wallNotice || '';
+  $('btn-wall-apply').addEventListener('click', function () {
+    state.wallNotice = $('wall-ta').value; save(); Board.render();
+    $('wall-status').className = 'status ok'; $('wall-status').textContent = '已存起來，公布欄馬上生效。';
+  });
+  $('btn-wall-clear').addEventListener('click', function () {
+    $('wall-ta').value = ''; state.wallNotice = ''; save(); Board.render();
+    $('wall-status').className = 'status'; $('wall-status').textContent = '已清空。';
+  });
 
   $('btn-quiz').addEventListener('click', Board.drawQuiz);
   $('btn-end').addEventListener('click', Board.endPeriod);

@@ -181,6 +181,42 @@
     paintCaption();
   }
 
+  /* ── 公布欄模式：整頁只講一件事（規則正本在 assets/js/wall.js）───────── */
+  function paintWall(box) {
+    var d = new Date(), dow = (d.getDay() === 0 || d.getDay() === 6) ? 0 : d.getDay();
+    var v = (global.Wall ? Wall.view({
+      sched: sched, rules: data.rules, lessons: data.lessons, ml: data.ml,
+      book: hooks.book ? hooks.book() : null,
+      focus: st.focus[periodKey()] || '',
+      notice: hooks.notice ? hooks.notice() : ''
+    }, nowMin(), dow) : null);
+    if (!v) { box.innerHTML = '<div class="wall-main"><div class="wtitle">公布欄</div></div>'; return; }
+
+    var html = '<div class="wall-main">';
+    if (v.kick) html += '<div class="wkick">' + esc(v.kick) + '</div>';
+    html += '<div class="wtitle' + (v.clock ? ' clock' : '') + '">' + esc(v.title || '') + '</div>';
+    if (v.sub) html += '<div class="wsub">' + esc(v.sub) + '</div>';
+    if (v.count != null && v.count >= 0) html += '<div class="wcount">還有 ' + v.count + ' 分鐘</div>';
+    (v.notice || []).forEach(function (x) { html += '<div class="wnotice">📢 ' + esc(x) + '</div>'; });
+    if ((v.list || []).length) {
+      html += '<ul class="wlist' + (v.list.length > 2 ? ' small' : '') + '">';
+      v.list.forEach(function (x) { html += '<li>' + esc(x) + '</li>'; });
+      html += '</ul>';
+    }
+    if ((v.hw || []).length) {
+      html += '<div class="whw"><span class="wl">今天的回家功課</span>';
+      v.hw.forEach(function (x) { html += '<span class="wi">' + esc(x) + '</span>'; });
+      html += '</div>';
+    }
+    html += '</div>';
+    if ((v.foot || []).length) {
+      html += '<div class="wall-foot">';
+      v.foot.forEach(function (x) { html += '<span class="tag">' + esc(x) + '</span>'; });
+      html += '</div>';
+    }
+    box.innerHTML = html;
+  }
+
   function paintCaption() {
     var el = $('board-cap'); if (!el) return;
     var p = periodNow(), seg = segNow();
@@ -684,6 +720,7 @@
     pull('morning-launch.json', 'ml');
     pull('seating-seats.json', 'seating');
     setInterval(watchPeriod, 5000);
+    setInterval(function () { if (mode === 'wall') render(); }, 20000);   /* 公布欄：倒數與時段自動更新 */
     watchPeriod();
     var c = canvasEl();
     if (c) {

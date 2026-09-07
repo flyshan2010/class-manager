@@ -6,7 +6,8 @@
 <meta name="robots" content="noindex" />
 <title>公布欄模式・示範｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📢</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-9" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-10" />
+<script src="assets/js/wall.js?v=20260907-10"></script>
 <style>
 /* 公布欄（電子公布欄）示範：整頁只講一件事。
    版面＝頂一行細資訊 → 中間單一重點 → 底一行資訊帶。時段由日課表與 Notion 班規時段驅動。 */
@@ -152,77 +153,10 @@
     return best;
   }
 
-  /* ── 這個時刻該投影什麼（單一重點）───────────────────── */
+  /* 規則正本在 assets/js/wall.js（正式版白板與這頁共用，才不會兩邊各養一份）。 */
   function view() {
-    var p = periodNow(), seg = segNow(), nx = nextPeriod(), t = nowMin();
-
-    if (p && /節/.test(p.name) && p.subject) {
-      var L = lessonOf(p.subject);
-      return {
-        kick: p.name + '　' + p.time,
-        title: p.subject,
-        sub: L ? L.title : '',
-        list: ((L && L.points) || []).slice(0, 3),
-        foot: nx ? ['下一節 ' + hhmm(nx.at) + '　' + nx.name + (nx.subject ? '　' + nx.subject : '')] : []
-      };
-    }
-    if (p && /晨掃/.test(p.name)) {
-      return { kick: '07:40–08:00', title: '晨掃', sub: seg && seg.expect ? seg.expect.split('；')[0] : '',
-               list: steps(seg && seg.sop).slice(0, 3), foot: ['08:00 早自修'] };
-    }
-    if (p && /早自修|朝會/.test(p.name)) {
-      var ask = '';
-      var day = (D.ml && D.ml.days || []).filter(function (d) { return Number(d.dow) === dayIdx(); })[0];
-      if (day && day.cards && day.cards[0]) ask = day.cards[0].ask || day.cards[0].title || '';
-      return { kick: '早自修', title: ask ? 'Morning Launch' : '晨　讀',
-               sub: ask || '桌上只留一本書，安靜閱讀',
-               list: steps(seg && seg.sop).slice(0, 2),
-               foot: nx ? ['下一節 ' + hhmm(nx.at) + '　' + nx.name + (nx.subject ? '　' + nx.subject : '')] : [] };
-    }
-    if (p && /午休/.test(p.name)) {
-      return { kick: p.time, title: '午　休', sub: '趴好、不說話', list: [], count: p.end - t,
-               foot: nx ? ['起床後 ' + hhmm(nx.at) + '　' + nx.name + (nx.subject ? '　' + nx.subject : '')] : [] };
-    }
-    if (seg && /午餐/.test(seg.name)) {
-      return { kick: seg.label, title: '午餐時間', sub: seg.expect ? seg.expect.split('；')[0] : '',
-               list: steps(seg.sop).slice(0, 3), foot: ['值週生名單在上方'] };
-    }
-    if (seg && /潔牙/.test(seg.name)) {
-      return { kick: seg.label, title: '潔　牙', sub: seg.expect ? seg.expect.split('；')[0] : '',
-               list: steps(seg.sop).slice(0, 2), foot: [] };
-    }
-    if (seg && /放學/.test(seg.name)) {
-      var b1 = todayBook();
-      return { kick: seg.label, title: '放學囉', sub: '把明天要用的都帶回家',
-               list: (b1 && b1.homework ? String(b1.homework).split('\n').filter(Boolean).slice(0, 4) : ['今天沒有回家功課']),
-               foot: b1 && b1.bring ? ['明天要帶：' + b1.bring.replace(/\n/g, '、')] : [] };
-    }
-    if (seg && /入班|上學/.test(seg.name)) {
-      var b2 = todayBook();
-      return { kick: seg.label, title: '早　安', sub: '把聯絡簿和作業交到指定位置',
-               list: steps(seg.sop).slice(0, 3),
-               foot: b2 && b2.homework ? ['今天要交：' + String(b2.homework).split('\n')[0]] : [] };
-    }
-    if (nx && dayIdx()) {   // 課堂之間的下課
-      return { kick: '下　課', title: '下　課', sub: '準備下一節要用的東西',
-               count: nx.at - t,
-               list: [(nx.name + '　' + (nx.subject || '')).trim()],
-               foot: ['鐘響前回教室，安靜坐好'] };
-    }
-    /* 最後一節下課後的一小時＝放學提醒（daily 的「整理放學」被第七節蓋掉，
-       實務上學生看得到放學畫面的時間就是這一段）。 */
-    var lastEnd = 0;
-    ((D.sched && D.sched.periods) || []).forEach(function (q) { var s2 = span(q.time); if (s2 && s2.b > lastEnd) lastEnd = s2.b; });
-    if (dayIdx() && lastEnd && t >= lastEnd && t < lastEnd + 60) {
-      var b4 = todayBook();
-      return { kick: hhmm(lastEnd) + ' 放學', title: '放學囉', sub: '把明天要用的都帶回家',
-               list: (b4 && b4.homework ? String(b4.homework).split('\n').filter(Boolean).slice(0, 4) : ['今天沒有回家功課']),
-               foot: b4 && b4.bring ? ['明天要帶：' + b4.bring.replace(/\n/g, '、')] : ['路上小心，明天見'] };
-    }
-    var b3 = todayBook();
-    return { kick: dayIdx() ? '今天辛苦了' : '假日', title: hhmm(nowMin()), clock: true,
-             sub: '', list: (b3 && b3.homework ? String(b3.homework).split('\n').filter(Boolean).slice(0, 3) : []),
-             foot: ['明天見'] };
+    return Wall.view({ sched: D.sched, rules: D.rules, lessons: D.lessons, ml: D.ml,
+                       book: todayBook(), notice: '' }, nowMin(), dayIdx());
   }
 
   /* ── 描繪 ─────────────────────────────────────────── */
@@ -245,8 +179,15 @@
       li0.textContent = '還有 ' + v.count + ' 分鐘';
       ul.appendChild(li0);
     }
+    (v.notice || []).forEach(function (x) {
+      var li = document.createElement('li'); li.className = 'wcount'; li.textContent = '📢 ' + x; ul.appendChild(li);
+    });
     (v.list || []).forEach(function (x) {
       var li = document.createElement('li'); li.innerHTML = esc(x); ul.appendChild(li);
+    });
+    (v.hw || []).forEach(function (x) {
+      var li = document.createElement('li'); li.style.fontSize = 'clamp(16px,2.4vh,30px)';
+      li.textContent = '功課：' + x; ul.appendChild(li);
     });
     ul.className = 'wlist' + ((v.list || []).length > 2 ? ' small' : '');
     $('w-foot').innerHTML = (v.foot || []).map(function (x) { return '<span class="tag">' + esc(x) + '</span>'; }).join('');
