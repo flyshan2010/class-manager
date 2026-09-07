@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>工作檢核台｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✔</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-4" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-5" />
 <style>
 /* 分頁列＝一天的時序：到校 → 打掃 → 作業 → 午餐 → 潔牙（老師 2026-09-06 拍板） */
 .tabs{flex:0 0 auto;display:flex;gap:.6vw;align-items:center;flex-wrap:wrap;margin-bottom:1.2vh}
@@ -25,8 +25,21 @@
 .ztabs button.on{background:var(--blue);border-color:transparent;color:#08152a;font-weight:800}
 .ztabs button .n{font-size:.8em;opacity:.85;margin-left:.35em}
 
-.view{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1.2vh}
+.view{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1.2vh;
+  padding-bottom:9vh}   /* 底部 HUD 是浮動的，留一段空白，最後一列才不會被壓住 */
 .view[hidden]{display:none}
+
+/* 進度＋一鍵列（到校／打掃）：老師一眼看得出還有幾個沒點 */
+.statbar{flex:0 0 auto;display:flex;align-items:center;gap:.8vw;flex-wrap:wrap;
+  background:var(--board-2);border:1px solid var(--line);border-radius:14px;padding:.7vh 1.1vw}
+.statbar .sb-n{font-size:clamp(15px,2vh,24px);color:var(--chalk-2)}
+.statbar .sb-n b{font-size:1.25em;color:var(--chalk);font-weight:800}
+.statbar .sb-left{color:var(--warn)} .statbar .sb-ok{color:var(--ok)}
+.statbar button{font-family:inherit;font-size:clamp(14px,1.9vh,21px);font-weight:700;cursor:pointer;
+  border-radius:999px;padding:.4em 1.1em;border:1px solid transparent}
+.statbar .sb-all{margin-left:auto;background:var(--ok);color:#082013}
+.statbar .sb-clear{background:rgba(255,255,255,.06);border-color:var(--line);color:var(--chalk-3);font-weight:600}
+.statbar button:disabled{opacity:.35;cursor:default}
 
 /* 檢核卡：一張卡＝一個小組／一個崗位 */
 .zcard{background:var(--board-2);border:1px solid var(--line);border-radius:16px;padding:1.1vh 1.2vw}
@@ -42,6 +55,8 @@
 .pcard .pm{font-size:clamp(11px,1.5vh,17px);color:var(--chalk-3);line-height:1.3}
 .pcard .ps{font-size:clamp(12px,1.6vh,18px);font-weight:700;line-height:1.2}
 /* 顏色以「語意」命名，不綁狀態序號——各站的第 2 態不是同一件事（打掃 △ 是橘、午餐 ✗ 是粉） */
+.pcard.t-idle{border-style:dashed;border-color:var(--line-2);background:var(--board-3)}
+.pcard.t-idle .ps{color:var(--chalk-3)}
 .pcard.t-ok  {border-color:var(--ok);  background:rgba(86,197,150,.14)} .pcard.t-ok   .ps{color:var(--ok)}
 .pcard.t-warn{border-color:var(--warn);background:rgba(240,149,78,.16)} .pcard.t-warn .ps{color:var(--warn)}
 .pcard.t-pink{border-color:var(--pink);background:rgba(242,120,155,.16)}.pcard.t-pink .ps{color:var(--pink)}
@@ -58,8 +73,18 @@
 .scell:active{transform:scale(.93)}
 .scell.gap{border:none;background:transparent;cursor:default}
 .scell .mk{font-size:.42em;line-height:1;margin-top:.1em}
-.scell.t-warn{border-color:var(--warn);color:var(--warn)}
-.scell.t-pink{border-color:var(--pink);color:var(--pink)}
+.scell.t-idle{border-style:dashed;border-color:var(--line-2);color:var(--chalk-3);background:var(--board-3)}
+.scell.t-ok{border-color:var(--ok);color:var(--ok);background:rgba(86,197,150,.14)}
+.scell.t-warn{border-color:var(--warn);color:var(--warn);background:rgba(240,149,78,.14)}
+.scell.t-pink{border-color:var(--pink);color:var(--pink);background:rgba(242,120,155,.14)}
+/* 簽到感：點下去那一格彈一下＋亮一圈，投影時全班看得到誰被點到 */
+.scell.pop{animation:signin .42s ease-out}
+@keyframes signin{
+  0%{transform:scale(.86);box-shadow:0 0 0 0 rgba(94,201,191,.55)}
+  55%{transform:scale(1.12);box-shadow:0 0 0 14px rgba(94,201,191,0)}
+  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(94,201,191,0)}
+}
+@media (prefers-reduced-motion:reduce){.scell.pop{animation:none}}
 
 /* 作業清點／潔牙：座號 chip 一列排開 */
 .items{display:flex;flex-direction:column;gap:1.2vh}
@@ -113,7 +138,7 @@
 <body>
 <div class="stage" id="stage">
   <div class="head">
-    <h1>工作檢核台<span class="sub" id="subtitle">預設全班達成，只點例外</span></h1>
+    <h1>工作檢核台<span class="sub" id="subtitle">點座號簽到</span></h1>
     <span class="grow"></span>
     <span class="stat">今日待送 <b id="pend">0</b> 筆</span>
   </div>
@@ -158,9 +183,9 @@
 </aside>
 <div class="scrim" id="scrim"></div>
 
-<script src="assets/js/common.js?v=20260907-4"></script>
-<script src="assets/js/tool.js?v=20260907-4"></script>
-<script src="assets/js/events.js?v=20260907-4"></script>
-<script src="assets/js/routine.js?v=20260907-4"></script>
+<script src="assets/js/common.js?v=20260907-5"></script>
+<script src="assets/js/tool.js?v=20260907-5"></script>
+<script src="assets/js/events.js?v=20260907-5"></script>
+<script src="assets/js/routine.js?v=20260907-5"></script>
 </body>
 </html>

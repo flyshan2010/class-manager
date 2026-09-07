@@ -30,16 +30,21 @@
   /* 各站的狀態表。tone 是語意色，不綁序號——各站的「第 2 態」不是同一件事
      （打掃 △ 到位未達標是橘、午餐 ✗ 未到是粉）。第 0 態一律＝達成，不產生事件。 */
   var ST = {
-    arrive: [{ m: '✓', l: '到校', t: 'ok' }, { m: '⏰', l: '遲到', t: 'warn' }, { m: '✗', l: '未到', t: 'pink' }],
-    clean: [{ m: '✓', l: '到位達標', t: 'ok' }, { m: '△', l: '到位未達標', t: 'warn' },
+    /* 到校與打掃改成「未點擊起跳」（2026-09-07 老師指定）：點一下才變出席／到位，
+       學生看得到自己被點名的那一下，老師也一眼看得出哪幾個還沒點到。
+       第 0 態＝還沒點，一樣不產生事件。 */
+    arrive: [{ m: '', l: '未點名', t: 'idle' }, { m: '✓', l: '出席', t: 'ok' },
+             { m: '⏰', l: '遲到', t: 'warn' }, { m: '✗', l: '未到', t: 'pink' }],
+    clean: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位達標', t: 'ok' },
+            { m: '△', l: '到位未達標', t: 'warn' },
             { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
     lunch: [{ m: '✓', l: '到位', t: 'ok' }, { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
     teeth: [{ m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }]
   };
 
   var TAB_TITLE = {
-    arrive: '座位表輕點：✓ 到校 → ⏰ 遲到 → ✗ 未到（請假）',
-    clean: '預設全班達成，只點例外（✓→△→✗→＋支援）',
+    arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
+    clean: '點座號檢核：未檢核 → ✓ 到位達標 → △ 未達標 → ✗ 未到 → ＋ 支援',
     hw: '清點前一天派的作業，點一下往下一個狀態，完成就消失',
     lunch: '午餐工作只有三態（✓ 到位 → ✗ 未到 → ＋ 臨時支援）',
     teeth: '預設全班都潔牙，只點沒潔牙的（不扣幣、不記班規）'
@@ -48,8 +53,11 @@
   /* 五站的狀態存一起，一天一份；week 留每天的打掃快照供「本週總覽」。 */
   var sdb = Tool.store('classManager.routine.v2');
   var st = sdb.get(null);
+  /* 狀態編號版本：v3 起到校／打掃多了第 0 態「未點」，舊號碼的語意整個位移，
+     照舊資料畫會變成「昨天的出席今天顯示成遲到」。版本不合就重來，不硬搬。 */
+  if (st && st.sv !== 3) st = null;
   if (!st || st.date !== Tool.todayKey()) {
-    st = { date: Tool.todayKey(), arrive: {}, clean: {}, lunch: {}, teeth: {}, week: (st && st.week) || {} };
+    st = { date: Tool.todayKey(), sv: 3, arrive: {}, clean: {}, lunch: {}, teeth: {}, week: (st && st.week) || {} };
   }
   ['arrive', 'clean', 'lunch', 'teeth'].forEach(function (k) { if (!st[k]) st[k] = {}; });
   if (!st.week) st.week = {};
@@ -95,6 +103,36 @@
     if (v === 0) delete st[kind][seat]; else st[kind][seat] = v;
     if (kind === 'clean') st.week[st.date] = st.clean;
     sdb.set(st);
+  }
+
+  /* 進度＋一鍵列（到校、打掃用）：老師一眼看得出「還有幾個沒點」，
+     「全部○○」只填**還沒點**的，已標遲到／未達標的不會被蓋掉（2026-09-07）。 */
+  function actionBar(kind, list, allLabel, allValue) {
+    var bar = document.createElement('div'); bar.className = 'statbar';
+    var done = list.filter(function (s) { return stateOf(kind, s) !== 0; }).length;
+    var left = list.length - done;
+    var info = document.createElement('span'); info.className = 'sb-n';
+    info.innerHTML = '已點 <b>' + done + '</b> / ' + list.length +
+      (left ? '　<span class="sb-left">還有 ' + left + ' 個沒點</span>' : '　<span class="sb-ok">全部點完了</span>');
+    bar.appendChild(info);
+    var all = document.createElement('button');
+    all.type = 'button'; all.className = 'sb-all'; all.disabled = !left;
+    all.textContent = allLabel + (left ? '（' + left + '）' : '');
+    all.addEventListener('click', function () {
+      list.forEach(function (s) { if (stateOf(kind, s) === 0) setState(kind, s, allValue); });
+      Tool.beep(2, 760); paint(); paintPend();
+    });
+    bar.appendChild(all);
+    var clr = document.createElement('button');
+    clr.type = 'button'; clr.className = 'sb-clear'; clr.disabled = !done;
+    clr.textContent = '↺ 全部重來';
+    clr.addEventListener('click', function () {
+      if (!confirm('把這一站全部改回「還沒點」嗎？')) return;
+      list.forEach(function (s) { setState(kind, s, 0); });
+      paint(); paintPend();
+    });
+    bar.appendChild(clr);
+    return bar;
   }
 
   /* ── 共用元件：一張檢核卡（打掃、午餐都用這個）──────────────────── */
@@ -148,10 +186,10 @@
     if (!v) return;
     var who = seat + ' 號 · ';
     if (kind === 'clean') {
-      if (v === 1) flashFix(who + '打掃未達標（這次不扣幣）',
+      if (v === 2) flashFix(who + '打掃未達標（這次不扣幣）',
         (actOf(3, 'bad', 0) || {}).fix + '　·　同一週第 3 次起才會扣 5 幣');
-      if (v === 2) flashFix(who + '打掃缺席', '週結薪水會少算一次出勤（不扣幣）');
-      if (v === 3) flashFix(who + '臨時支援', '這次支援會記進週結（加一次支援）');
+      if (v === 3) flashFix(who + '打掃缺席', '週結薪水會少算一次出勤（不扣幣）');
+      if (v === 4) flashFix(who + '臨時支援', '這次支援會記進週結（加一次支援）');
     } else if (kind === 'lunch') {
       if (v === 1) flashFix(who + '午餐工作未到', '週結午餐薪水會少算一次（不扣幣）');
       if (v === 2) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
@@ -159,17 +197,16 @@
       if (v === 1) flashFix(who + '今天沒潔牙',
         '不扣幣、不記班規；週結時今天的班級常規獎勵 +1 不給，全勤獎也就沒有');
     } else if (kind === 'arrive') {
-      if (v === 1) flashFix(who + '上學遲到', (actOf(1, 'bad', 0) || {}).fix || '結算時會照班規①記一筆');
-      if (v === 2) flashFix(who + '今天未到（請假／缺席）', '只留在這台電腦提醒老師，不會送出任何紀錄');
+      if (v === 2) flashFix(who + '上學遲到', (actOf(1, 'bad', 0) || {}).fix || '結算時會照班規①記一筆');
+      if (v === 3) flashFix(who + '今天未到（請假／缺席）', '只留在這台電腦提醒老師，不會送出任何紀錄');
     }
   }
 
   /* ── 1 到校簽到：座位表輕點（與電子白板同一套手勢）──────────────── */
   function paintArrive() {
     var box = $('view-arrive'); box.innerHTML = '';
-    $('legend').innerHTML = ST.arrive.map(function (s) {
-      return '<span><b>' + s.m + '</b> ' + s.l + '</span>';
-    }).join('') + '<span>✗ 未到不送出，只有 ⏰ 遲到會照班規①記一筆</span>';
+    $('legend').innerHTML = '<span>只有 <b>⏰ 遲到</b> 會照班規①記一筆，✗ 未到不送出</span>';
+    box.appendChild(actionBar('arrive', seats, '✅ 全部出席', 1));
     var wrap = document.createElement('div'); wrap.className = 'seatgrid';
     var podium = document.createElement('div'); podium.className = 'podium'; podium.textContent = '講　台';
     wrap.appendChild(podium);
@@ -182,12 +219,16 @@
         if (s == null) { c.className = 'scell gap'; r.appendChild(c); return; }
         var v = stateOf('arrive', s);
         c.className = 'scell t-' + ST.arrive[v].t;
+        c.dataset.seat = s;
         c.innerHTML = s + (v ? '<span class="mk">' + ST.arrive[v].m + ' ' + ST.arrive[v].l + '</span>' : '');
         c.addEventListener('click', function () {
           var nv = (stateOf('arrive', s) + 1) % ST.arrive.length;
           setState('arrive', s, nv);
-          Tool.beep(1, nv === 0 ? 720 : 520);
+          Tool.beep(1, nv === 1 ? 760 : (nv === 0 ? 640 : 520));
           paintArrive(); paintPend(); explain('arrive', s, nv);
+          /* 簽到感：重畫後把同一格找回來播一次點名動畫（學生看得到自己被點到的那一下） */
+          var again = $('view-arrive').querySelector('[data-seat="' + s + '"]');
+          if (again) { again.classList.add('pop'); setTimeout(function () { again.classList.remove('pop'); }, 420); }
         });
         r.appendChild(c);
       });
@@ -229,13 +270,20 @@
   }
 
   function paintClean() {
-    $('legend').innerHTML = ST.clean.map(function (s) {
-      return '<span><b>' + s.m + '</b> ' + s.l + '</span>';
-    }).join('');
-    renderCards($('view-clean'), 'clean', cleanCards(),
+    $('legend').innerHTML = '<span>△ 未達標與 ✗ 未到都<b>只記次數</b>，不當場扣幣</span>';
+    var cards = cleanCards();
+    var seen = {}, list = [];
+    // 同一個座號可能同時出現在本組與支援名單，計數要去重，否則「已點 x/30」對不上 27 人
+    (cards || []).forEach(function (c) {
+      c.people.forEach(function (p) { if (!seen[p.seat]) { seen[p.seat] = 1; list.push(p.seat); } });
+    });
+    if (!list.length) list = seats.slice();
+    renderCards($('view-clean'), 'clean', cards,
       '<div class="empty"><span class="big">🧹</span>還讀不到掃區分配' +
       '<br><span style="font-size:.55em">連上網後會自動帶入班網的「🧹 班級工作分配」；' +
       '先用下面的一般座號檢核也可以</span></div>');
+    var box = $('view-clean');
+    box.insertBefore(actionBar('clean', list, '✅ 全部到位達標', 1), box.firstChild);
   }
 
   /* ── 3 作業清點（原 homework.html，3-2 併成分頁）────────────────── */
@@ -249,7 +297,7 @@
 
   function paintHw() {
     var box = $('view-hw'); box.innerHTML = '';
-    $('legend').innerHTML = '<span><b>未交</b> → <b>已交</b> → <b>要訂正</b> → <b style="color:var(--ok)">完成</b>（完成就消失）</span>' +
+    $('legend').innerHTML = '<span>未交 → 已交 → 要訂正 → <b style="color:var(--ok)">完成</b>（完成就消失）</span>' +
       '<span>' + (hw.srcDate ? '清點 ' + hw.srcDate.slice(5) + ' 派的' : '雲端讀不到前一天作業') + '</span>';
     if (!hw.items.length) {
       box.innerHTML = '<div class="itemrow"><div class="rowclear">沒有可清點的項目' +
@@ -422,7 +470,7 @@
       var a = actOf(1, 'bad', 0);
       if (!a) return out;
       Object.keys(st.arrive).forEach(function (k) {
-        if (st.arrive[k] !== 1) return;
+        if (st.arrive[k] !== 2) return;               // 2＝⏰ 遲到（1＝出席、3＝未到都不送出）
         out.push({ tool: TOOL.arrive, date: st.date, seat: Number(k), src: 'rule',
                    rule_n: 1, kind: 'bad', act_i: 0, act: a.act, coin: a.coin, level: a.level,
                    period: '到校簽到' });
@@ -435,10 +483,10 @@
         // △ 到位未達標＝**只計次，不扣幣**（2026-09-06 老師裁示）：既有制度是
         // 「1～2 次沒做到不扣幣只補做、3 次以上才 −5」，當場記班規③ −5 等於第一次犯就重罰。
         // 累計判斷交給週結（本系統只收資料，加減點一律在任務處理端算）。
-        if (v === 1) act = '打掃未達標'; else if (v === 2) act = '打掃缺席'; else if (v === 3) act = '打掃支援';
-        if (!act) return;
+        if (v === 2) act = '打掃未達標'; else if (v === 3) act = '打掃缺席'; else if (v === 4) act = '打掃支援';
+        if (!act) return;                              // 0 未檢核、1 到位達標都不產生事件
         out.push({ tool: TOOL.clean, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
-                   kind: v === 3 ? 'good' : 'bad', act: act, period: '環境晨掃' });
+                   kind: v === 4 ? 'good' : 'bad', act: act, period: '環境晨掃' });
       });
       return out;
     }
