@@ -40,7 +40,9 @@
             { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
     lunch: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位', t: 'ok' },
             { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
-    teeth: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }]
+    teeth: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }],
+    /* 含氟漱口水：一週只有一次，由老師當天自己開（2026-09-07 老師要求），狀態與潔牙同三態。 */
+    fluoride: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已漱口', t: 'ok' }, { m: '✗', l: '沒漱口', t: 'pink' }]
   };
 
   var TAB_TITLE = {
@@ -58,9 +60,10 @@
      照舊資料畫會變成「昨天的出席今天顯示成遲到」。版本不合就重來，不硬搬。 */
   if (st && st.sv !== 4) st = null;
   if (!st || st.date !== Tool.todayKey()) {
-    st = { date: Tool.todayKey(), sv: 4, arrive: {}, clean: {}, lunch: {}, teeth: {}, week: (st && st.week) || {} };
+    st = { date: Tool.todayKey(), sv: 4, arrive: {}, clean: {}, lunch: {}, teeth: {},
+           fluoride: {}, fluorideOn: false, week: (st && st.week) || {} };
   }
-  ['arrive', 'clean', 'lunch', 'teeth'].forEach(function (k) { if (!st[k]) st[k] = {}; });
+  ['arrive', 'clean', 'lunch', 'teeth', 'fluoride'].forEach(function (k) { if (!st[k]) st[k] = {}; });
   if (!st.week) st.week = {};
   // v1 → v2：只搬「今天的打掃狀態」與週總覽，其餘讓它重來（跨版本硬搬容易搬出假資料）
   (function migrate() {
@@ -197,6 +200,9 @@
     } else if (kind === 'lunch') {
       if (v === 2) flashFix(who + '午餐工作未到', '週結午餐薪水會少算一次（不扣幣）');
       if (v === 3) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
+    } else if (kind === 'fluoride') {
+      if (v === 2) flashFix(who + '今天沒做含氟漱口水',
+        '不扣幣、不記班規；和沒潔牙一樣，今天的班級常規獎勵 +1 不給');
     } else if (kind === 'teeth') {
       if (v === 2) flashFix(who + '今天沒潔牙',
         '不扣幣、不記班規；週結時今天的班級常規獎勵 +1 不給，全勤獎也就沒有');
@@ -471,35 +477,81 @@
   }
 
   /* ── 5 潔牙 ───────────────────────────────────────────── */
-  function paintTeeth() {
-    $('legend').innerHTML = '<span>沒潔牙＝那天常規未達成：不扣幣、不記班規</span>';
-    var box = $('view-teeth'); box.innerHTML = '';
-    box.appendChild(actionBar('teeth', seats, '✅ 全部已潔牙', 1));
-    var miss = seats.filter(function (s) { return stateOf('teeth', s) === 2; });
-    var ok = seats.filter(function (s) { return stateOf('teeth', s) === 1; });
-    var items = document.createElement('div'); items.className = 'items';
-    var row = document.createElement('div'); row.className = 'itemrow' + (miss.length ? '' : ' clear');
+  /* 潔牙站：固定「午餐後潔牙」＋（老師當天自己開的）「含氟漱口水」兩張卡。
+     含氟漱口水一週只有一次，所以不預設顯示，由本站上方的按鈕開關（只影響今天）。 */
+  function teethCard(kind, title, allLabel) {
+    var states = ST[kind];
+    var ok = seats.filter(function (s) { return stateOf(kind, s) === 1; });
+    var miss = seats.filter(function (s) { return stateOf(kind, s) === 2; });
+    var left = seats.length - ok.length - miss.length;
+    var row = document.createElement('div');
+    row.className = 'itemrow' + (miss.length ? '' : ' clear');
     var head = document.createElement('div'); head.className = 'rowhead';
-    head.innerHTML = '<span class="name">🦷 午餐後潔牙</span>' +
-      '<span class="cnt"><span class="d">已潔牙 <b>' + ok.length + '</b></span>　' +
-      '<span class="c">沒潔牙 <b>' + miss.length + '</b></span>　' +
-      '<span class="u">還沒點 <b>' + (seats.length - ok.length - miss.length) + '</b></span></span>' +
-      '<span class="grow"></span>';
+    head.innerHTML = '<span class="name">' + esc(title) + '</span>' +
+      '<span class="cnt"><span class="d">' + states[1].l + ' <b>' + ok.length + '</b></span>　' +
+      '<span class="c">' + states[2].l + ' <b>' + miss.length + '</b></span>　' +
+      '<span class="u">還沒點 <b>' + left + '</b></span></span><span class="grow"></span>';
+    var all = document.createElement('button'); all.className = 'reset';
+    all.textContent = allLabel + (left ? '（' + left + '）' : '');
+    all.disabled = !left;
+    all.addEventListener('click', function () {
+      seats.forEach(function (s) { if (stateOf(kind, s) === 0) setState(kind, s, 1); });
+      Tool.beep(2, 760); paintTeeth(); paintPend();
+    });
+    head.appendChild(all);
+    var clr = document.createElement('button'); clr.className = 'reset';
+    clr.textContent = '↺ 全部重來'; clr.disabled = (ok.length + miss.length) === 0;
+    clr.addEventListener('click', function () {
+      if (!confirm('把「' + title + '」全部改回「還沒點」嗎？')) return;
+      st[kind] = {}; sdb.set(st); paintTeeth(); paintPend();
+    });
+    head.appendChild(clr);
     row.appendChild(head);
     var chips = document.createElement('div'); chips.className = 'chips';
     seats.forEach(function (s) {
-      var v = stateOf('teeth', s);
+      var v = stateOf(kind, s);
       var ch = document.createElement('div');
       ch.className = 'chip' + (v === 2 ? ' bad' : (v === 1 ? ' s3' : '')); ch.textContent = s;
-      ch.title = ST.teeth[v].l;
+      ch.title = states[v].l;
       ch.addEventListener('click', function () {
-        var nv = (v + 1) % ST.teeth.length;
-        setState('teeth', s, nv); Tool.beep(1, nv === 2 ? 460 : 720);
-        paintTeeth(); paintPend(); explain('teeth', s, nv);
+        /* 現讀狀態再 +1，不要用畫這一格時的舊值——重畫後同一顆按鈕若被再點到會算錯格。 */
+        var nv = (stateOf(kind, s) + 1) % states.length;
+        setState(kind, s, nv); Tool.beep(1, nv === 2 ? 460 : 720);
+        paintTeeth(); paintPend(); explain(kind, s, nv);
       });
       chips.appendChild(ch);
     });
-    row.appendChild(chips); items.appendChild(row); box.appendChild(items);
+    row.appendChild(chips);
+    return row;
+  }
+
+  function paintTeeth() {
+    $('legend').innerHTML = '<span>沒做＝那天常規未達成：不扣幣、不記班規</span>';
+    var box = $('view-teeth'); box.innerHTML = '';
+
+    var bar = document.createElement('div'); bar.className = 'statbar';
+    var info = document.createElement('span'); info.className = 'sb-n';
+    info.innerHTML = '🦷 午餐後潔牙每天做；💧 <b>含氟漱口水一週一次</b>，' +
+      (st.fluorideOn ? '<span class="sb-ok">今天有</span>' : '<span class="sb-left">今天沒有</span>');
+    bar.appendChild(info);
+    var tog = document.createElement('button');
+    tog.className = st.fluorideOn ? 'sb-clear' : 'sb-all';
+    tog.style.marginLeft = 'auto';
+    tog.textContent = st.fluorideOn ? '✕ 今天沒有含氟漱口水' : '💧 今天有含氟漱口水';
+    tog.addEventListener('click', function () {
+      if (st.fluorideOn && Object.keys(st.fluoride).length &&
+          !confirm('關掉含氟漱口水？已經點好的那一列會一起清掉，也不會結算。')) return;
+      st.fluorideOn = !st.fluorideOn;
+      if (!st.fluorideOn) st.fluoride = {};
+      sdb.set(st); paintTeeth(); paintPend();
+    });
+    bar.appendChild(tog);
+    box.appendChild(bar);
+
+    var items = document.createElement('div'); items.className = 'items';
+    items.appendChild(teethCard('teeth', '🦷 午餐後潔牙', '✅ 全部已潔牙'));
+    if (st.fluorideOn) items.appendChild(teethCard('fluoride', '💧 含氟漱口水', '✅ 全部已漱口'));
+    box.appendChild(items);
   }
 
   /* ── 結算：每站各自整批重算（重按＝重算，不疊加）──────────────────── */
@@ -547,6 +599,15 @@
         out.push({ tool: TOOL.teeth, date: st.date, seat: Number(k), src: 'tally', dedupe: 'day',
                    kind: 'bad', act: '常規未達成', period: '午餐潔牙', note: '沒潔牙' });
       });
+      /* 含氟漱口水沿用同一個 act「常規未達成」——排程端（R18）與週結都不必新增規則；
+         同一位學生兩項都沒做時會合併成一列（次數 2、備註兩項都留），金幣一樣是 0。 */
+      if (st.fluorideOn) {
+        Object.keys(st.fluoride).forEach(function (k) {
+          if (st.fluoride[k] !== 2) return;
+          out.push({ tool: TOOL.teeth, date: st.date, seat: Number(k), src: 'tally', dedupe: 'day',
+                     kind: 'bad', act: '常規未達成', period: '含氟漱口水', note: '沒做含氟漱口水' });
+        });
+      }
       return out;
     }
     if (kind === 'hw') {
@@ -598,7 +659,8 @@
     }
     if (kind === 'teeth') {
       return '把潔牙檢核結算到「待送」嗎？\n\n' +
-        '　✗ 沒潔牙　' + evs.length + ' 人　→ 記一筆「常規未達成」\n\n' +
+        '　✗ 沒做（潔牙／含氟漱口水）　' + evs.length + ' 筆　→ 各記一筆「常規未達成」\n' +
+        '　（同一人兩項都沒做會合併成一列，次數 2、備註兩項都留）\n\n' +
         '不扣幣、不記班規；週結時這天的班級常規獎勵 +1 不給，全勤獎也就沒有。\n' +
         '再按一次是重新結算，不會疊加。';
     }
