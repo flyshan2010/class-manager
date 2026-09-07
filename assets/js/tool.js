@@ -66,7 +66,10 @@
   /* HUD 滑鼠停 3 秒自動淡出；面板開著時不隱藏。 */
   function autoHideHud(hudEl, isBlockedFn) {
     var hideAt = 0;
-    function poke() { hudEl.classList.remove('hidden'); hideAt = Date.now() + 3000; }
+    function poke() {
+      if (hudEl.classList.contains('folded')) return;   /* 老師手動收起時不要自己跳回來 */
+      hudEl.classList.remove('hidden'); hideAt = Date.now() + 3000;
+    }
     document.addEventListener('mousemove', poke);
     document.addEventListener('keydown', poke);
     document.addEventListener('touchstart', poke, { passive: true });
@@ -76,6 +79,32 @@
       if (hideAt && Date.now() > hideAt && !(isBlockedFn && isBlockedFn())) hudEl.classList.add('hidden');
     }, 250);
     poke();
+  }
+
+  /* HUD 收合：底部工具列整條縮成一顆小把手，避免擋住白板下緣（2026-09-07）。
+     收起狀態存 localStorage，下次進來記得；autoHideHud 不會把收起的 HUD 叫回來。 */
+  function foldHud(hudEl, key) {
+    var st = store(key || 'cm.hud.folded');
+    var fold = document.createElement('button');
+    fold.type = 'button'; fold.className = 'hud-fold'; fold.title = '收起工具列（可再展開）';
+    fold.textContent = '⌄ 收起';
+    hudEl.appendChild(fold);
+    var open = document.createElement('button');
+    open.type = 'button'; open.className = 'hud-open'; open.title = '展開工具列';
+    open.textContent = '⌃ 工具列';
+    document.body.appendChild(open);
+    /* keep=true 代表「這次是程式暫時收起」（例如進畫記模式），不覆蓋老師自己的偏好。 */
+    function set(on, keep) {
+      hudEl.classList.toggle('folded', !!on);
+      open.classList.toggle('show', !!on);
+      if (!on) hudEl.classList.remove('hidden');
+      if (!keep) st.set(!!on);
+    }
+    fold.addEventListener('click', function () { set(true); });
+    open.addEventListener('click', function () { set(false); });
+    set(st.get(false) === true);
+    return { fold: function (keep) { set(true, keep); }, show: function (keep) { set(false, keep); },
+             isFolded: function () { return hudEl.classList.contains('folded'); } };
   }
 
   /* 側邊面板開關 */
@@ -96,6 +125,7 @@
 
   global.Tool = {
     $: $, todayKey: todayKey, requireSeats: requireSeats, store: store,
-    beep: beep, fullscreen: fullscreen, autoHideHud: autoHideHud, panel: panel, shuffle: shuffle
+    beep: beep, fullscreen: fullscreen, autoHideHud: autoHideHud, foldHud: foldHud,
+    panel: panel, shuffle: shuffle
   };
 })(window);

@@ -4,12 +4,83 @@
  * 學生走過去按一下「全部丟棄」或改掉座號，資料就沒了。送出、丟棄、座號設定
  * 全部收進這一頁，首頁只留一個小入口。
  *
- * 口令仍只在送出時輸入，**永不寫進 localStorage**（設計書 §3.4）——
- * 搬頁面不改變這條，投影時全班看得到畫面。
+ * 口令**永不寫進 localStorage**（設計書 §3.4）。2026-09-07 起改成整頁口令閘
+ * （比照班網教師專區）：進頁面就要驗證，通過才顯示內容，口令只存 sessionStorage
+ * （這個分頁專用、關掉即消失），送出時直接取用，不必再打第二次。
  */
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
+  var CFG_URL = 'https://flyshan2010.github.io/class-website/data/site-config.json';
+  var proxyUrl = null;
+  var PW_KEY = 'cm.teacherPw';        /* sessionStorage：關掉分頁就沒了 */
+  var LOCK_KEY = 'cm.teacherLock';    /* localStorage：錯 3 次前端鎖 10 分鐘 */
+
+  function pw() { try { return sessionStorage.getItem(PW_KEY) || ''; } catch (e) { return ''; } }
+
+  function getProxy() {
+    if (proxyUrl) return Promise.resolve(proxyUrl);
+    return fetch(CFG_URL + '?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('讀不到代理網址'); return r.json(); })
+      .then(function (j) {
+        if (!j.updateProxyUrl) throw new Error('讀不到代理網址');
+        proxyUrl = j.updateProxyUrl; return proxyUrl;
+      });
+  }
+
+  function callProxy(action, params) {
+    return getProxy().then(function (url) {
+      var body = { action: action, pw: pw() };
+      Object.keys(params || {}).forEach(function (k) { body[k] = params[k]; });
+      return fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json(); });
+    });
+  }
+
+  /* ── 口令閘（真正的把關在代理端；前端只負責不把後台按鈕露給學生）───── */
+  (function gate() {
+    var box = $('gate'), main = $('tmain'), msg = $('gate-msg'), inp = $('gate-pw');
+    function lockInfo() { try { return JSON.parse(localStorage.getItem(LOCK_KEY)) || {}; } catch (e) { return {}; } }
+    function locked() { return (lockInfo().until || 0) > Date.now(); }
+    function recordFail() {
+      var i = lockInfo();
+      i.fails = (i.fails || 0) + 1;
+      if (i.fails >= 3) { i.until = Date.now() + 10 * 60 * 1000; i.fails = 0; }
+      try { localStorage.setItem(LOCK_KEY, JSON.stringify(i)); } catch (e) {}
+    }
+    function unlock() { box.hidden = true; main.hidden = false; }
+    function tryLogin() {
+      if (locked()) {
+        msg.textContent = '嘗試次數過多，請 ' + Math.ceil((lockInfo().until - Date.now()) / 60000) + ' 分鐘後再試。';
+        return;
+      }
+      var v = inp.value.trim();
+      if (!v) return;
+      msg.textContent = '驗證中…';
+      try { sessionStorage.setItem(PW_KEY, v); } catch (e) {}
+      callProxy('list_tasks', { limit: 1 })
+        .then(function (res) {
+          if (res && res.ok) { try { localStorage.removeItem(LOCK_KEY); } catch (e) {} unlock(); return; }
+          try { sessionStorage.removeItem(PW_KEY); } catch (e) {}
+          if (((res && res.error) || '').indexOf('口令') >= 0) recordFail();
+          msg.textContent = (res && res.error) || '口令不對，請再試一次。';
+        })
+        .catch(function () {
+          /* 連不到代理（教室斷網）時不要把老師鎖在外面：口令留著，之後送出仍會被代理端驗。 */
+          msg.textContent = '連不到後台（可能斷網），已先讓你進入；送出時才會真正驗證口令。';
+          setTimeout(unlock, 900);
+        });
+    }
+    $('gate-btn').addEventListener('click', tryLogin);
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
+    if (pw()) unlock(); else inp.focus();      /* 同一分頁內重整不必再打 */
+    $('btn-lock').addEventListener('click', function () {
+      try { sessionStorage.removeItem(PW_KEY); } catch (e) {}
+      location.href = 'index.html';
+    });
+  })();
   var input = $('seat-input');
   var status = $('seat-status');
   var summary = $('seat-summary');
@@ -61,9 +132,6 @@
   refresh();
 
   /* ── 今日待送（T0 管線・設計書 §3）───────────────────────── */
-  var CFG_URL = 'https://flyshan2010.github.io/class-website/data/site-config.json';
-  var proxyUrl = null;
-
   var TOOL_LABEL = { board: '電子白板', arrive: '到校簽到', cleanup: '打掃檢核',
                      homework: '作業清點', lunch: '午餐檢核', teeth: '潔牙檢核',
                      routine: '常規檢核（舊）' };
@@ -106,12 +174,7 @@
     refreshRemind();
   }
 
-  function post(text) {
-    return fetch(proxyUrl, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'submit_task', pw: $('send-pw').value, text: text })
-    }).then(function (r) { return r.json(); });
-  }
+  function post(text) { return callProxy('submit_task', { text: text }); }
 
   /* 預覽＝老師看得懂的任務說明（2026-09-06 改；原本直接倒 #CM-EVENTS JSON，老師反映看不懂）。 */
   var rawOn = false;
@@ -143,17 +206,11 @@
     var st = $('send-status');
     var packs = CMEvents.buildPayloads();
     if (!packs.length) { st.className = 'status'; st.textContent = '沒有待送事件。'; return; }
-    if (!$('send-pw').value) { st.className = 'status warn'; st.textContent = '請先輸入教師口令。'; return; }
+    if (!pw()) { st.className = 'status warn'; st.textContent = '口令不見了（分頁被關過？）請重整本頁重新登入。'; return; }
     st.className = 'status'; st.textContent = '送出中…';
     $('btn-send').disabled = true;
 
-    var cfg = proxyUrl ? Promise.resolve(proxyUrl)
-      : fetch(CFG_URL + '?t=' + Date.now(), { cache: 'no-store' })
-          .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-          .then(function (j) { proxyUrl = j.updateProxyUrl; return proxyUrl; });
-
-    cfg.then(function (url) {
-      if (!url) throw new Error('讀不到代理網址');
+    getProxy().then(function () {
       // 逐包依序送出；任何一包失敗就整批留在本機（§3.2 失敗即保留）
       var done = 0;
       return packs.reduce(function (chain, text) {
@@ -166,7 +223,6 @@
       }, Promise.resolve()).then(function () { return done; });
     }).then(function (done) {
       CMEvents.markSent();       // 成功才清、批次號才往前推
-      $('send-pw').value = '';
       refreshSend();
       st.className = 'status ok';
       st.textContent = '已送出 ' + done + ' 包，進了收件匣，排程 Agent 會入帳。';
@@ -186,8 +242,8 @@
   }
 
   $('btn-remind-go').addEventListener('click', function () {
-    $('send-pw').scrollIntoView({ block: 'center' });
-    $('send-pw').focus();
+    $('btn-send').scrollIntoView({ block: 'center' });
+    $('btn-send').focus();
   });
 
   $('btn-remind-off').addEventListener('click', function () {

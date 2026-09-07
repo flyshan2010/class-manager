@@ -641,7 +641,9 @@
     var c = canvasEl(); if (c) c.classList.toggle('on', on);
     var bar = $('drawbar'); if (bar) bar.hidden = !on;
     var b = $('btn-draw'); if (b) b.classList.toggle('on', on);
+    var say = $('saybar'); if (on && say) say.hidden = true;   /* 兩條浮動列一次只開一條，不再互相蓋住 */
     if (on) fitCanvas();
+    hooks.onDraw && hooks.onDraw(on);                          /* 進畫記自動收起底部 HUD，畫下緣不會誤按 */
   }
   function clearDraw() { var c = canvasEl(); if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height); }
 

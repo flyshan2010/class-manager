@@ -670,6 +670,7 @@
     if (e.key === 'Escape') pnl.close();
   });
   Tool.autoHideHud($('hud'));
+  Tool.foldHud($('hud'), 'classManager.routine.hudFolded');   /* 底部工具列可整條收起，不擋投影內容 */
 
   function reload(manual) {
     if (manual) $('btn-reload').textContent = '☁ 讀取中…';

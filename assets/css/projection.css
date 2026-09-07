@@ -20,6 +20,9 @@
   --radius:18px;
 }
 *{box-sizing:border-box}
+/* hidden 屬性一律真的隱藏——class 的 display:flex 會蓋過瀏覽器預設值，
+   造成「明明設了 hidden 卻收不起來」（2026-09-07 電子白板畫記／廣播列踩到）。 */
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{
   background:var(--board);color:var(--chalk);
@@ -74,6 +77,16 @@ body::before{
 .hud button.pink,.hud button.blue,.hud button.orange,.hud button.green,.hud button.purple,.hud button.primary{font-weight:700}
 .hud .sep{width:1px;align-self:stretch;background:var(--line);margin:0 3px}
 .hud .tip{font-size:14px;color:var(--chalk-3);padding:0 6px;text-decoration:none}
+/* HUD 收合：整條縮成底部一顆小把手（2026-09-07 老師反映底部工具列擋操作） */
+.hud .hud-fold{font-size:14px;padding:8px 14px;color:var(--chalk-3);background:transparent;border-color:transparent}
+.hud .hud-fold:hover{background:rgba(255,255,255,.10);color:var(--chalk)}
+.hud.folded{opacity:0;transform:translateX(-50%) translateY(28px);pointer-events:none}
+.hud-open{position:fixed;left:50%;bottom:1.4vh;transform:translateX(-50%);z-index:21;display:none;
+  font-family:inherit;font-size:14px;font-weight:700;color:var(--chalk-2);cursor:pointer;
+  background:rgba(14,20,33,.72);border:1px solid var(--line);border-radius:999px;padding:6px 18px;
+  backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:.55;transition:opacity .2s}
+.hud-open:hover{opacity:1}
+.hud-open.show{display:block}
 .hud a.tip:hover{color:var(--chalk-2)}
 
 /* 側邊玻璃面板 */

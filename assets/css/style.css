@@ -8,6 +8,9 @@
   --radius:18px;
 }
 *{box-sizing:border-box}
+/* hidden 屬性一律真的隱藏——class 的 display:flex 會蓋過瀏覽器預設值，
+   造成「明明設了 hidden 卻收不起來」（2026-09-07 電子白板畫記／廣播列踩到）。 */
+[hidden]{display:none!important}
 html,body{margin:0;padding:0}
 body{
   background:var(--bg);color:var(--ink);min-height:100vh;

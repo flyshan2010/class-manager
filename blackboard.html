@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-2" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-4" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -216,12 +216,24 @@ body.timing .notes{padding-bottom:20vh}
 /* 白板畫記層 */
 #doodle{position:absolute;inset:0;z-index:8;pointer-events:none;touch-action:none}
 #doodle.on{pointer-events:auto;cursor:crosshair}
-.drawbar{position:fixed;right:2.4vw;bottom:12vh;z-index:22;display:flex;gap:8px;align-items:center;
-  background:rgba(14,20,33,.9);border:1px solid var(--line);border-radius:999px;padding:8px 12px}
-.drawbar button{font-family:inherit;font-size:14px;color:var(--chalk);cursor:pointer;
+/* 畫記／廣播兩條浮動列：分別貼右、貼左的側邊直列——
+   舊版兩條都在右下 bottom:12vh，同時開會疊在一起、連「收起」都被蓋住（2026-09-07 老師反映）。
+   側邊直列也讓出白板下緣，底部 HUD 不再被壓住。 */
+.drawbar{position:fixed;z-index:22;display:flex;flex-direction:column;gap:8px;align-items:center;
+  background:rgba(14,20,33,.9);border:1px solid var(--line);border-radius:26px;padding:12px 10px;
+  box-shadow:0 12px 34px rgba(0,0,0,.45);max-height:86vh;overflow:auto}
+.drawbar .bt{font-size:12px;color:var(--chalk-3);letter-spacing:.1em;margin-bottom:2px}
+.drawbar button{font-family:inherit;font-size:14px;color:var(--chalk);cursor:pointer;white-space:nowrap;
   background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
-.drawbar .pen{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid transparent}
+.drawbar button:hover{background:rgba(255,255,255,.14)}
+.drawbar .off{color:var(--chalk-3)}
+.drawbar .pen{width:30px;height:30px;border-radius:50%;padding:0;border:2px solid transparent}
 .drawbar .pen.on{border-color:var(--chalk)}
+#drawbar{right:1.4vw;top:50%;transform:translateY(-50%)}
+#saybar{left:1.4vw;top:50%;transform:translateY(-50%)}
+/* ⚠️ 這一行是「收不起來」的真正原因：class 的 display:flex 蓋過瀏覽器預設的 [hidden]{display:none}，
+   所以兩條列從開頁就一直掛在畫面上、按「收起」也沒反應（2026-09-07 老師回報＋活體驗收確認）。 */
+.drawbar[hidden]{display:none}
 .hud button.on{background:var(--mark);border-color:transparent;color:#2a1a06;font-weight:700}
 
 /* 班規紀錄後的修復大字條（與常規檢核台同一套） */
@@ -257,7 +269,12 @@ body.timing .notes{padding-bottom:20vh}
   .quizwrap{flex-direction:column}
   .qboard{flex:0 0 auto;border-left:none;border-top:1px solid var(--line);padding-left:0;padding-top:1vh;max-height:30vh}
   .qnum{font-size:clamp(64px,16vh,140px)}
-  .drawbar{right:auto;left:50%;transform:translateX(-50%);bottom:auto;top:8vh}
+  /* 窄螢幕改回橫列，並上下錯開，兩條仍不重疊 */
+  .drawbar{flex-direction:row;flex-wrap:wrap;justify-content:center;border-radius:20px;
+    padding:8px 12px;max-width:94vw}
+  #drawbar{right:auto;left:50%;top:7vh;transform:translateX(-50%)}
+  #saybar{left:50%;top:17vh;transform:translateX(-50%)}
+  .drawbar .bt{width:100%;text-align:center;margin:0}
 }
 </style>
 </head>
@@ -295,20 +312,22 @@ body.timing .notes{padding-bottom:20vh}
 
 <div class="fixbar" id="fixbar"></div>
 <div class="drawbar" id="saybar" hidden>
+  <span class="bt">廣播</span>
   <button type="button" data-say="請小朋友回到教室，準備上課。">回教室</button>
   <button type="button" data-say="請到走廊排隊。">走廊排隊</button>
   <button type="button" data-say="請安靜集合，看老師這裡。">集合</button>
   <button type="button" data-say="請安靜，眼睛看老師。">安靜</button>
   <button type="button" data-say="收拾好桌面，準備下課。">準備下課</button>
-  <button type="button" id="say-off">收起</button>
+  <button type="button" class="off" id="say-off">收起</button>
 </div>
 <div class="drawbar" id="drawbar" hidden>
+  <span class="bt">畫記</span>
   <button type="button" class="pen on" id="pen-w" style="background:#f4f6fb" title="白"></button>
   <button type="button" class="pen" id="pen-y" style="background:#f0c85a" title="黃"></button>
   <button type="button" class="pen" id="pen-p" style="background:#f2789b" title="粉"></button>
   <button type="button" id="pen-erase">橡皮擦</button>
   <button type="button" id="pen-clear">清空</button>
-  <button type="button" id="pen-off">收起</button>
+  <button type="button" class="off" id="pen-off">收起</button>
 </div>
 
 <div class="overflow-tip" id="overflow-tip" hidden></div>
@@ -440,10 +459,10 @@ body.timing .notes{padding-bottom:20vh}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260907-2"></script>
-<script src="assets/js/tool.js?v=20260907-2"></script>
-<script src="assets/js/events.js?v=20260907-2"></script>
-<script src="assets/js/board.js?v=20260907-2"></script>
+<script src="assets/js/common.js?v=20260907-4"></script>
+<script src="assets/js/tool.js?v=20260907-4"></script>
+<script src="assets/js/events.js?v=20260907-4"></script>
+<script src="assets/js/board.js?v=20260907-4"></script>
 <script>
 (function () {
   'use strict';
@@ -864,7 +883,14 @@ body.timing .notes{padding-bottom:20vh}
   /* ── 電子白板（board.js）接線 ─────────────────────────────────
      白板把抽籤問答／小組計分／座位加分板收在同一塊版面，並依日課表自動換內容。 */
   var panel2 = Tool.panel($('panel2'), $('scrim'));
-  function toggleBar(id, on) { var el = $(id); if (el) el.hidden = !on; }
+  var hudFold = Tool.foldHud($('hud'), 'classManager.board.hudFolded');
+  var foldedBeforeDraw = false;
+  function toggleBar(id, on) {
+    var el = $(id); if (!el) return;
+    el.hidden = !on;
+    /* 廣播列開啟時關掉畫記工具列（兩條一次只開一條，避免互相蓋住「收起」）。 */
+    if (on && id === 'saybar' && Board.isDraw()) Board.setDraw(false);
+  }
 
   Board.init({
     seats: ClassManager.requireSeats() || [],
@@ -872,6 +898,11 @@ body.timing .notes{padding-bottom:20vh}
       onNotes: fitNotes,
       onResize: fitNotes,
       subtitle: subtitle,
+      onDraw: function (on) {
+        /* 畫記時把底部 HUD 收起（不覆蓋老師平常的偏好），退出畫記再放回來。 */
+        if (on) { foldedBeforeDraw = hudFold.isFolded(); hudFold.fold(true); }
+        else if (!foldedBeforeDraw) hudFold.show(true);
+      },
       panel: function (html) { $('panel-body').innerHTML = html; panel.close(); panel2.open(); },
       closePanel: function () { panel2.close(); }
     }

@@ -5,9 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>教師專區｜班級管理系統</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20260907-2" />
+<link rel="stylesheet" href="assets/css/style.css?v=20260907-4" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔑</text></svg>" />
 <style>
+/* 口令閘（比照班網教師專區）：驗證通過前，整頁內容不顯示 */
+.gate{position:relative;z-index:1;max-width:420px;margin:14vh auto 0;padding:26px 24px 24px;
+  background:linear-gradient(160deg,var(--surface),var(--surface-2));
+  border:1px solid var(--line);border-radius:var(--radius);text-align:left}
+.gate h1{margin:0 0 6px;font-size:22px;font-weight:800}
+.gate p{margin:0 0 16px;font-size:13.5px;color:var(--ink-3);line-height:1.7}
+.gate input{width:100%;max-width:none;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
+  background:rgba(0,0,0,.32);color:var(--ink);font-size:16px;font-family:inherit}
+.gate button{width:100%;margin-top:12px}
+.gate .msg{margin:12px 0 0;font-size:13.5px;color:var(--warn);min-height:1.2em}
+.gate .back{display:block;margin-top:14px;font-size:13px;color:var(--ink-3)}
+.lockbtn{font-size:12.5px;padding:5px 12px}
+
 /* 當節活動紀錄：一列＝白板按過一次「結束課程」 */
 .loglist{display:flex;flex-direction:column;gap:10px}
 .logitem{border:1px solid var(--line,rgba(255,255,255,.12));border-radius:12px;padding:10px 12px}
@@ -19,7 +32,18 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<div class="gate" id="gate">
+  <h1>🔑 教師專區</h1>
+  <p>本頁可以送出資料、改座號、丟棄紀錄，<b>只給老師用</b>。請輸入教師口令。<br>
+    口令由後台（Apps Script 代理）驗證，只存在這個分頁，關掉就要再打一次。</p>
+  <input id="gate-pw" type="password" autocomplete="current-password" placeholder="教師口令" />
+  <button id="gate-btn" type="button">進入</button>
+  <p class="msg" id="gate-msg"></p>
+  <a class="back" href="index.html">← 回工作台（投影用的頁面不需要口令）</a>
+</div>
+
+<div class="wrap" id="tmain" hidden>
 
   <header class="top">
     <div>
@@ -29,16 +53,17 @@
     <div class="right">
       <div id="today"></div>
       <div><b id="seat-summary">尚未設定座號</b></div>
+      <div style="margin-top:6px"><button id="btn-lock" class="ghost lockbtn" type="button">🔒 鎖定離開</button></div>
     </div>
   </header>
 
-  <p class="hint">送出、座號設定與當節紀錄都在這一頁，<b>投影用的工具頁不會出現這些按鈕</b>——
-    學生在投影機前誤按不到，教師口令也仍然只在送出時輸入、永不落地。
+  <p class="hint">送出、座號設定與當節紀錄都在這一頁，<b>投影用的工具頁不會出現這些按鈕</b>，
+    而且這一頁要口令才進得來——學生在投影機前點不進後台。口令只存這個分頁，關掉即消失。
     <a href="index.html">← 回工作台</a></p>
 
   <h2>今日待送 <span id="send-badge" class="badge">0 筆</span></h2>
   <p class="hint">課堂工具記下的加減分只留在這台電腦，下課按「收班送出」才一次進 Notion 收件匣，
-    由排程 Agent 入帳。<b>只有這裡能送出</b>。</p>
+    由排程 Agent 入帳。<b>只有這裡能送出</b>，用的就是剛才進來時打的那組口令。</p>
 
   <div id="send-remind" class="remind" hidden>
     <b>⏰ <span id="remind-at">放學</span> 放學了，今天還有 <span id="remind-n">0</span> 筆課堂紀錄沒送出。</b>
@@ -52,7 +77,6 @@
   <div class="panel">
     <div id="send-list" class="sendlist"></div>
     <div class="row">
-      <input id="send-pw" type="password" placeholder="教師口令" autocomplete="off" />
       <button id="btn-send" type="button">收班送出</button>
       <button id="btn-preview" class="ghost" type="button">預覽送出內容</button>
       <button id="btn-drop" class="ghost" type="button">全部丟棄</button>
@@ -91,8 +115,8 @@
   </footer>
 
 </div>
-<script src="assets/js/common.js?v=20260907-2"></script>
-<script src="assets/js/events.js?v=20260907-2"></script>
-<script src="assets/js/teacher.js?v=20260907-2"></script>
+<script src="assets/js/common.js?v=20260907-4"></script>
+<script src="assets/js/events.js?v=20260907-4"></script>
+<script src="assets/js/teacher.js?v=20260907-4"></script>
 </body>
 </html>
