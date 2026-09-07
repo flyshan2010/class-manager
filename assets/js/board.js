@@ -111,6 +111,22 @@
     return 'notes';                                        // 上學前、放學後：聯絡簿
   }
 
+  /* 今天接下來的第一個時段（公布欄倒數用）。 */
+  function nextPeriod() {
+    if (!sched || !sched.periods) return null;
+    var day = new Date().getDay(); if (day === 0 || day === 6) return null;
+    var t = nowMin(), best = null;
+    sched.periods.forEach(function (q, i) {
+      var s2 = span(q.time); if (!s2 || s2.a <= t) return;
+      if (!best || s2.a < best.at) {
+        var cell = (sched.table[i] || [])[day - 1];
+        best = { at: s2.a, name: q.name || '', time: q.time || '',
+                 subject: cell == null ? '' : String(typeof cell === 'object' ? (cell.subject || '') : cell) };
+      }
+    });
+    return best;
+  }
+
   /* 今天這一科的進度重點：老師就地改的優先，其次抓班網 lessons.json 的單元重點。 */
   function lessonOf(subject) {
     if (!subject || !data.lessons) return null;
@@ -129,6 +145,14 @@
     var m = mode === 'auto' ? autoModule() : mode;
     var dyn = $('slot-dyn'), notes = $('notes'), aside = $('slot-rules');
     if (!dyn) return;
+    /* 公布欄模式：整頁只留一件事，其餘（課表 chips、模式列、常規側欄）都收起來。 */
+    document.body.classList.toggle('wall', mode === 'wall');
+    if (mode === 'wall') {
+      notes.hidden = true; aside.hidden = true; dyn.hidden = false;
+      dyn.className = 'dyn dyn-wall';
+      paintWall(dyn); paintModeChips('wall'); paintCaption();
+      return;
+    }
     var showNotes = (m === 'notes');
     notes.hidden = !showNotes;
     dyn.hidden = showNotes;
@@ -167,7 +191,7 @@
 
   function paintModeChips(active) {
     var box = $('mode-chips'); if (!box) return;
-    var list = [['auto', '自動'], ['notes', '聯絡簿'], ['focus', '重點板'], ['seat', '座位加分'], ['group', '小組計分'], ['quiz', '抽籤問答']];
+    var list = [['wall', '📢 公布欄'], ['auto', '自動'], ['notes', '聯絡簿'], ['focus', '重點板'], ['seat', '座位加分'], ['group', '小組計分'], ['quiz', '抽籤問答']];
     box.innerHTML = '';
     list.forEach(function (it) {
       var b = document.createElement('button');

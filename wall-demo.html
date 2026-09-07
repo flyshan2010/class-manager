@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>公布欄模式・示範｜班級管理系統</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📢</text></svg>" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260907-9" />
+<style>
+/* 公布欄（電子公布欄）示範：整頁只講一件事。
+   版面＝頂一行細資訊 → 中間單一重點 → 底一行資訊帶。時段由日課表與 Notion 班規時段驅動。 */
+.stage{padding:2.4vh 3vw}
+.wtop{flex:0 0 auto;display:flex;align-items:center;gap:1.4vw;flex-wrap:wrap;
+  padding-bottom:1.2vh;border-bottom:1px solid var(--line);font-size:clamp(14px,1.9vh,22px);color:var(--chalk-3)}
+.wtop b{color:var(--chalk-2);font-weight:700}
+.wtop .grow{flex:1 1 auto}
+.wtop .duty span{color:var(--duty);font-weight:800;font-size:1.15em;margin-left:.25em}
+.wtop .clock{font-variant-numeric:tabular-nums;font-size:clamp(20px,2.8vh,34px);color:var(--chalk);font-weight:600}
+
+.wmain{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;gap:1.6vh;padding:2vh 0}
+.wkick{font-size:clamp(18px,2.6vh,34px);letter-spacing:.34em;color:var(--duty);font-weight:700}
+.wtitle{font-size:clamp(56px,15vh,200px);font-weight:800;line-height:1;letter-spacing:.02em}
+.wtitle.clock{font-variant-numeric:tabular-nums;font-weight:300;letter-spacing:-.02em}
+.wsub{font-size:clamp(22px,4vh,60px);color:var(--mark);font-weight:700;line-height:1.35;max-width:88vw}
+.wlist{display:flex;flex-direction:column;gap:1.1vh;margin-top:.6vh;max-width:90vw}
+.wlist li{list-style:none;font-size:clamp(20px,3.4vh,48px);line-height:1.45;color:var(--chalk-2)}
+.wlist li b{color:var(--chalk);font-weight:800}
+.wlist.small li{font-size:clamp(18px,2.8vh,38px)}
+.wcount{font-size:clamp(26px,5vh,72px);color:var(--warn);font-weight:800;font-variant-numeric:tabular-nums}
+
+.wfoot{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:2vw;flex-wrap:wrap;
+  padding-top:1.2vh;border-top:1px solid var(--line);font-size:clamp(16px,2.2vh,28px);color:var(--chalk-3)}
+.wfoot b{color:var(--chalk);font-weight:700}
+.wfoot .tag{background:var(--board-2);border:1px solid var(--line);border-radius:999px;padding:.3em 1em}
+
+/* 示範專用：時段模擬列（正式版不會有這一條） */
+.simbar{position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);z-index:30;display:flex;gap:6px;
+  flex-wrap:wrap;justify-content:center;max-width:96vw;background:rgba(14,20,33,.9);
+  border:1px solid var(--line);border-radius:999px;padding:8px 12px;backdrop-filter:blur(10px)}
+.simbar button{font-family:inherit;font-size:14px;font-weight:600;color:var(--chalk-2);cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:7px 14px;white-space:nowrap}
+.simbar button.on{background:var(--duty);border-color:transparent;color:#08201d;font-weight:800}
+.simbar .lab{font-size:13px;color:var(--chalk-3);padding:0 6px;align-self:center}
+.simbar .hint{position:absolute;left:0;right:0;bottom:calc(100% + 8px);text-align:center;
+  font-size:13px;color:var(--chalk-3)}
+@media (max-width:900px){
+  .simbar button{font-size:12px;padding:6px 10px}
+  .wtitle{font-size:clamp(44px,11vh,110px)}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="wtop">
+    <span id="t-date">—</span>
+    <span id="t-week"></span>
+    <span class="grow"></span>
+    <span class="duty" id="t-duty" hidden>值日生<span id="t-duty-n"></span></span>
+    <span id="t-lunch" hidden></span>
+    <span class="clock" id="t-clock">--:--</span>
+  </div>
+
+  <div class="wmain">
+    <div class="wkick" id="w-kick">讀取中</div>
+    <div class="wtitle" id="w-title">—</div>
+    <div class="wsub" id="w-sub" hidden></div>
+    <ul class="wlist" id="w-list"></ul>
+  </div>
+
+  <div class="wfoot" id="w-foot"></div>
+</div>
+
+<div class="simbar" id="simbar">
+  <span class="hint">👆 這一條是「示範用」的時段模擬器，正式版不會有——實際使用時畫面會依真實時間自動切換</span>
+  <span class="lab">看看各時段：</span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var BASE = 'https://flyshan2010.github.io/class-website/data/';
+  var D = { sched: null, rules: null, lessons: null, ml: null, book: null, lunch: null };
+  var SIM = null;   // 模擬的「現在幾點」（分鐘）；null＝跟著真實時間
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[<>&]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; }); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function nowMin() { if (SIM != null) return SIM; var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+  function hhmm(m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
+  function span(text) {
+    var m = String(text || '').match(/(\d{1,2})[:：](\d{2})\s*[-–—~～]\s*(\d{1,2})[:：](\d{2})/);
+    return m ? { a: +m[1] * 60 + +m[2], b: +m[3] * 60 + +m[4] } : null;
+  }
+  function steps(sop) {
+    return String(sop || '').split(/[➜➔→\/]/).map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+  }
+  function get(name, key) {
+    return fetch(BASE + name + '?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) D[key] = j; }).catch(function () {});
+  }
+
+  /* ── 現在是哪一節／哪個時段 ─────────────────────────── */
+  function dayIdx() { var d = new Date().getDay(); return (d === 0 || d === 6) ? 0 : d; }   // 1..5，0＝假日
+  function periodNow() {
+    if (!D.sched || !D.sched.periods || !dayIdx()) return null;
+    var t = nowMin(), hit = null;
+    D.sched.periods.forEach(function (p, i) {
+      var s = span(p.time); if (!s || t < s.a || t >= s.b) return;
+      var cell = (D.sched.table[i] || [])[dayIdx() - 1];
+      hit = { name: p.name || '', time: p.time || '', end: s.b,
+              subject: cell == null ? '' : String(typeof cell === 'object' ? (cell.subject || '') : cell) };
+    });
+    return hit;
+  }
+  function nextPeriod() {
+    if (!D.sched || !D.sched.periods || !dayIdx()) return null;
+    var t = nowMin(), best = null;
+    D.sched.periods.forEach(function (p, i) {
+      var s = span(p.time); if (!s || s.a <= t) return;
+      if (!best || s.a < best.at) {
+        var cell = (D.sched.table[i] || [])[dayIdx() - 1];
+        best = { at: s.a, name: p.name || '', time: p.time || '',
+                 subject: cell == null ? '' : String(typeof cell === 'object' ? (cell.subject || '') : cell) };
+      }
+    });
+    return best;
+  }
+  function segNow() {
+    var list = (D.rules && D.rules.daily) || [], t = nowMin(), hit = null;
+    list.forEach(function (seg) { var s = span(seg.label); if (s && t >= s.a && t < s.b) hit = seg; });
+    return hit;
+  }
+  function todayBook() {
+    var rows = D.book || [], today = new Date();
+    var key = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+    var row = rows.filter(function (x) { return String(x.date || '').slice(0, 10) === key; })[0];
+    if (!row) {   // 示範資料用最近一天，才看得到實際長相
+      row = rows.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); })[0];
+    }
+    return row || null;
+  }
+  function lessonOf(subject) {
+    if (!subject || !D.lessons) return null;
+    var best = null;
+    D.lessons.forEach(function (L) {
+      if (!L || String(L.subject || '') !== String(subject)) return;
+      if (!best) best = L;
+    });
+    return best;
+  }
+
+  /* ── 這個時刻該投影什麼（單一重點）───────────────────── */
+  function view() {
+    var p = periodNow(), seg = segNow(), nx = nextPeriod(), t = nowMin();
+
+    if (p && /節/.test(p.name) && p.subject) {
+      var L = lessonOf(p.subject);
+      return {
+        kick: p.name + '　' + p.time,
+        title: p.subject,
+        sub: L ? L.title : '',
+        list: ((L && L.points) || []).slice(0, 3),
+        foot: nx ? ['下一節 ' + hhmm(nx.at) + '　' + nx.name + (nx.subject ? '　' + nx.subject : '')] : []
+      };
+    }
+    if (p && /晨掃/.test(p.name)) {
+      return { kick: '07:40–08:00', title: '晨掃', sub: seg && seg.expect ? seg.expect.split('；')[0] : '',
+               list: steps(seg && seg.sop).slice(0, 3), foot: ['08:00 早自修'] };
+    }
+    if (p && /早自修|朝會/.test(p.name)) {
+      var ask = '';
+      var day = (D.ml && D.ml.days || []).filter(function (d) { return Number(d.dow) === dayIdx(); })[0];
+      if (day && day.cards && day.cards[0]) ask = day.cards[0].ask || day.cards[0].title || '';
+      return { kick: '早自修', title: ask ? 'Morning Launch' : '晨　讀',
+               sub: ask || '桌上只留一本書，安靜閱讀',
+               list: steps(seg && seg.sop).slice(0, 2),
+               foot: nx ? ['下一節 ' + hhmm(nx.at) + '　' + nx.name + (nx.subject ? '　' + nx.subject : '')] : [] };
+    }
+    if (p && /午休/.test(p.name)) {
+      return { kick: p.time, title: '午　休', sub: '趴好、不說話', list: [], count: p.end - t,
+               foot: nx ? ['起床後 ' + hhmm(nx.at) + '　' + nx.name + (nx.subject ? '　' + nx.subject : '')] : [] };
+    }
+    if (seg && /午餐/.test(seg.name)) {
+      return { kick: seg.label, title: '午餐時間', sub: seg.expect ? seg.expect.split('；')[0] : '',
+               list: steps(seg.sop).slice(0, 3), foot: ['值週生名單在上方'] };
+    }
+    if (seg && /潔牙/.test(seg.name)) {
+      return { kick: seg.label, title: '潔　牙', sub: seg.expect ? seg.expect.split('；')[0] : '',
+               list: steps(seg.sop).slice(0, 2), foot: [] };
+    }
+    if (seg && /放學/.test(seg.name)) {
+      var b1 = todayBook();
+      return { kick: seg.label, title: '放學囉', sub: '把明天要用的都帶回家',
+               list: (b1 && b1.homework ? String(b1.homework).split('\n').filter(Boolean).slice(0, 4) : ['今天沒有回家功課']),
+               foot: b1 && b1.bring ? ['明天要帶：' + b1.bring.replace(/\n/g, '、')] : [] };
+    }
+    if (seg && /入班|上學/.test(seg.name)) {
+      var b2 = todayBook();
+      return { kick: seg.label, title: '早　安', sub: '把聯絡簿和作業交到指定位置',
+               list: steps(seg.sop).slice(0, 3),
+               foot: b2 && b2.homework ? ['今天要交：' + String(b2.homework).split('\n')[0]] : [] };
+    }
+    if (nx && dayIdx()) {   // 課堂之間的下課
+      return { kick: '下　課', title: '下　課', sub: '準備下一節要用的東西',
+               count: nx.at - t,
+               list: [(nx.name + '　' + (nx.subject || '')).trim()],
+               foot: ['鐘響前回教室，安靜坐好'] };
+    }
+    /* 最後一節下課後的一小時＝放學提醒（daily 的「整理放學」被第七節蓋掉，
+       實務上學生看得到放學畫面的時間就是這一段）。 */
+    var lastEnd = 0;
+    ((D.sched && D.sched.periods) || []).forEach(function (q) { var s2 = span(q.time); if (s2 && s2.b > lastEnd) lastEnd = s2.b; });
+    if (dayIdx() && lastEnd && t >= lastEnd && t < lastEnd + 60) {
+      var b4 = todayBook();
+      return { kick: hhmm(lastEnd) + ' 放學', title: '放學囉', sub: '把明天要用的都帶回家',
+               list: (b4 && b4.homework ? String(b4.homework).split('\n').filter(Boolean).slice(0, 4) : ['今天沒有回家功課']),
+               foot: b4 && b4.bring ? ['明天要帶：' + b4.bring.replace(/\n/g, '、')] : ['路上小心，明天見'] };
+    }
+    var b3 = todayBook();
+    return { kick: dayIdx() ? '今天辛苦了' : '假日', title: hhmm(nowMin()), clock: true,
+             sub: '', list: (b3 && b3.homework ? String(b3.homework).split('\n').filter(Boolean).slice(0, 3) : []),
+             foot: ['明天見'] };
+  }
+
+  /* ── 描繪 ─────────────────────────────────────────── */
+  function paintTop() {
+    var d = new Date();
+    $('t-date').innerHTML = '民國 <b>' + (d.getFullYear() - 1911) + '</b> 年 <b>' + (d.getMonth() + 1) +
+      '</b> 月 <b>' + d.getDate() + '</b> 日　' + ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+    $('t-clock').textContent = SIM != null ? hhmm(SIM) + '（模擬）' : pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function paint() {
+    paintTop();
+    var v = view();
+    $('w-kick').textContent = v.kick || '';
+    $('w-title').textContent = v.title || '';
+    $('w-title').className = 'wtitle' + (v.clock ? ' clock' : '');
+    $('w-sub').hidden = !v.sub; $('w-sub').textContent = v.sub || '';
+    var ul = $('w-list'); ul.innerHTML = '';
+    if (v.count != null && v.count >= 0) {
+      var li0 = document.createElement('li'); li0.className = 'wcount';
+      li0.textContent = '還有 ' + v.count + ' 分鐘';
+      ul.appendChild(li0);
+    }
+    (v.list || []).forEach(function (x) {
+      var li = document.createElement('li'); li.innerHTML = esc(x); ul.appendChild(li);
+    });
+    ul.className = 'wlist' + ((v.list || []).length > 2 ? ' small' : '');
+    $('w-foot').innerHTML = (v.foot || []).map(function (x) { return '<span class="tag">' + esc(x) + '</span>'; }).join('');
+  }
+
+  /* ── 示範用時段模擬器（正式版沒有這段）──────────────── */
+  var SIMS = [['跟著現在', null], ['上學前 07:30', 450], ['晨掃 07:45', 465], ['早自修 08:10', 490],
+              ['上課中 08:50', 530], ['下課 09:25', 565], ['午餐 12:10', 730],
+              ['午休 12:50', 770], ['放學 16:10', 970], ['放學後 17:30', 1050]];
+  function buildSim() {
+    var bar = $('simbar');
+    SIMS.forEach(function (it) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = it[0];
+      b.addEventListener('click', function () {
+        SIM = it[1];
+        Array.prototype.forEach.call(bar.querySelectorAll('button'), function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        paint();
+      });
+      bar.appendChild(b);
+    });
+    bar.querySelector('button').classList.add('on');
+  }
+
+  buildSim();
+  Promise.all([get('schedule.json', 'sched'), get('class-rules.json', 'rules'),
+               get('lessons.json', 'lessons'), get('morning-launch.json', 'ml'),
+               get('contactbook.json', 'book'), get('lunch.json', 'lunch')]).then(paint);
+  paint();
+  setInterval(function () { if (SIM == null) paint(); }, 20000);
+})();
+</script>
+</body>
+</html>
