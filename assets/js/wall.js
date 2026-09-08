@@ -158,12 +158,19 @@
       return wrap({ kick: seg.label, title: '潔　牙', sub: seg.expect ? String(seg.expect).split('；')[0] : '',
                     list: steps(seg.sop).slice(0, 2), foot: [] });
     }
-    /* 6 早晨入班（上學前） */
+    /* 6 早晨入班（上學前）
+       2026-09-08 老師回報：要交的作業原本只放在**底部資訊帶、且只印第一項**，
+       學生走進教室看不到 → 改成「今天要交」當大標，作業清單用黃色大字（與放學口訣同一級），
+       晨間 SOP 退到底部。沒有作業時才回到原本的「早安＋SOP」版面。 */
     if (seg && /入班|上學/.test(seg.name)) {
       var b2 = d.book || null;
+      var due = b2 && b2.homework ? lines(b2.homework).slice(0, 4) : [];
+      if (due.length) {
+        return wrap({ kick: seg.label + '　早安', title: '今天要交', sub: '和聯絡簿一起交到指定位置',
+                      list: due, mark: true, foot: steps(seg.sop).slice(0, 2) });
+      }
       return wrap({ kick: seg.label, title: '早　安', sub: '把聯絡簿和作業交到指定位置',
-                    list: steps(seg.sop).slice(0, 3),
-                    foot: b2 && b2.homework ? ['今天要交：' + lines(b2.homework)[0]] : [] });
+                    list: steps(seg.sop).slice(0, 3), foot: [] });
     }
     /* 7 放學（最後一節下課後一小時；此時 daily 的「整理放學」已被節次蓋過去） */
     var le = lastEnd();
