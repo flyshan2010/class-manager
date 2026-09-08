@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>工作檢核台｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✔</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-9" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260908-1" />
 <style>
 /* 分頁列＝一天的時序：到校 → 打掃 → 作業 → 午餐 → 潔牙（老師 2026-09-06 拍板） */
 .tabs{flex:0 0 auto;display:flex;gap:.6vw;align-items:center;flex-wrap:wrap;margin-bottom:1.2vh}
@@ -126,17 +126,84 @@
 .fixbar .who{font-size:clamp(20px,2.8vh,36px);font-weight:800;margin-bottom:.25em}
 .fixbar .fix{font-size:clamp(18px,2.4vh,30px);color:var(--mark);line-height:1.5}
 
+/* 區塊標題（今日清點／過去未完成）與派出日期膠囊 */
+.hwsec{display:flex;flex-direction:column;gap:.9vh;margin-top:1.4vh;border-top:1px dashed var(--line);padding-top:1.2vh}
+.hwsec-h{display:flex;align-items:baseline;gap:.9vw;flex-wrap:wrap}
+.hwsec-h .t{font-size:clamp(17px,2.3vh,28px);font-weight:800;color:var(--chalk)}
+.hwsec-h .s{font-size:clamp(12px,1.6vh,18px);color:var(--chalk-3)}
+.rowhead .tagday{font-size:clamp(12px,1.6vh,18px);font-weight:700;color:var(--chalk-3);
+  border:1px solid var(--line);border-radius:999px;padding:.1em .7em}
+
+/* 作業清點＝座位表模式（2026-09-08 老師拍板）：一格＝一位學生，格子裡只留他還沒完成的作業，
+   交完就少一個徽章，全部交齊整格變暗。收單科時可切成單項模式（一點一格）。 */
+.hwpills{display:flex;gap:.5vw;flex-wrap:wrap;margin-bottom:.4vh}
+.hwpills .hp{font-family:inherit;font-size:clamp(13px,1.8vh,20px);font-weight:700;color:var(--chalk-2);
+  background:var(--board-3);border:2px solid var(--line-2);border-radius:999px;padding:.35em .95em;cursor:pointer}
+.hwpills .hp.on{background:var(--duty);border-color:transparent;color:#08201d}
+.hwpills .hp.ok{border-color:rgba(86,197,150,.5)}
+.hwpills .hp .n{font-size:.78em;opacity:.8;margin-left:.4em;font-weight:600}
+.hwlegend{display:flex;gap:1.2vw;flex-wrap:wrap;font-size:clamp(12px,1.6vh,18px);color:var(--chalk-3)}
+.hwlegend .li b{color:var(--chalk);font-weight:800;margin-right:.25em}
+.hwlegend .li i{font-style:normal;color:var(--mark);margin-left:.4em}
+
+.seatgrid.agggrid .podium,.seatgrid.hwgrid .podium{padding:.15em 2em;font-size:clamp(11px,1.4vh,15px);margin-bottom:.4vh}
+.gridtip{text-align:center;color:var(--chalk-3);font-size:clamp(12px,1.6vh,17px);margin-top:.3vh}
+.scell.t-blue{border-color:var(--blue);color:var(--blue);background:rgba(106,166,240,.16)}
+.hwcell{width:2.9em;height:2.4em;font-size:clamp(18px,2.4vh,30px)}
+.hwcell .mk{font-size:.4em;opacity:.9}
+
+/* 聚合格：座號＋未完成作業徽章 */
+.scell.agg{width:6.4em;height:auto;min-height:3.4em;padding:.3em .25em;gap:.2em;
+  border-color:var(--line-2);background:var(--board-2);color:var(--chalk)}
+.scell.agg .sn{font-size:clamp(19px,2.5vh,31px);font-weight:800;line-height:1}
+.scell.agg .bd{display:flex;flex-wrap:wrap;gap:.18em;justify-content:center}
+.scell.agg .b{font-size:clamp(10px,1.35vh,15px);font-weight:700;line-height:1.25;border-radius:6px;
+  padding:.1em .35em;border:1px solid transparent}
+.scell.agg .b.s0{color:var(--pink);border-color:rgba(242,120,155,.55);background:rgba(242,120,155,.14)}
+.scell.agg .b.s1{color:var(--blue);border-color:rgba(106,166,240,.5);background:rgba(106,166,240,.14)}
+.scell.agg .b.s2{color:var(--warn);border-color:rgba(240,149,78,.55);background:rgba(240,149,78,.16)}
+.scell.agg .b.old{border-style:dashed}
+.scell.agg .ok{font-size:clamp(10px,1.35vh,15px);color:var(--ok);font-weight:700}
+.scell.agg.alldone{opacity:.42;border-style:dashed;border-color:var(--line-2);background:var(--board-3)}
+
+/* 過去未完成：一列一份，不再各給一張座位表（省高度，投影才看得完） */
+.oldline{display:flex;align-items:center;gap:.8vw;flex-wrap:wrap;
+  background:rgba(240,200,90,.07);border:1px solid rgba(240,200,90,.4);border-radius:14px;padding:.7vh 1vw}
+.oldline .dy{font-size:clamp(12px,1.6vh,18px);font-weight:700;color:var(--mark)}
+.oldline .nm{font-size:clamp(15px,2vh,26px);font-weight:800;color:var(--chalk)}
+.oldline .who{font-size:clamp(13px,1.7vh,20px);color:var(--chalk-2);flex:1 1 12em}
+.oldline .aged{font-size:clamp(12px,1.6vh,18px);color:var(--pink);font-weight:700}
+
+/* 側面板：某位學生的逐項狀態 */
+.panel .seatrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.panel .seatrow.done{opacity:.5}
+.panel .seatrow .nm{flex:1 1 auto;font-size:15.5px;font-weight:700}
+.panel .seatrow .nm .dy{font-size:12.5px;font-weight:400;color:var(--chalk-3);margin-left:8px}
+.panel .seatrow .stbtn{min-width:76px;font-size:14.5px;font-weight:700;border:2px solid var(--line-2);
+  border-radius:999px;padding:6px 12px;background:var(--board-3);color:var(--chalk-2)}
+.panel .seatrow .stbtn.t-pink{border-color:var(--pink);color:var(--pink);background:rgba(242,120,155,.14)}
+.panel .seatrow .stbtn.t-blue{border-color:var(--blue);color:var(--blue);background:rgba(106,166,240,.14)}
+.panel .seatrow .stbtn.t-warn{border-color:var(--warn);color:var(--warn);background:rgba(240,149,78,.16)}
+.panel .seatrow .stbtn.t-ok{border-color:var(--ok);color:var(--ok);background:rgba(86,197,150,.16)}
+
 /* 本週總覽：座號 × 週一～週五 */
 .week{width:100%;border-collapse:collapse;font-size:13.5px}
 .week th,.week td{border:1px solid var(--line);padding:4px 6px;text-align:center}
 .week th{color:var(--chalk-3);font-weight:600}
 
 @media (max-width:900px){
+  /* 手機／平板：座位表比螢幕寬時，讓網格自己橫向捲（頁面本身不得橫向捲動）。 */
+  .view{overflow-x:hidden}
+  .seatgrid{align-self:stretch;align-items:flex-start;overflow-x:auto;padding-bottom:.4em}
+  .seatgrid .srow{flex:0 0 auto}
   .pcard{min-width:4.4em}
   .scell{width:2.8em;height:2.3em}
   .tabs button{font-size:clamp(13px,1.9vh,19px);padding:.45em .8em}
   .itemrow{padding:1vh 3vw}
   .chip{font-size:clamp(20px,2.6vh,32px)}
+  .hwcell{width:2.6em;height:2.1em}
+  .scell.agg{width:5.4em}
+  .hwcell{width:2.6em;height:2.1em}
 }
 </style>
 </head>
@@ -175,7 +242,6 @@
   <button type="button" id="btn-settle" class="primary">📤 結算本站到待送</button>
   <span class="tip" id="settled"></span>
   <span class="sep"></span>
-  <button type="button" id="btn-show" hidden>顯示已完成</button>
   <button type="button" id="btn-week" hidden>📅 本週總覽</button>
   <button type="button" id="btn-reload">☁ 重讀雲端資料</button>
   <span class="sep"></span>
@@ -188,9 +254,9 @@
 </aside>
 <div class="scrim" id="scrim"></div>
 
-<script src="assets/js/common.js?v=20260907-9"></script>
-<script src="assets/js/tool.js?v=20260907-9"></script>
-<script src="assets/js/events.js?v=20260907-9"></script>
-<script src="assets/js/routine.js?v=20260907-9"></script>
+<script src="assets/js/common.js?v=20260908-1"></script>
+<script src="assets/js/tool.js?v=20260908-1"></script>
+<script src="assets/js/events.js?v=20260908-1"></script>
+<script src="assets/js/routine.js?v=20260908-1"></script>
 </body>
 </html>

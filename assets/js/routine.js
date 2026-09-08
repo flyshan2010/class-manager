@@ -48,7 +48,7 @@
   var TAB_TITLE = {
     arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
     clean: '點座號檢核：未檢核 → ✓ 到位達標 → △ 未達標 → ✗ 未到 → ＋ 支援',
-    hw: '清點前一天派的作業，點一下往下一個狀態，完成就消失',
+    hw: '座位表清點：未交 → 已交 → 要訂正 → 完成（今日與過去未完成分兩區）',
     lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 未到 → ＋ 臨時支援',
     teeth: '點座號檢核：未點 → ✓ 已潔牙 → ✗ 沒潔牙（不扣幣、不記班規）'
   };
@@ -75,17 +75,21 @@
     sdb.set(st);
   })();
 
-  /* 作業清點沿用 v2 舊 store：併頁不該讓老師今天已經點過的清點歸零。 */
-  var hdb = Tool.store('classManager.homework.v2');
-  var hw = hdb.get({ date: '', srcDate: '', items: [], status: {}, carry: {}, due: {} });
-  if (hw.date !== Tool.todayKey()) {
-    hw = { date: Tool.todayKey(), srcDate: hw.srcDate || '', items: hw.items || [],
-           status: hw.status || {}, carry: hw.carry || {}, due: hw.due || {} };
-  }
+  /* 作業清點 v3（2026-09-08 老師要求）：每一筆作業的鍵＝「派出日期｜名稱」。
+     v2 用純名稱當鍵，「聯絡簿」天天同名——昨天點完的完成狀態今天照樣讀得到，
+     老師得先把整列設回未交才能清點。加上日期後，每天自然長出新的一列，
+     沒交完的舊項目也因為鍵帶日期，一眼看得出是哪一天欠的。
+     不從 v2 搬資料：舊鍵沒有日期，硬搬會把昨天的完成狀態掛到今天那列（正是要修的 bug）。 */
+  var hdb = Tool.store('classManager.homework.v3');
+  var hw = hdb.get({ date: '', srcDate: '', items: [], status: {}, carry: {} });
+  if (!Array.isArray(hw.items)) hw.items = [];
+  if (!hw.status) hw.status = {};
   if (!hw.carry) hw.carry = {};
-  if (!hw.due) hw.due = {};
+  hw.date = Tool.todayKey();          // 跨日不清空狀態：沒交完的要結轉，清空就沒得追
   var HW_STATES = ['未交', '已交', '要訂正', '完成'];
-  var showDone = false;
+  var HW_MARK = ['未交', '已交', '訂正', '完成'];
+  var HW_TONE = ['pink', 'blue', 'warn', 'ok'];   // 未交＝粉紅，投影時一眼看得出誰還沒交
+  var hwView = 'all';   // 'all'＝一張座位表掛全部作業；其餘＝單一份作業的 key
 
   var cache = Tool.store('classManager.routine.cache');
   var data = cache.get({ rules: null, duties: null, seating: null, lunch: null, weeks: null });
@@ -296,79 +300,242 @@
     box.insertBefore(actionBar('clean', list, '✅ 全部到位達標', 1), box.firstChild);
   }
 
-  /* ── 3 作業清點（原 homework.html，3-2 併成分頁）────────────────── */
-  function hwState(item, seat) { return (hw.status[item] && hw.status[item][seat]) || 0; }
-  function hwSet(item, seat, v) {
-    if (!hw.status[item]) hw.status[item] = {};
-    if (v === 0) delete hw.status[item][seat]; else hw.status[item][seat] = v;
+  /* ── 3 作業清點（座位表模式，2026-09-08 老師拍板）──────────────────
+     每筆作業＝{key,name,due}，key＝派出日期｜名稱。「聯絡簿」掛當天日期，隔天自動長出新的一列，
+     不必再手動把昨天的還原成未交（v2 用純名稱當鍵，正是天天要還原的原因）。
+
+     預設是「一張座位表掛全部作業」：一格＝一位學生，格子裡列出他**還沒完成**的作業短碼，
+     交完一項就少一個徽章，全部交齊整格自動變暗——老師掃一眼就知道還要追誰、追什麼。
+     要一項一項收（例如「數習交上來」）時，點上方的作業膠囊切成單項模式，一點一格最快。
+
+     結轉列（前幾天派、還沒交完）只提醒，不進 collect()——同一份作業天天結算就會天天扣一次 −5。 */
+  var CARRY_WARN_DAYS = 14;     // 追蹤超過這麼多天就提醒老師處理；**不自動下架**（靜默丟掉欠交比殘留更糟）
+  function hwState(key, seat) { return (hw.status[key] && hw.status[key][seat]) || 0; }
+  function hwSet(key, seat, v) {
+    if (!hw.status[key]) hw.status[key] = {};
+    if (v === 0) delete hw.status[key][seat]; else hw.status[key][seat] = v;
     hdb.set(hw);
   }
-  function hwCounts(item) { var c = [0, 0, 0, 0]; seats.forEach(function (s) { c[hwState(item, s)]++; }); return c; }
+  function hwCounts(key) { var c = [0, 0, 0, 0]; seats.forEach(function (s) { c[hwState(key, s)]++; }); return c; }
+  function hwUndone(key) { return seats.filter(function (s) { return hwState(key, s) !== 3; }); }
+  function hwItem(key) { return hw.items.filter(function (x) { return x.key === key; })[0] || null; }
+  /* 徽章短碼：取第一個空白／括號前的字，最多 4 字（「國習 L2 P.10–11」→ 國習）。 */
+  function shortName(n) { return String(n || '').split(/[\s　（(]/)[0].slice(0, 4) || String(n).slice(0, 4); }
+  function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+
+  /* 座位表網格：makeCell(seat) 回傳一格，null＝走道留白。讀不到座位表就退回每列 6 個。 */
+  function seatGrid(extraCls, makeCell) {
+    var wrap = document.createElement('div'); wrap.className = 'seatgrid' + (extraCls ? ' ' + extraCls : '');
+    var podium = document.createElement('div'); podium.className = 'podium'; podium.textContent = '講　台';
+    wrap.appendChild(podium);
+    var grid = (data.seating && data.seating.grid) || null;
+    (grid || chunk(seats, 6)).forEach(function (row) {
+      var r = document.createElement('div'); r.className = 'srow';
+      row.forEach(function (s) {
+        if (s == null) { var g = document.createElement('div'); g.className = 'scell gap'; r.appendChild(g); return; }
+        r.appendChild(makeCell(s));
+      });
+      wrap.appendChild(r);
+    });
+    if (!grid) {
+      var tip = document.createElement('div'); tip.className = 'gridtip';
+      tip.textContent = '（還讀不到座位表，暫時依座號排列）';
+      wrap.appendChild(tip);
+    }
+    return wrap;
+  }
+
+  /* 模式膠囊：👥 全部（依學生）＋ 每一份作業各一顆 */
+  function hwPills(list) {
+    var box = document.createElement('div'); box.className = 'hwpills';
+    function pill(key, label, sub, cls) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'hp' + (hwView === key ? ' on' : '') + (cls ? ' ' + cls : '');
+      b.innerHTML = esc(label) + (sub ? '<span class="n">' + esc(sub) + '</span>' : '');
+      b.addEventListener('click', function () { hwView = key; paintHw(); });
+      box.appendChild(b);
+    }
+    pill('all', '👥 全部（依學生）', '', '');
+    list.forEach(function (it) {
+      var left = hwUndone(it.key).length;
+      pill(it.key, (hw.carry[it.key] ? '⏳ ' : '') + shortName(it.name), left ? left + ' 人未完成' : '交齊',
+           left ? '' : 'ok');
+    });
+    return box;
+  }
+
+  /* 一位學生還沒完成的項目（含結轉），供聚合格與側面板共用 */
+  function pendingOf(seat) {
+    return hw.items.filter(function (it) { return hwState(it.key, seat) !== 3; });
+  }
+
+  /* 點格子 → 側面板逐項改狀態（格子太小塞不下四態循環，硬塞會點錯人） */
+  function openSeatPanel(seat) {
+    function draw() {
+      var body = $('panel-body'); body.innerHTML = '';
+      var h = document.createElement('div');
+      h.innerHTML = '<h2>' + seat + ' 號的作業</h2><p class="hint">點右邊的狀態鈕循環：未交 → 已交 → 要訂正 → 完成。</p>';
+      body.appendChild(h);
+      hw.items.forEach(function (it) {
+        var v = hwState(it.key, seat);
+        var r = document.createElement('div'); r.className = 'seatrow' + (v === 3 ? ' done' : '');
+        r.innerHTML = '<span class="nm">' + (hw.carry[it.key] ? '⏳ ' : '') + esc(it.name) +
+          '<span class="dy">' + esc(String(it.due || '').slice(5)) + ' 派</span></span>';
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'stbtn t-' + HW_TONE[v]; b.textContent = HW_MARK[v];
+        b.addEventListener('click', function () {
+          hwSet(it.key, seat, (hwState(it.key, seat) + 1) % 4);
+          Tool.beep(1, 520); draw(); paintHw(); paintPend();
+        });
+        r.appendChild(b); body.appendChild(r);
+      });
+      var row = document.createElement('div'); row.className = 'row';
+      var all = document.createElement('button'); all.type = 'button'; all.textContent = '✅ 這位全部完成';
+      all.addEventListener('click', function () {
+        hw.items.forEach(function (it) { hwSet(it.key, seat, 3); });
+        Tool.beep(2, 760); draw(); paintHw(); paintPend();
+      });
+      var none = document.createElement('button'); none.type = 'button'; none.className = 'ghost';
+      none.textContent = '↺ 全設未交';
+      none.addEventListener('click', function () {
+        hw.items.forEach(function (it) { hwSet(it.key, seat, 0); });
+        draw(); paintHw(); paintPend();
+      });
+      row.appendChild(all); row.appendChild(none); body.appendChild(row);
+    }
+    draw(); pnl.open();
+  }
+
+  /* 模式 A：一張座位表掛全部作業 */
+  function paintHwAll(box, today, old) {
+    var full = seats.filter(function (s) { return !pendingOf(s).length; }).length;
+    var bar = document.createElement('div'); bar.className = 'statbar';
+    var info = document.createElement('span'); info.className = 'sb-n';
+    info.innerHTML = '全部交齊 <b>' + full + '</b> / ' + seats.length +
+      (full === seats.length ? '　<span class="sb-ok">全班都交齊了</span>'
+                             : '　<span class="sb-left">還有 ' + (seats.length - full) + ' 人有沒交完的</span>');
+    bar.appendChild(info);
+    var allb = document.createElement('button');
+    allb.type = 'button'; allb.className = 'sb-all'; allb.disabled = full === seats.length;
+    allb.textContent = '✅ 全班全部交齊';
+    allb.addEventListener('click', function () {
+      if (!confirm('把全班所有作業都設成「完成」嗎？\n\n（含 ⏳ 過去未完成的追蹤項，設完那些列會自動消失）')) return;
+      hw.items.forEach(function (it) { seats.forEach(function (s) { hwSet(it.key, s, 3); }); });
+      Tool.beep(2, 760); paintHw(); paintPend();
+    });
+    bar.appendChild(allb);
+    box.appendChild(bar);
+
+    var lg = document.createElement('div'); lg.className = 'hwlegend';
+    lg.innerHTML = today.map(function (it) {
+      var left = hwUndone(it.key).length;
+      return '<span class="li"><b>' + esc(shortName(it.name)) + '</b>' + esc(it.name.slice(shortName(it.name).length)) +
+             '<i>' + (left ? left + ' 人未完成' : '交齊 ✓') + '</i></span>';
+    }).join('') || '<span class="li">今天沒有要清點的作業</span>';
+    box.appendChild(lg);
+
+    box.appendChild(seatGrid('agggrid', function (s) {
+      var pend = pendingOf(s);
+      var cell = document.createElement('div');
+      cell.className = 'scell agg' + (pend.length ? '' : ' alldone');
+      var bd = pend.map(function (it) {
+        var v = hwState(it.key, s);
+        return '<span class="b s' + v + (hw.carry[it.key] ? ' old' : '') + '">' +
+               (hw.carry[it.key] ? '⏳' : '') + esc(shortName(it.name)) + '</span>';
+      }).join('');
+      cell.innerHTML = '<span class="sn">' + s + '</span>' +
+        '<span class="bd">' + (pend.length ? bd : '<span class="ok">✓ 交齊</span>') + '</span>';
+      cell.addEventListener('click', function () { openSeatPanel(s); });
+      return cell;
+    }));
+
+    if (old.length) {
+      var sec = document.createElement('div'); sec.className = 'hwsec';
+      var h = document.createElement('div'); h.className = 'hwsec-h';
+      h.innerHTML = '<span class="t">⏳ 過去未完成（補交追蹤）</span><span class="s">只提醒，不再結算、不重複扣分</span>';
+      sec.appendChild(h);
+      old.forEach(function (it) { sec.appendChild(oldLine(it)); });
+      box.appendChild(sec);
+    }
+  }
+
+  function oldLine(it) {
+    var d = document.createElement('div'); d.className = 'oldline';
+    var age = it.due ? daysBetween(it.due, Tool.todayKey()) : 0;
+    d.innerHTML = '<span class="dy">' + esc(String(it.due || '').slice(5) || '之前') + ' 派</span>' +
+      '<span class="nm">' + esc(it.name) + '</span>' +
+      '<span class="who">還沒交完：' + hwUndone(it.key).join('、') + '</span>' +
+      (age >= CARRY_WARN_DAYS ? '<span class="aged">已追蹤 ' + age + ' 天，該處理了</span>' : '');
+    var b = document.createElement('button'); b.className = 'reset'; b.textContent = '✕ 不再追蹤';
+    b.addEventListener('click', function () {
+      if (!confirm('「' + it.name + '」不再追蹤？\n\n這一列會從清單消失（不影響已結算的紀錄）。')) return;
+      delete hw.carry[it.key]; delete hw.status[it.key];
+      hw.items = hw.items.filter(function (x) { return x.key !== it.key; });
+      hdb.set(hw); paintHw();
+    });
+    d.appendChild(b);
+    return d;
+  }
+
+  /* 模式 B：單一份作業一張座位表（收單科最快，一點一格） */
+  function paintHwOne(box, it) {
+    var isCarry = !!hw.carry[it.key];
+    var c = hwCounts(it.key), rem = c[0] + c[1] + c[2];
+    var row = document.createElement('div');
+    row.className = 'itemrow' + (rem === 0 ? ' clear' : '') + (isCarry ? ' carry' : '');
+    var head = document.createElement('div'); head.className = 'rowhead';
+    var day = String(it.due || '').slice(5);
+    head.innerHTML = '<span class="name">' + esc(it.name) + '</span>' +
+      '<span class="' + (isCarry ? 'tagold' : 'tagday') + '">' +
+        (isCarry ? '⏳ ' + esc(day || '之前') + ' 派・還沒交完' : '📅 ' + esc(day || '今天') + ' 派') + '</span>' +
+      '<span class="cnt"><span class="u">未交 <b>' + c[0] + '</b></span>　<span class="a">已交 <b>' + c[1] +
+      '</b></span>　<span class="c">要訂正 <b>' + c[2] + '</b></span>　<span class="d">完成 <b>' + c[3] +
+      '</b></span></span><span class="grow"></span>';
+    var reset = document.createElement('button'); reset.className = 'reset'; reset.textContent = '全設未交';
+    reset.addEventListener('click', function () {
+      if (confirm('把「' + it.name + '」全班設回未交？')) { delete hw.status[it.key]; hdb.set(hw); paintHw(); }
+    });
+    var done = document.createElement('button'); done.className = 'reset'; done.textContent = '✅ 全班完成';
+    done.addEventListener('click', function () {
+      if (!confirm('把「' + it.name + '」全班設成完成？')) return;
+      seats.forEach(function (s) { hwSet(it.key, s, 3); });
+      Tool.beep(2, 760); paintHw(); paintPend();
+    });
+    head.appendChild(done); head.appendChild(reset); row.appendChild(head);
+    if (isCarry) {
+      var line = document.createElement('div'); line.className = 'carryline';
+      line.textContent = '這是前幾天派的，補交追蹤中：這一列不會再送出紀錄（不重複扣分）';
+      row.appendChild(line);
+    }
+    row.appendChild(seatGrid('hwgrid', function (s) {
+      var v = hwState(it.key, s);
+      var cell = document.createElement('div');
+      cell.className = 'scell hwcell t-' + HW_TONE[v];
+      cell.innerHTML = s + '<span class="mk">' + HW_MARK[v] + '</span>';
+      cell.addEventListener('click', function () {
+        var nv = (hwState(it.key, s) + 1) % 4;
+        hwSet(it.key, s, nv); Tool.beep(1, nv === 3 ? 720 : 520); paintHw(); paintPend();
+      });
+      return cell;
+    }));
+    box.appendChild(row);
+  }
 
   function paintHw() {
     var box = $('view-hw'); box.innerHTML = '';
-    $('legend').innerHTML = '<span>未交 → 已交 → 要訂正 → <b style="color:var(--ok)">完成</b>（完成就消失）</span>' +
+    $('legend').innerHTML = '<span>未交 → 已交 → 要訂正 → <b style="color:var(--ok)">完成</b></span>' +
       '<span>' + (hw.srcDate ? '清點 ' + hw.srcDate.slice(5) + ' 派的' : '雲端讀不到前一天作業') + '</span>';
     if (!hw.items.length) {
       box.innerHTML = '<div class="itemrow"><div class="rowclear">沒有可清點的項目' +
         '<span class="sub">按「☁ 重讀雲端資料」，或到 Notion 聯絡簿填前一天的作業</span></div></div>';
       return;
     }
-    var items = document.createElement('div'); items.className = 'items';
-    hw.items.forEach(function (item) {
-      var isCarry = !!hw.carry[item];
-      var c = hwCounts(item), rem = c[0] + c[1] + c[2];
-      var row = document.createElement('div');
-      row.className = 'itemrow' + (rem === 0 ? ' clear' : '') + (isCarry ? ' carry' : '');
-      var head = document.createElement('div'); head.className = 'rowhead';
-      head.innerHTML = '<span class="name">' + esc(item) + '</span>' +
-        (isCarry ? '<span class="tagold">⏳ ' + esc((hw.due[item] || '').slice(5) || '之前') +
-                   ' 派・還沒交完</span>' : '') +
-        '<span class="cnt"><span class="u">未交 <b>' + c[0] + '</b></span>　<span class="a">已交 <b>' + c[1] +
-        '</b></span>　<span class="c">要訂正 <b>' + c[2] + '</b></span>　<span class="d">完成 <b>' + c[3] +
-        '</b></span></span><span class="grow"></span>';
-      var reset = document.createElement('button'); reset.className = 'reset';
-      reset.textContent = isCarry ? '✕ 不再追蹤' : '全設未交';
-      reset.addEventListener('click', function () {
-        if (isCarry) {
-          if (!confirm('「' + item + '」不再追蹤？\n\n這一列會從清單消失（不影響已結算的紀錄）。')) return;
-          delete hw.carry[item]; delete hw.status[item]; delete hw.due[item];
-          hw.items = hw.items.filter(function (x) { return x !== item; });
-          hdb.set(hw); paintHw(); return;
-        }
-        if (confirm('把「' + item + '」全班設回未交？')) { delete hw.status[item]; hdb.set(hw); paintHw(); }
-      });
-      head.appendChild(reset); row.appendChild(head);
-      if (isCarry) {
-        var who = seats.filter(function (sn) { return hwState(item, sn) !== 3; });
-        var line = document.createElement('div'); line.className = 'carryline';
-        line.textContent = '還沒交完：' + who.join('、') +
-          '　·　補交追蹤中，這一列不會再送出紀錄（不重複扣分）';
-        row.appendChild(line);
-      }
-
-      var shown = seats.filter(function (s) { return showDone || hwState(item, s) !== 3; });
-      if (!shown.length) {
-        var d = document.createElement('div'); d.className = 'rowclear';
-        d.innerHTML = '全部完成 🎉<span class="sub">按「顯示已完成」可回頭改</span>';
-        row.appendChild(d);
-      } else {
-        var chips = document.createElement('div'); chips.className = 'chips';
-        shown.forEach(function (s) {
-          var v = hwState(item, s);
-          var ch = document.createElement('div'); ch.className = 'chip s' + v; ch.textContent = s;
-          ch.title = HW_STATES[v];
-          ch.addEventListener('click', function () {
-            var nv = (v + 1) % 4;
-            hwSet(item, s, nv); Tool.beep(1, nv === 3 ? 720 : 520); paintHw(); paintPend();
-          });
-          chips.appendChild(ch);
-        });
-        row.appendChild(chips);
-      }
-      items.appendChild(row);
-    });
-    box.appendChild(items);
+    var today = [], old = [];
+    hw.items.forEach(function (it) { (hw.carry[it.key] ? old : today).push(it); });
+    if (hwView !== 'all' && !hwItem(hwView)) hwView = 'all';
+    box.appendChild(hwPills(today.concat(old)));
+    if (hwView === 'all') paintHwAll(box, today, old);
+    else paintHwOne(box, hwItem(hwView));
   }
 
   function loadHw() {
@@ -379,29 +546,31 @@
         var past = (rows || []).filter(function (x) {
           return x && String(x.date || '').slice(0, 10) < today && String(x.homework || '').trim();
         }).sort(function (a, b) { return b.date.localeCompare(a.date); });
-        var row = past[0], items = [];
+        var row = past[0], src = row ? row.date.slice(0, 10) : '';
+        var items = [];
         if (row) String(row.homework).split(/\n+/).map(function (s) { return s.trim(); })
-          .filter(Boolean).forEach(function (l) { items.push(l); });
-        items.push('聯絡簿');
-        var src = row ? row.date.slice(0, 10) : '';
-        items.forEach(function (it) { if (!hw.due[it]) hw.due[it] = src; });
-        /* 欠交結轉（2026-09-07 老師要求）：昨天派的作業如果還有人沒到「完成」，
-           今天照樣留在清單上，才提醒得了老師與學生。已全班完成的才會自然消失。
-           結轉項目只提醒、**不再進結算**——同一份作業天天結算就會天天扣一次 −5。 */
-        var carry = {};
-        Object.keys(hw.status).forEach(function (k) {
-          if (items.indexOf(k) >= 0) return;
-          var undone = seats.some(function (sn) { return (hw.status[k][sn] || 0) !== 3; });
-          if (undone) carry[k] = hw.carry[k] || hw.due[k] || '';
+          .filter(Boolean).forEach(function (l) { items.push({ key: src + '|' + l, name: l, due: src }); });
+        /* 聯絡簿每天都要收，收的是「今天這一輪」——鍵掛今天的日期，隔天自動長出全新一列。 */
+        items.push({ key: today + '|聯絡簿', name: '聯絡簿', due: today });
+        var isToday = {}; items.forEach(function (it) { isToday[it.key] = 1; });
+        /* 欠交結轉：先前留下、還有人沒到「完成」的項目照樣掛著（鍵帶日期，看得出是哪天的）。 */
+        var carry = {}, keep = items.slice();
+        hw.items.forEach(function (o) {
+          if (!o || !o.key || isToday[o.key]) return;
+          if (!hwUndone(o.key).length) return;      // 全班都完成 → 自然消失
+          carry[o.key] = 1; keep.push(o);
         });
-        var keep = items.concat(Object.keys(carry));
-        var ns = {}; keep.forEach(function (it) { if (hw.status[it]) ns[it] = hw.status[it]; });
-        var nd = {}; keep.forEach(function (it) { if (hw.due[it]) nd[it] = hw.due[it]; });
-        hw.items = keep; hw.status = ns; hw.due = nd; hw.carry = carry;
-        hw.srcDate = src;
+        var ns = {}; keep.forEach(function (it) { if (hw.status[it.key]) ns[it.key] = hw.status[it.key]; });
+        hw.items = keep; hw.status = ns; hw.carry = carry; hw.srcDate = src;
         hdb.set(hw);
       })
-      .catch(function () { if (!hw.items.length) { hw.items = ['聯絡簿']; hdb.set(hw); } });
+      .catch(function () {
+        if (!hw.items.length) {
+          var t = Tool.todayKey();
+          hw.items = [{ key: t + '|聯絡簿', name: '聯絡簿', due: t }];
+          hdb.set(hw);
+        }
+      });
   }
 
   /* ── 4 午餐工作 ────────────────────────────────────────── */
@@ -614,10 +783,12 @@
       var c4 = cardOf(4);
       if (!c4) return out;
       var MAP = { 0: ['bad', 0], 2: ['bad', 1] };
-      hw.items.forEach(function (item) {
-        if (hw.carry[item]) return;         // 結轉的欠交列只提醒，不再結算（避免同一份作業天天扣分）
+      hw.items.forEach(function (it) {
+        if (hw.carry[it.key]) return;       // 結轉的欠交列只提醒，不再結算（避免同一份作業天天扣分）
+        /* 備註帶派出日期：週結／家長看紀錄時才知道是哪一天的作業（2026-09-08）。 */
+        var item = it.name + (it.due ? '（' + String(it.due).slice(5) + ' 派）' : '');
         seats.forEach(function (s) {
-          var v = hwState(item, s);
+          var v = hwState(it.key, s);
           if (v === 1) return;                  // 已交：不產生事件
           if (v === 3) {                        // 完成：只計次，週結才給幣（避免每天 +5 的通膨）
             out.push({ tool: TOOL.hw, date: st.date, seat: s, src: 'tally', dedupe: 'day',
@@ -800,7 +971,6 @@
     });
     $('zonetabs').style.display = t === 'clean' ? '' : 'none';
     $('btn-week').hidden = t !== 'clean';
-    $('btn-show').hidden = t !== 'hw';
     $('subtitle').textContent = TAB_TITLE[t];
     paint(); paintPend();
   }
@@ -810,12 +980,6 @@
   });
   $('btn-settle').addEventListener('click', settle);
   $('btn-week').addEventListener('click', weekOverview);
-  $('btn-show').addEventListener('click', function () {
-    showDone = !showDone;
-    $('btn-show').textContent = showDone ? '隱藏已完成' : '顯示已完成';
-    $('btn-show').classList.toggle('primary', showDone);
-    paintHw();
-  });
   $('btn-reload').addEventListener('click', function () { reload(true); });
   $('btn-full').addEventListener('click', Tool.fullscreen);
   document.addEventListener('keydown', function (e) {
