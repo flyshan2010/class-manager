@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>工作檢核台｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✔</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260908-2" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260908-3" />
 <style>
 /* 分頁列＝一天的時序：到校 → 打掃 → 作業 → 午餐 → 潔牙（老師 2026-09-06 拍板） */
 .tabs{flex:0 0 auto;display:flex;gap:.6vw;align-items:center;flex-wrap:wrap;margin-bottom:1.2vh}
@@ -142,6 +142,15 @@
 .hwpills .hp.on{background:var(--duty);border-color:transparent;color:#08201d}
 .hwpills .hp.ok{border-color:rgba(86,197,150,.5)}
 .hwpills .hp .n{font-size:.78em;opacity:.8;margin-left:.4em;font-weight:600}
+.hwpills .pgrow{flex:1 1 auto}
+/* 版面切換：座位表看得出「誰」沒交，座號清單登記最快——兩種都留，老師自己選（2026-09-08） */
+.layoutsw{display:flex;gap:.25em;background:var(--board-3);border:2px solid var(--line-2);
+  border-radius:999px;padding:.15em}
+.hwpills .lw{font-family:inherit;font-size:clamp(13px,1.7vh,19px);font-weight:700;color:var(--chalk-3);
+  background:transparent;border:none;border-radius:999px;padding:.3em .9em;cursor:pointer}
+.hwpills .lw.on{background:var(--blue);color:#08152a}
+.hwpills .lw.solo{border:2px solid var(--line-2);background:var(--board-3);margin-left:.4em}
+.hwpills .lw.solo.on{background:var(--mark);color:#221a05;border-color:transparent}
 .hwlegend{display:flex;gap:1.2vw;flex-wrap:wrap;font-size:clamp(12px,1.6vh,18px);color:var(--chalk-3)}
 .hwlegend .li b{color:var(--chalk);font-weight:800;margin-right:.25em}
 .hwlegend .li i{font-style:normal;color:var(--mark);margin-left:.4em}
@@ -259,9 +268,9 @@
 </aside>
 <div class="scrim" id="scrim"></div>
 
-<script src="assets/js/common.js?v=20260908-2"></script>
-<script src="assets/js/tool.js?v=20260908-2"></script>
-<script src="assets/js/events.js?v=20260908-2"></script>
-<script src="assets/js/routine.js?v=20260908-2"></script>
+<script src="assets/js/common.js?v=20260908-3"></script>
+<script src="assets/js/tool.js?v=20260908-3"></script>
+<script src="assets/js/events.js?v=20260908-3"></script>
+<script src="assets/js/routine.js?v=20260908-3"></script>
 </body>
 </html>

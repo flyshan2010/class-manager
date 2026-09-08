@@ -48,7 +48,7 @@
   var TAB_TITLE = {
     arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
     clean: '點座號檢核：未檢核 → ✓ 到位達標 → △ 未達標 → ✗ 未到 → ＋ 支援',
-    hw: '座位表清點：未交 → 已交 → 要訂正 → 完成（今日與過去未完成分兩區）',
+    hw: '未交 → 已交 → 要訂正 → 完成；右上可切「🪑 座位表／🔢 座號清單」',
     lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 未到 → ＋ 臨時支援',
     teeth: '點座號檢核：未點 → ✓ 已潔牙 → ✗ 沒潔牙（不扣幣、不記班規）'
   };
@@ -89,7 +89,13 @@
   var HW_STATES = ['未交', '已交', '要訂正', '完成'];
   var HW_MARK = ['未交', '已交', '訂正', '完成'];
   var HW_TONE = ['pink', 'blue', 'warn', 'ok'];   // 未交＝粉紅，投影時一眼看得出誰還沒交
-  var hwView = 'all';   // 'all'＝一張座位表掛全部作業；其餘＝單一份作業的 key
+  var hwView = 'all';   // 'all'＝一張表掛全部作業；其餘＝單一份作業的 key
+  /* 版面兩種，各有各的場合（老師 2026-09-08）：
+     seat＝座位表，看得出「誰」還沒交；list＝座號清單，一列一份作業、座號由小到大，登記最快。
+     選擇記在 localStorage，隔天開頁維持上次用的那一種。 */
+  var ldb = Tool.store('classManager.homework.layout');
+  var layout = ldb.get('seat') === 'list' ? 'list' : 'seat';
+  var showDone = false;         // 清單版面：完成的座號預設消失，這顆可以叫回來改
 
   var cache = Tool.store('classManager.routine.cache');
   var data = cache.get({ rules: null, duties: null, seating: null, lunch: null, weeks: null });
@@ -355,12 +361,30 @@
       b.addEventListener('click', function () { hwView = key; paintHw(); });
       box.appendChild(b);
     }
-    pill('all', '👥 全部（依學生）', '', '');
+    pill('all', layout === 'list' ? '📋 全部作業' : '👥 全部（依學生）', '', '');
     list.forEach(function (it) {
       var left = hwUndone(it.key).length;
       pill(it.key, (hw.carry[it.key] ? '⏳ ' : '') + shortName(it.name), left ? left + ' 人未完成' : '交齊',
            left ? '' : 'ok');
     });
+    var grow = document.createElement('span'); grow.className = 'pgrow'; box.appendChild(grow);
+    var sw = document.createElement('div'); sw.className = 'layoutsw';
+    [['seat', '🪑 座位表'], ['list', '🔢 座號清單']].forEach(function (o) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'lw' + (layout === o[0] ? ' on' : '');
+      b.textContent = o[1];
+      b.title = o[0] === 'seat' ? '照座位排，一眼看出「誰」還沒交' : '一列一份作業、座號由小到大，登記最快';
+      b.addEventListener('click', function () { layout = o[0]; ldb.set(layout); paintHw(); });
+      sw.appendChild(b);
+    });
+    box.appendChild(sw);
+    if (layout === 'list') {
+      var sd = document.createElement('button');
+      sd.type = 'button'; sd.className = 'lw solo' + (showDone ? ' on' : '');
+      sd.textContent = showDone ? '隱藏已完成' : '顯示已完成';
+      sd.addEventListener('click', function () { showDone = !showDone; paintHw(); });
+      box.appendChild(sd);
+    }
     return box;
   }
 
@@ -477,12 +501,10 @@
     return d;
   }
 
-  /* 模式 B：單一份作業一張座位表（收單科最快，一點一格） */
-  function paintHwOne(box, it) {
+  /* 一份作業的列首：名稱＋派出日期＋四態計數＋兩顆整列按鈕（兩種版面共用） */
+  function hwHead(it) {
     var isCarry = !!hw.carry[it.key];
-    var c = hwCounts(it.key), rem = c[0] + c[1] + c[2];
-    var row = document.createElement('div');
-    row.className = 'itemrow' + (rem === 0 ? ' clear' : '') + (isCarry ? ' carry' : '');
+    var c = hwCounts(it.key);
     var head = document.createElement('div'); head.className = 'rowhead';
     var day = String(it.due || '').slice(5);
     head.innerHTML = '<span class="name">' + esc(it.name) + '</span>' +
@@ -491,17 +513,89 @@
       '<span class="cnt"><span class="u">未交 <b>' + c[0] + '</b></span>　<span class="a">已交 <b>' + c[1] +
       '</b></span>　<span class="c">要訂正 <b>' + c[2] + '</b></span>　<span class="d">完成 <b>' + c[3] +
       '</b></span></span><span class="grow"></span>';
-    var reset = document.createElement('button'); reset.className = 'reset'; reset.textContent = '全設未交';
-    reset.addEventListener('click', function () {
-      if (confirm('把「' + it.name + '」全班設回未交？')) { delete hw.status[it.key]; hdb.set(hw); paintHw(); }
-    });
     var done = document.createElement('button'); done.className = 'reset'; done.textContent = '✅ 全班完成';
     done.addEventListener('click', function () {
       if (!confirm('把「' + it.name + '」全班設成完成？')) return;
       seats.forEach(function (s) { hwSet(it.key, s, 3); });
       Tool.beep(2, 760); paintHw(); paintPend();
     });
-    head.appendChild(done); head.appendChild(reset); row.appendChild(head);
+    var reset = document.createElement('button'); reset.className = 'reset';
+    reset.textContent = isCarry ? '✕ 不再追蹤' : '全設未交';
+    reset.addEventListener('click', function () {
+      if (isCarry) {
+        if (!confirm('「' + it.name + '」不再追蹤？\n\n這一列會從清單消失（不影響已結算的紀錄）。')) return;
+        delete hw.carry[it.key]; delete hw.status[it.key];
+        hw.items = hw.items.filter(function (x) { return x.key !== it.key; });
+        hdb.set(hw); paintHw(); return;
+      }
+      if (confirm('把「' + it.name + '」全班設回未交？')) { delete hw.status[it.key]; hdb.set(hw); paintHw(); }
+    });
+    head.appendChild(done); head.appendChild(reset);
+    return head;
+  }
+
+  /* 版面 B：座號清單（登記最快——一列一份作業、座號由小到大，點到「完成」就消失）。
+     2026-09-08 老師要兩種版面併存：清單版登記快，座位表版看得出「誰」還沒交。 */
+  function listRow(it) {
+    var isCarry = !!hw.carry[it.key];
+    var c = hwCounts(it.key), rem = c[0] + c[1] + c[2];
+    var row = document.createElement('div');
+    row.className = 'itemrow' + (rem === 0 ? ' clear' : '') + (isCarry ? ' carry' : '');
+    row.appendChild(hwHead(it));
+    if (isCarry) {
+      var line = document.createElement('div'); line.className = 'carryline';
+      line.textContent = '還沒交完：' + hwUndone(it.key).join('、') +
+        '　·　補交追蹤中，這一列不會再送出紀錄（不重複扣分）';
+      row.appendChild(line);
+    }
+    var shown = seats.filter(function (s) { return showDone || hwState(it.key, s) !== 3; });
+    if (!shown.length) {
+      var d = document.createElement('div'); d.className = 'rowclear';
+      d.innerHTML = '全部完成 🎉<span class="sub">按「顯示已完成」可回頭改</span>';
+      row.appendChild(d); return row;
+    }
+    var chips = document.createElement('div'); chips.className = 'chips';
+    shown.forEach(function (s) {
+      var v = hwState(it.key, s);
+      var ch = document.createElement('div'); ch.className = 'chip s' + v; ch.textContent = s;
+      ch.title = HW_STATES[v];
+      ch.addEventListener('click', function () {
+        var nv = (hwState(it.key, s) + 1) % 4;
+        hwSet(it.key, s, nv); Tool.beep(1, nv === 3 ? 720 : 520); paintHw(); paintPend();
+      });
+      chips.appendChild(ch);
+    });
+    row.appendChild(chips);
+    return row;
+  }
+
+  function paintHwList(box, today, old) {
+    var sec = document.createElement('div'); sec.className = 'items';
+    today.forEach(function (it) { sec.appendChild(listRow(it)); });
+    if (!today.length) {
+      var e = document.createElement('div'); e.className = 'itemrow';
+      e.innerHTML = '<div class="rowclear">今天沒有要清點的作業<span class="sub">按「☁ 重讀雲端資料」或到 Notion 聯絡簿補填</span></div>';
+      sec.appendChild(e);
+    }
+    box.appendChild(sec);
+    if (old.length) {
+      var os = document.createElement('div'); os.className = 'hwsec';
+      var h = document.createElement('div'); h.className = 'hwsec-h';
+      h.innerHTML = '<span class="t">⏳ 過去未完成（補交追蹤）</span><span class="s">只提醒，不再結算、不重複扣分</span>';
+      os.appendChild(h);
+      var items = document.createElement('div'); items.className = 'items';
+      old.forEach(function (it) { items.appendChild(listRow(it)); });
+      os.appendChild(items); box.appendChild(os);
+    }
+  }
+
+  /* 模式 B：單一份作業一張座位表（收單科最快，一點一格） */
+  function paintHwOne(box, it) {
+    var isCarry = !!hw.carry[it.key];
+    var c = hwCounts(it.key), rem = c[0] + c[1] + c[2];
+    var row = document.createElement('div');
+    row.className = 'itemrow' + (rem === 0 ? ' clear' : '') + (isCarry ? ' carry' : '');
+    row.appendChild(hwHead(it));
     if (isCarry) {
       var line = document.createElement('div'); line.className = 'carryline';
       line.textContent = '這是前幾天派的，補交追蹤中：這一列不會再送出紀錄（不重複扣分）';
@@ -534,7 +628,11 @@
     hw.items.forEach(function (it) { (hw.carry[it.key] ? old : today).push(it); });
     if (hwView !== 'all' && !hwItem(hwView)) hwView = 'all';
     box.appendChild(hwPills(today.concat(old)));
-    if (hwView === 'all') paintHwAll(box, today, old);
+    if (layout === 'list') {
+      if (hwView === 'all') paintHwList(box, today, old);
+      else { var w = document.createElement('div'); w.className = 'items';
+             w.appendChild(listRow(hwItem(hwView))); box.appendChild(w); }
+    } else if (hwView === 'all') paintHwAll(box, today, old);
     else paintHwOne(box, hwItem(hwView));
   }
 
