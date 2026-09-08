@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>工作檢核台｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✔</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260908-1" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260908-2" />
 <style>
 /* 分頁列＝一天的時序：到校 → 打掃 → 作業 → 午餐 → 潔牙（老師 2026-09-06 拍板） */
 .tabs{flex:0 0 auto;display:flex;gap:.6vw;align-items:center;flex-wrap:wrap;margin-bottom:1.2vh}
@@ -153,10 +153,14 @@
 .hwcell .mk{font-size:.4em;opacity:.9}
 
 /* 聚合格：座號＋未完成作業徽章 */
-.scell.agg{width:6.4em;height:auto;min-height:3.4em;padding:.3em .25em;gap:.2em;
+/* 欄要對齊：格子一律固定寬（含走道的空格），不然 flex 的 min-width:auto 會讓
+   徽章多的格子自己撐大，同一直行就對不齊——座位表對不上就失去「照座位認人」的意義。 */
+.seatgrid.agggrid .scell{flex:0 0 6.6em;width:6.6em;min-width:6.6em;max-width:6.6em;box-sizing:border-box}
+.seatgrid.hwgrid .scell{flex:0 0 3.2em;width:3.2em;min-width:3.2em;max-width:3.2em;box-sizing:border-box}
+.scell.agg{height:auto;min-height:3.4em;padding:.3em .25em;gap:.2em;overflow:hidden;
   border-color:var(--line-2);background:var(--board-2);color:var(--chalk)}
 .scell.agg .sn{font-size:clamp(19px,2.5vh,31px);font-weight:800;line-height:1}
-.scell.agg .bd{display:flex;flex-wrap:wrap;gap:.18em;justify-content:center}
+.scell.agg .bd{display:flex;flex-wrap:wrap;gap:.18em;justify-content:center;max-width:100%}
 .scell.agg .b{font-size:clamp(10px,1.35vh,15px);font-weight:700;line-height:1.25;border-radius:6px;
   padding:.1em .35em;border:1px solid transparent}
 .scell.agg .b.s0{color:var(--pink);border-color:rgba(242,120,155,.55);background:rgba(242,120,155,.14)}
@@ -201,8 +205,9 @@
   .tabs button{font-size:clamp(13px,1.9vh,19px);padding:.45em .8em}
   .itemrow{padding:1vh 3vw}
   .chip{font-size:clamp(20px,2.6vh,32px)}
-  .hwcell{width:2.6em;height:2.1em}
-  .scell.agg{width:5.4em}
+  .seatgrid.agggrid .scell{flex-basis:5.6em;width:5.6em;min-width:5.6em;max-width:5.6em}
+  .seatgrid.hwgrid .scell{flex-basis:2.8em;width:2.8em;min-width:2.8em;max-width:2.8em}
+  .hwcell{height:2.1em}
   .hwcell{width:2.6em;height:2.1em}
 }
 </style>
@@ -254,9 +259,9 @@
 </aside>
 <div class="scrim" id="scrim"></div>
 
-<script src="assets/js/common.js?v=20260908-1"></script>
-<script src="assets/js/tool.js?v=20260908-1"></script>
-<script src="assets/js/events.js?v=20260908-1"></script>
-<script src="assets/js/routine.js?v=20260908-1"></script>
+<script src="assets/js/common.js?v=20260908-2"></script>
+<script src="assets/js/tool.js?v=20260908-2"></script>
+<script src="assets/js/events.js?v=20260908-2"></script>
+<script src="assets/js/routine.js?v=20260908-2"></script>
 </body>
 </html>
