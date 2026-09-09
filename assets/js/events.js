@@ -161,11 +161,21 @@
       return '#CM-EVENTS v1 · ' + headline(body) + '\n' + JSON.stringify(body);
     }
 
+    /* 摘要用的短行為名：班規名稱常是「A、B」的情境列舉（例④ bad0＝
+       「作業缺交、複習卷沒交」），整串照抄進標題會讓老師以為今天真的有複習卷
+       （2026-09-09 老師回報）。摘要只取第一個情境，完整行為名仍原封留在 JSON
+       明細與寫進紀錄庫的欄位裡，週結比對不受影響。 */
+    function shortAct(act) {
+      var a = String(act || '').trim();
+      var i = a.indexOf('\u3001');            // 、
+      return i > 0 ? a.slice(0, i) : a;
+    }
+
     /* 一行摘要：📋 作業清點 09/07 · 27 筆：作業完成×24、未帶課本×3（第1/3包） */
     function headline(body) {
       var evs = body.events || [];
       var by = {};
-      evs.forEach(function (e) { var k = e.act || '（未填行為）'; by[k] = (by[k] || 0) + 1; });
+      evs.forEach(function (e) { var k = shortAct(e.act) || '（未填行為）'; by[k] = (by[k] || 0) + 1; });
       var acts = Object.keys(by).sort(function (a, b) { return by[b] - by[a]; });
       var brief = acts.slice(0, 3).map(function (a) { return a + '×' + by[a]; }).join('、') +
                   (acts.length > 3 ? ' 等' + acts.length + '種' : '');

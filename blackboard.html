@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260907-14" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260909-1" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -54,7 +54,19 @@
 /* 直式聯絡簿 */
 .notes{flex:1 1 auto;min-height:0;writing-mode:vertical-rl;text-orientation:mixed;
   display:flex;flex-direction:column;flex-wrap:nowrap;align-items:flex-start;
+  justify-content:center;
   gap:1.6vw;overflow-x:auto;overflow-y:hidden;padding-bottom:.6vh}
+/* ↑ justify-content:center：直書時主軸是「由右往左」，不置中就會整批擠在右半邊、
+   左半邊整片空白（2026-09-09 老師回報「右邊的畫面占比過高」）。 */
+/* 橫式聯絡簿（2026-09-09 新增，老師依情況切換）：由上往下一行一項，數字照常橫著讀。 */
+.notes.horiz{writing-mode:horizontal-tb;flex-direction:column;align-items:flex-start;
+  gap:.5vh;overflow-x:hidden;overflow-y:auto;padding-bottom:.6vh;padding-left:1vw}
+.notes.horiz .note{letter-spacing:.02em;align-items:baseline}
+.notes.horiz .note .txt{text-orientation:mixed;letter-spacing:.02em}
+.notes.horiz .note .txt .tcy{text-combine-upright:none;letter-spacing:inherit}
+.notes.horiz .note .txt .dash{transform:none}
+.notes.horiz .note .no{padding-top:0}
+.notes.horiz .note.head{align-self:flex-start;margin-top:.6vh}
 body.timing .notes{padding-bottom:20vh}
 .notes[hidden]{display:none}
 .notes::-webkit-scrollbar{height:8px}.notes::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
@@ -130,7 +142,16 @@ body.timing .notes{padding-bottom:20vh}
   background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;
   padding:.45vh .9vw;cursor:pointer;white-space:nowrap}
 .mchip.on{background:var(--duty);border-color:transparent;color:#08201d}
-#mode-chips{display:flex;gap:.5vw;flex-wrap:wrap}
+#mode-chips{display:flex;gap:.5vw;flex-wrap:wrap;position:relative;align-items:center}
+/* 七顆模式 chip 一字排開會把版面右上角吃掉大半（2026-09-09 老師回報），
+   改成一顆「☰ 目前模式」按鈕，按下去才展開下拉。 */
+.mode-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:24;
+  display:flex;flex-direction:column;gap:6px;min-width:11em;
+  background:rgba(14,20,33,.96);border:1px solid var(--line);border-radius:16px;padding:10px;
+  box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.mode-pop .mchip{text-align:center;white-space:nowrap}
+.mchip.mode-toggle{background:rgba(255,255,255,.10);color:var(--chalk);border-color:var(--line-2)}
+#notes-layout{display:flex;gap:.4vw;align-items:center;margin-right:.6vw}
 
 .main{flex:1 1 auto;display:flex;min-height:0;gap:1.6vw;position:relative}
 #slot-left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;min-height:0}
@@ -338,6 +359,9 @@ body.wall .dyn{overflow:hidden}
   <div class="boardbar">
     <span class="cap" id="board-cap"></span>
     <span class="grow"></span>
+    <span id="notes-layout" hidden>
+      <button type="button" class="mchip" id="btn-notes-layout">↕ 直式</button>
+    </span>
     <span id="mode-chips"></span>
   </div>
 
@@ -512,11 +536,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260908-4"></script>
-<script src="assets/js/tool.js?v=20260908-4"></script>
-<script src="assets/js/events.js?v=20260908-4"></script>
-<script src="assets/js/wall.js?v=20260908-4"></script>
-<script src="assets/js/board.js?v=20260908-4"></script>
+<script src="assets/js/common.js?v=20260909-1"></script>
+<script src="assets/js/tool.js?v=20260909-1"></script>
+<script src="assets/js/events.js?v=20260909-1"></script>
+<script src="assets/js/wall.js?v=20260909-1"></script>
+<script src="assets/js/board.js?v=20260909-1"></script>
 <script>
 (function () {
   'use strict';
@@ -533,6 +557,7 @@ body.wall .dyn{overflow:hidden}
     text: '', source: 'local', localEditDate: '', cloudSyncedAt: '', wallNotice: '',
     duty: { mode: 'auto', per: 2, base: '', start: 1, manual: '', skips: {} },
     opt: { bell: false, sched: true },
+    notesHoriz: 0,                 /* 0＝直式（預設，像紙本聯絡簿）1＝橫式 */
     savedAt: ''
   };
   var pendingCloudText = null;
@@ -548,6 +573,7 @@ body.wall .dyn{overflow:hidden}
       if (typeof d.wallNotice === 'string') state.wallNotice = d.wallNotice;
       if (d.duty) { for (var k in state.duty) if (d.duty[k] !== undefined) state.duty[k] = d.duty[k]; if (!state.duty.skips) state.duty.skips = {}; }
       if (d.opt) { for (var o in state.opt) if (d.opt[o] !== undefined) state.opt[o] = d.opt[o]; }
+      if (d.notesHoriz === 0 || d.notesHoriz === 1) state.notesHoriz = d.notesHoriz;
       state.savedAt = d.savedAt || '';
     } catch (e) {}
   }
@@ -614,14 +640,25 @@ body.wall .dyn{overflow:hidden}
   }
   function fitNotes() {
     var box = $('notes'), tip = $('overflow-tip');
+    var horiz = state.notesHoriz === 1;
+    box.classList.toggle('horiz', horiz);
+    paintNotesLayoutBtn();
     box.style.removeProperty('--note-fs');
     if (!box.querySelector('.note')) { tip.hidden = true; return; }
+    /* 直式量寬、橫式量高——量錯軸就會永遠判成沒溢出，字級也不會縮。 */
+    function over() { return horiz ? (box.scrollHeight > box.clientHeight + 1) : (box.scrollWidth > box.clientWidth + 1); }
     var fs = Math.max(40, Math.min(84, window.innerHeight * 0.062)), guard = 0;
-    while (box.scrollWidth > box.clientWidth + 1 && fs > 40 && guard++ < 40) { fs = Math.max(40, fs - 2); box.style.setProperty('--note-fs', fs + 'px'); }
+    while (over() && fs > 40 && guard++ < 40) { fs = Math.max(40, fs - 2); box.style.setProperty('--note-fs', fs + 'px'); }
     if (fs < 84) box.style.setProperty('--note-fs', fs + 'px');
-    var over = box.scrollWidth > box.clientWidth + 1;
-    tip.hidden = !over;
-    if (over) tip.textContent = '項目太多，右側還有沒顯示出來的——可刪幾項或分兩次投影。';
+    tip.hidden = !over();
+    if (!tip.hidden) tip.textContent = horiz
+      ? '項目太多，下面還有沒顯示出來的——可刪幾項或分兩次投影。'
+      : '項目太多，右側還有沒顯示出來的——可刪幾項或分兩次投影。';
+  }
+  function paintNotesLayoutBtn() {
+    var b = $('btn-notes-layout'); if (!b) return;
+    b.textContent = state.notesHoriz === 1 ? '↔ 橫式' : '↕ 直式';
+    b.title = '切換聯絡簿排版（直式／橫式）';
   }
 
   function rowToText(row) {
@@ -968,6 +1005,13 @@ body.wall .dyn{overflow:hidden}
     }
   });
   $('btn-close2').addEventListener('click', function () { panel2.close(); });
+
+  /* 聯絡簿直式／橫式切換（2026-09-09 老師要求「依情況切換」）。
+     只影響顯示，內容仍是同一份 state.text；選擇存本機，隔天照樣沿用。 */
+  $('btn-notes-layout').addEventListener('click', function () {
+    state.notesHoriz = state.notesHoriz === 1 ? 0 : 1;
+    save(); paintNotesLayoutBtn(); paintNotes();
+  });
 
   $('btn-wall').addEventListener('click', function () {
     Board.setMode(Board.mode() === 'wall' ? 'auto' : 'wall');

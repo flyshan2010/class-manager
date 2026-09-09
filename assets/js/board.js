@@ -229,19 +229,47 @@
     el.innerHTML = '<b>' + esc(main) + '</b><span>' + esc(extra) + '</span>';
   }
 
+  /* 模式選項：七顆 chip 一字排開會把版面右上角吃掉大半（2026-09-09 老師回報
+     「右邊的畫面占比過高」），改成一顆「☰ 目前模式」按鈕＋下拉。
+     下拉是絕對定位，展開不會把版面推開；點畫面別處自動收起。 */
+  var modePopOpen = false;
   function paintModeChips(active) {
     var box = $('mode-chips'); if (!box) return;
     var list = [['wall', '📢 公布欄'], ['auto', '自動'], ['notes', '聯絡簿'], ['focus', '重點板'], ['seat', '座位加分'], ['group', '小組計分'], ['quiz', '抽籤問答']];
+    var cur = '';
+    list.forEach(function (it) { if (mode === it[0]) cur = it[1]; });
     box.innerHTML = '';
+
+    var tgl = document.createElement('button');
+    tgl.type = 'button'; tgl.className = 'mchip mode-toggle';
+    tgl.textContent = '☰ ' + (cur || '模式');
+    tgl.title = '切換白板模式';
+
+    var pop = document.createElement('div');
+    pop.className = 'mode-pop'; pop.hidden = !modePopOpen;
     list.forEach(function (it) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'mchip' + (mode === it[0] ? ' on' : '');
       b.textContent = it[1];
-      b.addEventListener('click', function () { setMode(it[0]); });
-      box.appendChild(b);
+      b.addEventListener('click', function (e) {
+        e.stopPropagation(); modePopOpen = false; setMode(it[0]);
+      });
+      pop.appendChild(b);
     });
+    tgl.addEventListener('click', function (e) {
+      e.stopPropagation(); modePopOpen = !modePopOpen; pop.hidden = !modePopOpen;
+    });
+    box.appendChild(tgl); box.appendChild(pop);
+
+    /* 聯絡簿的直式／橫式切換鈕只在聯絡簿模式露出（blackboard.html 掛的行為）。 */
+    var nl = $('notes-layout'); if (nl) nl.hidden = (mode !== 'notes');
   }
+  document.addEventListener('click', function () {
+    if (!modePopOpen) return;
+    modePopOpen = false;
+    var pop = document.querySelector('.mode-pop'); if (pop) pop.hidden = true;
+  });
 
   /* 常規側欄：文案全部取自 Notion（class-rules.json），不寫死在程式裡。 */
   function paintRules() {

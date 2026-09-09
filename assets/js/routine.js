@@ -950,10 +950,26 @@
             '連上網後按「☁ 重讀雲端資料」再試一次。');
       return;
     }
+    /* 潔牙／含氟漱口水：「還沒點」不會產生任何事件，等於默認全班通過——
+       老師只要沒點就按收班，未潔牙名單就永遠記不到（2026-09-09 老師回報）。
+       所以未點就擋下來，要老師自己決定：先點完，或明白按「✅ 全部已潔牙」。 */
+    if (tab === 'teeth') {
+      var un = seats.filter(function (s2) { return stateOf('teeth', s2) === 0; });
+      var unF = st.fluorideOn ? seats.filter(function (s2) { return stateOf('fluoride', s2) === 0; }) : [];
+      if (un.length || unF.length) {
+        function few(a2) { return a2.length > 10 ? a2.slice(0, 10).join('、') + '…等 ' + a2.length + ' 位' : a2.join('、'); }
+        alert('還不能結算——潔牙還有沒點到的座號。\n\n' +
+              (un.length ? '　🦷 午餐後潔牙：還沒點 ' + un.length + ' 位（' + few(un) + '）\n' : '') +
+              (unF.length ? '　💧 含氟漱口水：還沒點 ' + unF.length + ' 位（' + few(unF) + '）\n' : '') +
+              '\n「還沒點」不會產生任何紀錄，等於當作有做——沒潔牙的名單就記不到了。\n' +
+              '請先逐格點完，或按上方「✅ 全部已潔牙」把剩下的一次補成已潔牙。');
+        return;
+      }
+    }
     var evs = collect(tab);
     if (!evs.length) {
       alert(tab === 'clean' ? '打掃全部達標，沒有要送的事件（這是好事，✓ 不產生任何紀錄）。'
-        : tab === 'teeth' ? '全班都潔牙了，沒有要送的事件。'
+        : tab === 'teeth' ? '全班都已點完且都有潔牙，沒有要送的事件。'
         : tab === 'hw' ? '沒有可結算的項目（全部都是「已交」，或還沒清點）。'
         : '沒有例外要送（這是好事，✓ 不產生任何紀錄）。');
       return;
