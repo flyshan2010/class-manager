@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260909-1" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260909-2" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -48,6 +48,9 @@
 .chip .p{font-size:clamp(12px,1.5vh,16px);color:var(--chalk-3)}
 .chip .s{font-size:clamp(17px,2.3vh,28px);font-weight:700;color:var(--chalk)}
 .chip.now{border-color:var(--mark);background:rgba(240,200,90,.14)}
+/* 調課那一節要看得出來，不然畫面跟平常一模一樣，老師會以為自己記錯課表（2026-09-09）。 */
+.chip.swap{border-color:var(--warn);background:rgba(240,149,78,.16)}
+.chip.swap .s{color:var(--warn)}
 .chip.now .s{color:var(--mark)}
 .sched .none{color:var(--chalk-3);font-size:clamp(14px,1.8vh,20px);padding:.4vh 0}
 
@@ -536,11 +539,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260909-1"></script>
-<script src="assets/js/tool.js?v=20260909-1"></script>
-<script src="assets/js/events.js?v=20260909-1"></script>
-<script src="assets/js/wall.js?v=20260909-1"></script>
-<script src="assets/js/board.js?v=20260909-1"></script>
+<script src="assets/js/common.js?v=20260909-2"></script>
+<script src="assets/js/tool.js?v=20260909-2"></script>
+<script src="assets/js/events.js?v=20260909-2"></script>
+<script src="assets/js/wall.js?v=20260909-2"></script>
+<script src="assets/js/board.js?v=20260909-2"></script>
 <script>
 (function () {
   'use strict';
@@ -548,6 +551,10 @@ body.wall .dyn{overflow:hidden}
   var KEY = 'classManager.blackboard.v1';
   var CLOUD_CONTACT = 'https://flyshan2010.github.io/class-website/data/contactbook.json';
   var CLOUD_SCHED = 'https://flyshan2010.github.io/class-website/data/schedule.json';
+  /* 當天調課：老師在 Google 日曆寫「數學（調9/10第三節）」，班網同步時算成這支 JSON。
+     只換「那一天那一節」的科目，學年課表 schedule.json 不動——所以這裡也是
+     「把 override 併進今天那一欄」再交給既有邏輯，periodNow／公布欄一律不必改。 */
+  var CLOUD_SCHED_OV = 'https://flyshan2010.github.io/class-website/data/schedule-overrides.json';
   var CLOUD_COUNTDOWN = 'https://flyshan2010.github.io/class-website/data/countdown.json';
   var CLOUD_RULES = 'https://flyshan2010.github.io/class-website/data/class-rules.json';
   var CLOUD_LUNCH = 'https://flyshan2010.github.io/class-website/data/lunch.json';
@@ -728,6 +735,7 @@ body.wall .dyn{overflow:hidden}
 
   /* ── 今日課表（同源讀班網 schedule.json；漸進增強） ── */
   var schedCache = Tool.store('classManager.blackboard.sched');
+  var schedOvCache = Tool.store('classManager.blackboard.schedov');
   function paintSched(data) {
     var box = $('sched');
     // 課表的顯示由「白板顯示」開關（Board.view.sched）與舊的看板選項一起決定——
@@ -746,17 +754,44 @@ body.wall .dyn{overflow:hidden}
       var now = false;
       var mt = String(p.time || '').match(/(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2}):(\d{2})/);
       if (mt) { var a = +mt[1] * 60 + +mt[2], b = +mt[3] * 60 + +mt[4]; now = nowMin >= a && nowMin < b; }
-      var c = document.createElement('div'); c.className = 'chip' + (now ? ' now' : '');
-      c.innerHTML = '<span class="p">' + (p.name || '') + '</span><span class="s">' + subj.replace(/[<>&]/g, '') + '</span>';
+      var swapped = !!(cell && typeof cell === 'object' && cell.swapped);
+      var c = document.createElement('div'); c.className = 'chip' + (now ? ' now' : '') + (swapped ? ' swap' : '');
+      c.innerHTML = '<span class="p">' + (p.name || '') + (swapped ? ' 🔄' : '') + '</span><span class="s">' + subj.replace(/[<>&]/g, '') + '</span>';
       box.appendChild(c);
     });
     if (!box.children.length) box.innerHTML = '<span class="none">今天沒有排課。</span>';
   }
-  var schedData = null;
+  var schedData = null, schedRaw = null, schedOv = null;
+  /* 把今天的調課併進課表的今天那一欄，回傳一份新的物件（不改原始快取）。
+     調課只換科目，老師／教室不沿用原課的——換科目通常也換人換教室，
+     沿用等於投影一個看起來像真的、其實是錯的資訊。 */
+  function applyOv(raw, ov) {
+    if (!raw || !raw.table) return raw;
+    var today = todayKey();
+    var byPeriod = ov && ov.days && ov.days[today];
+    if (!byPeriod) return raw;
+    var day = new Date().getDay(); if (day === 0 || day === 6) return raw;
+    var col = day - 1;
+    var out = { periods: raw.periods, subjectColors: raw.subjectColors, notes: raw.notes,
+                weeklyRules: raw.weeklyRules, table: raw.table.map(function (row) { return (row || []).slice(); }) };
+    (raw.periods || []).forEach(function (p, i) {
+      var o = byPeriod[p.name]; if (!o) return;
+      out.table[i] = out.table[i] || [];
+      out.table[i][col] = { subject: o.subject, teacher: '', room: '', swapped: true, from: o.from || '' };
+    });
+    return out;
+  }
+  function pushSched() {
+    schedData = applyOv(schedRaw, schedOv);
+    paintSched(schedData);
+    if (window.Board) Board.setSchedule(schedData);
+  }
   function loadSched() {
-    schedData = schedCache.get(null); paintSched(schedData); if (window.Board) Board.setSchedule(schedData);
+    schedRaw = schedCache.get(null); schedOv = schedOvCache.get(null); pushSched();
     fetch(CLOUD_SCHED + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
-      .then(function (d) { schedData = d; schedCache.set(d); paintSched(d); if (window.Board) Board.setSchedule(d); }).catch(function () {});
+      .then(function (d) { schedRaw = d; schedCache.set(d); pushSched(); }).catch(function () {});
+    fetch(CLOUD_SCHED_OV + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { schedOv = d; schedOvCache.set(d); pushSched(); }).catch(function () {});
   }
 
   /* ── 節慶倒數（同源讀班網 countdown.json；正本在 Notion；只顯示最近 1 筆） ── */
