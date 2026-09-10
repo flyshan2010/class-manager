@@ -35,9 +35,11 @@
        第 0 態＝還沒點，一樣不產生事件。 */
     arrive: [{ m: '', l: '未點名', t: 'idle' }, { m: '✓', l: '出席', t: 'ok' },
              { m: '⏰', l: '遲到', t: 'warn' }, { m: '✗', l: '未到', t: 'pink' }],
+    /* 打掃的「＋ 支援」不再是成員的第 5 態（2026-09-10 老師：實際沒有固定支援）——
+       改由各組卡片上的「＋ 加支援」當天指派任何人，存在 st.cleanSup，有支援才多發那一次薪水。 */
     clean: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位達標', t: 'ok' },
             { m: '△', l: '到位未達標', t: 'warn' },
-            { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
+            { m: '✗', l: '未到', t: 'pink' }],
     lunch: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位', t: 'ok' },
             { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
     teeth: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }],
@@ -47,7 +49,7 @@
 
   var TAB_TITLE = {
     arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
-    clean: '點座號檢核：未檢核 → ✓ 到位達標 → △ 未達標 → ✗ 未到 → ＋ 支援',
+    clean: '點座號檢核：未檢核 → ✓ 到位達標 → △ 未達標 → ✗ 未到；支援按各組「＋ 加支援」指派',
     hw: '未交 → 已交 → 要訂正 → 完成；右上可切「🪑 座位表／🔢 座號清單」',
     lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 未到 → ＋ 臨時支援',
     teeth: '點座號檢核：未點 → ✓ 已潔牙 → ✗ 沒潔牙（不扣幣、不記班規）'
@@ -61,8 +63,12 @@
   if (st && st.sv !== 4) st = null;
   if (!st || st.date !== Tool.todayKey()) {
     st = { date: Tool.todayKey(), sv: 4, arrive: {}, clean: {}, lunch: {}, teeth: {},
-           fluoride: {}, fluorideOn: false, week: (st && st.week) || {} };
+           fluoride: {}, fluorideOn: false, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {} };
   }
+  /* 今天的浮動支援：{ 組別名: [座號…] }。舊版成員第 5 態（4＝＋支援）不知道支援哪一組，直接清掉。 */
+  if (!st.cleanSup) st.cleanSup = {};
+  if (!st.weekSup) st.weekSup = {};
+  Object.keys(st.clean || {}).forEach(function (k) { if (st.clean[k] === 4) delete st.clean[k]; });
   ['arrive', 'clean', 'lunch', 'teeth', 'fluoride'].forEach(function (k) { if (!st[k]) st[k] = {}; });
   if (!st.week) st.week = {};
   // v1 → v2：只搬「今天的打掃狀態」與週總覽，其餘讓它重來（跨版本硬搬容易搬出假資料）
@@ -121,6 +127,16 @@
     if (kind === 'clean') st.week[st.date] = st.clean;
     sdb.set(st);
   }
+  function supportOf(group) { return st.cleanSup[group] || []; }
+  function toggleSupport(group, seat) {
+    var list = supportOf(group).slice(), i = list.indexOf(seat);
+    if (i >= 0) list.splice(i, 1); else list.push(seat);
+    if (list.length) st.cleanSup[group] = list.sort(function (a, b) { return a - b; });
+    else delete st.cleanSup[group];
+    st.weekSup[st.date] = st.cleanSup;
+    sdb.set(st);
+    return i < 0;
+  }
 
   /* 進度＋一鍵列（到校、打掃用）：老師一眼看得出「還有幾個沒點」，
      「全部○○」只填**還沒點**的，已標遲到／未達標的不會被蓋掉（2026-09-07）。 */
@@ -166,10 +182,52 @@
       el.appendChild(head);
       var ppl = document.createElement('div'); ppl.className = 'people';
       c.people.forEach(function (p) { ppl.appendChild(personCard(kind, p.seat, p.duty)); });
+      if (c.supGroup) {
+        supportOf(c.supGroup).forEach(function (s) { ppl.appendChild(supportCard(c.supGroup, s)); });
+        ppl.appendChild(addSupportCard(c.supGroup, c.people));
+      }
       el.appendChild(ppl);
       if (c.info) el.addEventListener('dblclick', function () { openPanel(c.info); });
       box.appendChild(el);
     });
+  }
+
+  /* 浮動支援（2026-09-10）：卡片上是藍色「＋ 支援」，點一下取消；最後一格「＋ 加支援」開選人面板。 */
+  function supportCard(group, seat) {
+    var el = document.createElement('div'); el.className = 'pcard t-blue';
+    el.innerHTML = '<div class="pn">' + seat + '</div><div class="ps">＋ 支援</div>';
+    el.title = '點一下取消這位的支援';
+    el.addEventListener('click', function () {
+      toggleSupport(group, seat); Tool.beep(1, 640); paint(); paintPend();
+      flashFix(seat + ' 號 · 取消支援「' + group + '」', '這次不算支援，週結不會多發');
+    });
+    return el;
+  }
+  function addSupportCard(group, people) {
+    var el = document.createElement('div'); el.className = 'pcard t-idle addsup';
+    el.innerHTML = '<div class="pn">＋</div><div class="ps">加支援</div>';
+    el.addEventListener('click', function () { openSupportPicker(group, people); });
+    return el;
+  }
+  function openSupportPicker(group, people) {
+    var own = people.map(function (p) { return p.seat; });
+    function draw() {
+      var on = supportOf(group);
+      openPanel('<h2>＋ 今天誰來支援？</h2><p class="hint">' + esc(group) +
+        '　·　點座號加入，再點一次取消。有支援才多發這一次打掃薪水；本組成員不列出。</p>' +
+        '<div class="supgrid">' + seats.filter(function (s) { return own.indexOf(s) < 0; }).map(function (s) {
+          return '<button type="button" class="stbtn' + (on.indexOf(s) >= 0 ? ' t-blue' : '') +
+            '" data-s="' + s + '">' + s + (on.indexOf(s) >= 0 ? ' ＋' : '') + '</button>';
+        }).join('') + '</div>');
+      Array.prototype.forEach.call($('panel-body').querySelectorAll('.supgrid button'), function (b) {
+        b.addEventListener('click', function () {
+          var s = Number(b.dataset.s), added = toggleSupport(group, s);
+          Tool.beep(1, added ? 760 : 640); draw(); paint(); paintPend();
+          if (added) flashFix(s + ' 號 · 臨時支援「' + group + '」', '週結多發這一次打掃薪水（不當場加幣）');
+        });
+      });
+    }
+    draw();
   }
 
   /* 拿不到分配資料時的退路：一般座號網格照樣可以檢核（§4.6 明訂要有這條退路）。 */
@@ -206,7 +264,6 @@
       if (v === 2) flashFix(who + '打掃未達標（這次不扣幣）',
         (actOf(3, 'bad', 0) || {}).fix + '　·　同一週第 3 次起才會扣 5 幣');
       if (v === 3) flashFix(who + '打掃缺席', '週結薪水會少算一次出勤（不扣幣）');
-      if (v === 4) flashFix(who + '臨時支援', '這次支援會記進週結（加一次支援）');
     } else if (kind === 'lunch') {
       if (v === 2) flashFix(who + '午餐工作未到', '週結午餐薪水會少算一次（不扣幣）');
       if (v === 3) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
@@ -275,7 +332,8 @@
           name: z.emoji + ' ' + g.group,
           sub: (g.title || '') + (g.standard ? '　·　驗收：' + g.standard : ''),
           right: g.supervisor ? '監督 ' + g.supervisor + ' 號' : '',
-          people: g.seats.concat(g.support || []).map(function (s) {
+          supGroup: g.group,
+          people: g.seats.map(function (s) {
             return { seat: s, duty: (g.personal || {})[s] || (g.personal || {})[String(s)] || '' };
           }),
           info: '<h2>' + esc(z.emoji + ' ' + g.group) + '</h2>' +
@@ -290,10 +348,10 @@
   }
 
   function paintClean() {
-    $('legend').innerHTML = '<span>△ 未達標與 ✗ 未到都<b>只記次數</b>，不當場扣幣</span>';
+    $('legend').innerHTML = '<span>△ 未達標與 ✗ 未到都<b>只記次數</b>，不當場扣幣；支援按各組「＋ 加支援」，有支援才多發那一次薪水</span>';
     var cards = cleanCards();
     var seen = {}, list = [];
-    // 同一個座號可能同時出現在本組與支援名單，計數要去重，否則「已點 x/30」對不上 27 人
+    // 只數各組成員（支援者另外指派，不在「還有幾個沒點」裡）；同一座號出現在兩組時去重
     (cards || []).forEach(function (c) {
       c.people.forEach(function (p) { if (!seen[p.seat]) { seen[p.seat] = 1; list.push(p.seat); } });
     });
@@ -843,10 +901,17 @@
         // △ 到位未達標＝**只計次，不扣幣**（2026-09-06 老師裁示）：既有制度是
         // 「1～2 次沒做到不扣幣只補做、3 次以上才 −5」，當場記班規③ −5 等於第一次犯就重罰。
         // 累計判斷交給週結（本系統只收資料，加減點一律在任務處理端算）。
-        if (v === 2) act = '打掃未達標'; else if (v === 3) act = '打掃缺席'; else if (v === 4) act = '打掃支援';
+        if (v === 2) act = '打掃未達標'; else if (v === 3) act = '打掃缺席';
         if (!act) return;                              // 0 未檢核、1 到位達標都不產生事件
         out.push({ tool: TOOL.clean, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
-                   kind: v === 4 ? 'good' : 'bad', act: act, period: '環境晨掃' });
+                   kind: 'bad', act: act, period: '環境晨掃' });
+      });
+      // 浮動支援：一組一筆；同一人一天支援兩組會在 CMEvents 合併成一列、次數 2、備註兩組都留
+      Object.keys(st.cleanSup).forEach(function (g) {
+        supportOf(g).forEach(function (seat) {
+          out.push({ tool: TOOL.clean, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
+                     kind: 'good', act: '打掃支援', period: '環境晨掃', note: g });
+        });
       });
       return out;
     }
@@ -919,7 +984,7 @@
       return '把打掃結果結算到「待送」嗎？（這三種都只記次數，不會當場加減幣）\n\n' +
         '　△ 到位未達標　' + c('打掃未達標') + ' 人　→ 週結累計：1～2 次不扣幣只補做，3 次以上才 −5\n' +
         '　✗ 未到　　　　' + c('打掃缺席') + ' 人　→ 週結少算一次出勤（那次沒薪水）\n' +
-        '　＋ 臨時支援　　' + c('打掃支援') + ' 人　→ 週結加一次支援\n\n再按一次是重新結算，不會疊加。';
+        '　＋ 臨時支援　　' + c('打掃支援') + ' 人次　→ 週結每支援一次多發一次打掃薪水\n\n再按一次是重新結算，不會疊加。';
     }
     if (kind === 'lunch') {
       return '把午餐工作結算到「待送」嗎？（只記次數，不會當場加減幣）\n\n' +
@@ -1006,12 +1071,13 @@
     var days = Object.keys(st.week).sort().slice(-5);
     if (!days.length) { openPanel('<h2>本週總覽</h2><p class="hint">這週還沒有任何打掃紀錄。</p>'); return; }
     var html = '<h2>本週總覽</h2><p class="hint">對照紙本「個人打掃檢核表」那張表，投影就不必列印。' +
-      '空白＝✓ 到位達標。</p><table class="week"><tr><th>座號</th>' +
+      '空白＝✓ 到位達標；＋＝當天去支援（有支援才多發那一次薪水）。</p><table class="week"><tr><th>座號</th>' +
       days.map(function (d) { return '<th>' + d.slice(5) + '</th>'; }).join('') + '</tr>';
     seats.forEach(function (s) {
       html += '<tr><td>' + s + '</td>' + days.map(function (d) {
-        var v = (st.week[d] || {})[s] || 0;
-        return '<td>' + (v ? ST.clean[v].m : '') + '</td>';
+        var v = (st.week[d] || {})[s] || 0, sup = st.weekSup[d] || {};
+        var n = Object.keys(sup).filter(function (g) { return sup[g].indexOf(s) >= 0; }).length;
+        return '<td>' + (v && ST.clean[v] ? ST.clean[v].m : '') + (n ? '＋' + (n > 1 ? n : '') : '') + '</td>';
       }).join('') + '</tr>';
     });
     openPanel(html + '</table>');

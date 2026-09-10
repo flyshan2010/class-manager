@@ -199,6 +199,13 @@
 .panel .seatrow .stbtn.t-warn{border-color:var(--warn);color:var(--warn);background:rgba(240,149,78,.16)}
 .panel .seatrow .stbtn.t-ok{border-color:var(--ok);color:var(--ok);background:rgba(86,197,150,.16)}
 
+/* 浮動支援選人面板 */
+.panel .supgrid{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.panel .supgrid .stbtn{min-width:64px;font-size:16px;font-weight:700;border:2px solid var(--line-2);
+  border-radius:999px;padding:8px 12px;background:var(--board-3);color:var(--chalk-2);cursor:pointer}
+.panel .supgrid .stbtn.t-blue{border-color:var(--blue);color:var(--blue);background:rgba(106,166,240,.14)}
+.pcard.addsup .pn{color:var(--blue)}
+
 /* 本週總覽：座號 × 週一～週五 */
 .week{width:100%;border-collapse:collapse;font-size:13.5px}
 .week th,.week td{border:1px solid var(--line);padding:4px 6px;text-align:center}
