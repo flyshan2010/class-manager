@@ -52,11 +52,11 @@
        不再是成員的第 5 態，改由各崗位卡片「＋ 加支援」選人，存在 st.lunchSup（sv 5→6）。 */
     lunch: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位', t: 'ok' },
             { m: '✗', l: '請假', t: 'purple' }, { m: '⛔', l: '無故未到', t: 'pink' }],
-    /* 潔牙／含氟（2026-09-11 老師定案，sv 6→7）：沒點＝沒做；「↻ 補做完成」＝當作做到。
+    /* 潔牙／含氟（2026-09-11 定案、09-12 簡化為兩態，sv 7→8）：沒點＝沒做；有補做就點成 ✓（補做算已潔牙）。
        結算時仍沒做＝不肯重做 → 常規未達成＋班規⑦。 */
-    teeth: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '↻', l: '補做完成', t: 'blue' }],
+    teeth: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已潔牙', t: 'ok' }],
     /* 含氟漱口水：一週只有一次，由老師當天自己開（2026-09-07 老師要求），狀態與潔牙同三態。 */
-    fluoride: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已漱口', t: 'ok' }, { m: '↻', l: '補做完成', t: 'blue' }]
+    fluoride: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已漱口', t: 'ok' }]
   };
 
   var TAB_TITLE = {
@@ -64,7 +64,7 @@
     clean: '點座號檢核：未檢核 → ✓ 達標 → △ 未達標 → ✗ 請假 → 🎫 免打掃券 → ⛔ 無故；支援按各組「＋ 加支援」',
     hw: '未交 → 已交 → 要訂正 → 完成；右上可切「🪑 座位表／🔢 座號清單」',
     lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 請假 → ⛔ 無故；有人補位按各崗位「＋ 加支援」',
-    teeth: '沒點＝沒做：點一下 ✓ 已潔牙 → 再點 ↻ 補做完成；結算時仍沒做的記常規未達成＋班規⑦'
+    teeth: '沒點＝沒做：點一下 ✓ 已潔牙（補做完也點 ✓）；結算時仍沒做的記常規未達成＋班規⑦'
   };
 
   /* 五站的狀態存一起，一天一份；week 留每天的打掃快照供「本週總覽」。 */
@@ -74,10 +74,11 @@
      照舊資料畫會變成「昨天的出席今天顯示成遲到」。版本不合就重來，不硬搬。
      v5（2026-09-11）：打掃／午餐缺席拆原因，午餐 3 由「＋支援」變「無故」——舊值不可沿用。
      v6（2026-09-11）：午餐第 4 態「＋支援」移除，改浮動指派（st.lunchSup）。
-     v7（2026-09-11）：潔牙／含氟第 2 態由「✗ 沒做」改為「↻ 補做完成」（沒點才是沒做）。 */
-  if (st && st.sv !== 7) st = null;
+     v7（2026-09-11）：潔牙／含氟第 2 態由「✗ 沒做」改為「↻ 補做完成」（沒點才是沒做）。
+     v8（2026-09-12）：潔牙／含氟只剩兩態（沒做／✓），補做算已潔牙。 */
+  if (st && st.sv !== 8) st = null;
   if (!st || st.date !== Tool.todayKey()) {
-    st = { date: Tool.todayKey(), sv: 7, arrive: {}, clean: {}, lunch: {}, teeth: {},
+    st = { date: Tool.todayKey(), sv: 8, arrive: {}, clean: {}, lunch: {}, teeth: {},
            fluoride: {}, fluorideOn: false, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {} };
   }
   /* 今天的浮動支援：{ 組別名: [座號…] }。
@@ -388,8 +389,7 @@
       if (v === 2) flashFix(who + '午餐工作請假（不是行為問題）', '週結午餐薪水少算一次，不扣幣、不記班規');
       if (v === 3) flashFix(who + '無故沒做午餐工作', noShowFix());
     } else if (kind === 'fluoride' || kind === 'teeth') {
-      if (v === 2) flashFix(who + (kind === 'teeth' ? '潔牙' : '含氟漱口水') + '補做完成',
-        '當作做到：不記任何紀錄，今天的班級常規獎勵 +1 照給');
+      // 兩態（2026-09-12）：✓ 就是做到（含補做），不必另外提示
     } else if (kind === 'arrive') {
       if (v === 2) flashFix(who + '上學遲到', (actOf(1, 'bad', 0) || {}).fix || '結算時會照班規①記一筆');
       if (v === 3) flashFix(who + '今天未到（請假／缺席）', '只留在這台電腦提醒老師，不會送出任何紀錄');
@@ -921,17 +921,15 @@
     var states = ST[kind];
     /* 沒點＝沒做（2026-09-11 老師：潔牙不要預設全班做到）——所以拿掉「✅ 全部已潔牙」，一格一格點。 */
     var ok = seats.filter(function (s) { return stateOf(kind, s) === 1; });
-    var redo = seats.filter(function (s) { return stateOf(kind, s) === 2; });
-    var miss = seats.length - ok.length - redo.length;
+    var miss = seats.length - ok.length;
     var row = document.createElement('div');
     row.className = 'itemrow' + (miss ? '' : ' clear');
     var head = document.createElement('div'); head.className = 'rowhead';
     head.innerHTML = '<span class="name">' + esc(title) + '</span>' +
       '<span class="cnt"><span class="d">' + states[1].l + ' <b>' + ok.length + '</b></span>　' +
-      '<span class="a">' + states[2].l + ' <b>' + redo.length + '</b></span>　' +
       '<span class="c">沒做 <b>' + miss + '</b></span></span><span class="grow"></span>';
     var clr = document.createElement('button'); clr.className = 'reset';
-    clr.textContent = '↺ 全部重來'; clr.disabled = (ok.length + redo.length) === 0;
+    clr.textContent = '↺ 全部重來'; clr.disabled = ok.length === 0;
     clr.addEventListener('click', function () {
       if (!confirm('把「' + title + '」全部改回「沒做」嗎？')) return;
       st[kind] = {}; sdb.set(st); paintTeeth(); paintPend();
@@ -942,7 +940,7 @@
     seats.forEach(function (s) {
       var v = stateOf(kind, s);
       var ch = document.createElement('div');
-      ch.className = 'chip' + (v === 0 ? ' bad' : (v === 1 ? ' s3' : ' s1')); ch.textContent = s;
+      ch.className = 'chip' + (v === 0 ? ' bad' : ' s3'); ch.textContent = s;
       ch.title = states[v].l;
       ch.addEventListener('click', function () {
         /* 現讀狀態再 +1，不要用畫這一格時的舊值——重畫後同一顆按鈕若被再點到會算錯格。 */
@@ -957,7 +955,7 @@
   }
 
   function paintTeeth() {
-    $('legend').innerHTML = '<span>沒點＝沒做；有補做就點到 <b>↻ 補做完成</b>（當作做到）。結算時仍沒做＝常規未達成＋班規⑦</span>';
+    $('legend').innerHTML = '<span>沒點＝沒做；做了或補做完都點 <b>✓</b>。結算時仍沒做＝常規未達成＋班規⑦</span>';
     var box = $('view-teeth'); box.innerHTML = '';
 
     var bar = document.createElement('div'); bar.className = 'statbar';
@@ -1046,7 +1044,7 @@
       if (st.fluorideOn) items.push(['fluoride', '含氟漱口水', '沒做含氟漱口水']);
       items.forEach(function (it) {
         seats.forEach(function (s) {
-          if (stateOf(it[0], s) !== 0) return;         // 1 已做、2 補做完成都不送
+          if (stateOf(it[0], s) !== 0) return;         // 1 ✓（含補做）不送
           out.push({ tool: TOOL.teeth, date: st.date, seat: s, src: 'tally', dedupe: 'day',
                      kind: 'bad', act: '常規未達成', period: it[1], note: it[2] + '，未補做' });
           if (rr) out.push({ tool: TOOL.teeth, date: st.date, seat: s, src: 'rule', rule_n: 7, kind: 'bad',
@@ -1113,7 +1111,7 @@
         '　沒做、也沒補做（潔牙／含氟漱口水）　' + c('常規未達成') + ' 人次\n' +
         '　　→ 記「常規未達成」：今天的班級常規獎勵 +1 不給（全勤獎也就沒有）\n' +
         '　　→ 另記班規⑦「' + ROUTINE_ACT + '」' + rc + '\n' +
-        '　↻ 補做完成＝當作做到：不記任何紀錄，+1 照給\n\n' +
+        '　補做完的請先點成 ✓ 已潔牙＝當作做到：不記任何紀錄，+1 照給\n\n' +
         '⚠️ 沒點＝沒做。請等補做時間過了再結算——送出到 Notion 後就收不回來。\n' +
         '同一人兩項都沒做會合併成一列（次數 2）。再按一次是重新結算，不會疊加。';
     }
