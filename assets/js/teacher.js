@@ -165,7 +165,7 @@
     Object.keys(byDate).sort().forEach(function (d) {
       html += '<div class="sendday"><b>' + d + '</b>';
       byDate[d].forEach(function (r) {
-        html += '<div class="senditem"><span class="tag ' + (r.kind === 'bad' ? 'bad' : 'good') + '">' +
+        html += '<div class="senditem"><span class="tag ' + (r.kind === 'bad' || r.kind === 'neutral' ? r.kind : 'good') + '">' +
                 (TOOL_LABEL[r.tool] || r.tool || '') + '</span>' + fmtRow(r) + '</div>';
       });
       html += '</div>';

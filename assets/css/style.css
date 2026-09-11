@@ -92,6 +92,7 @@ footer{position:relative;z-index:1;margin-top:56px;padding-top:16px;border-top:1
 .senditem .tag{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;
   background:rgba(86,197,150,.16);color:var(--ok)}
 .senditem .tag.bad{background:rgba(240,149,78,.16);color:var(--warn)}
+.senditem .tag.neutral{background:rgba(167,139,250,.16);color:var(--purple)}
 input[type=password]{width:100%;max-width:200px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
   background:rgba(0,0,0,.3);color:var(--ink);font-family:inherit;font-size:17px}
 input[type=password]:focus-visible{outline:2px solid var(--duty);outline-offset:1px}

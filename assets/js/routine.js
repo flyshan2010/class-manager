@@ -15,6 +15,11 @@
  * 其餘一律 src:'tally'（不入帳，只記次數，供 class-bank 週結公式用）。
  * 本站送得出的 tally：打掃未達標／打掃缺席／打掃支援／作業完成／午餐支援／午餐缺席／常規未達成。
  *
+ * 缺席依原因分（2026-09-11 計分口徑定案，討論紀錄 §六 A）：
+ *   打掃 ✗ 請假／🎫 免打掃券／⛔ 無故；午餐 ✗ 請假／⛔ 無故（午餐沒有免工作特權）。
+ *   三種都送原 act「打掃缺席／午餐缺席」（週結撈取鍵不變）、kind 一律 'neutral'、原因寫 note；
+ *   只有「無故」另送一筆班規⑦「答應的工作或幹部職務擺爛」（幣值照抄 class-rules.json）。
+ *
  * ⚠️ 原「上午課堂」分頁在 3-2 移除：電子白板的座位板長按（右鍵）就是同一套班規選單，
  *    而且白板才是上課中投影的那一頁。留兩個入口只會讓同一件事有兩個正本。
  */
@@ -37,11 +42,15 @@
              { m: '⏰', l: '遲到', t: 'warn' }, { m: '✗', l: '未到', t: 'pink' }],
     /* 打掃的「＋ 支援」不再是成員的第 5 態（2026-09-10 老師：實際沒有固定支援）——
        改由各組卡片上的「＋ 加支援」當天指派任何人，存在 st.cleanSup，有支援才多發那一次薪水。 */
+    /* 缺席拆原因（2026-09-11，sv 4→5）：請假、免打掃券是出勤不是行為（紫・中性）；
+       無故＝班規⑦（粉）。順序＝出現頻率，請假最常見排最前。 */
     clean: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位達標', t: 'ok' },
             { m: '△', l: '到位未達標', t: 'warn' },
-            { m: '✗', l: '未到', t: 'pink' }],
+            { m: '✗', l: '請假', t: 'purple' }, { m: '🎫', l: '免打掃券', t: 'purple' },
+            { m: '⛔', l: '無故未到', t: 'pink' }],
     lunch: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位', t: 'ok' },
-            { m: '✗', l: '未到', t: 'pink' }, { m: '＋', l: '臨時支援', t: 'blue' }],
+            { m: '✗', l: '請假', t: 'purple' }, { m: '⛔', l: '無故未到', t: 'pink' },
+            { m: '＋', l: '臨時支援', t: 'blue' }],
     teeth: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }],
     /* 含氟漱口水：一週只有一次，由老師當天自己開（2026-09-07 老師要求），狀態與潔牙同三態。 */
     fluoride: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已漱口', t: 'ok' }, { m: '✗', l: '沒漱口', t: 'pink' }]
@@ -49,9 +58,9 @@
 
   var TAB_TITLE = {
     arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
-    clean: '點座號檢核：未檢核 → ✓ 到位達標 → △ 未達標 → ✗ 未到；支援按各組「＋ 加支援」指派',
+    clean: '點座號檢核：未檢核 → ✓ 達標 → △ 未達標 → ✗ 請假 → 🎫 免打掃券 → ⛔ 無故；支援按各組「＋ 加支援」',
     hw: '未交 → 已交 → 要訂正 → 完成；右上可切「🪑 座位表／🔢 座號清單」',
-    lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 未到 → ＋ 臨時支援',
+    lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 請假 → ⛔ 無故 → ＋ 臨時支援',
     teeth: '點座號檢核：未點 → ✓ 已潔牙 → ✗ 沒潔牙（不扣幣、不記班規）'
   };
 
@@ -59,16 +68,18 @@
   var sdb = Tool.store('classManager.routine.v2');
   var st = sdb.get(null);
   /* 狀態編號版本：v3 起到校／打掃多了第 0 態「未點」，舊號碼的語意整個位移，
-     照舊資料畫會變成「昨天的出席今天顯示成遲到」。版本不合就重來，不硬搬。 */
-  if (st && st.sv !== 4) st = null;
+     照舊資料畫會變成「昨天的出席今天顯示成遲到」。版本不合就重來，不硬搬。
+     v5（2026-09-11）：打掃／午餐缺席拆原因，午餐 3 由「＋支援」變「無故」——舊值不可沿用。 */
+  if (st && st.sv !== 5) st = null;
   if (!st || st.date !== Tool.todayKey()) {
-    st = { date: Tool.todayKey(), sv: 4, arrive: {}, clean: {}, lunch: {}, teeth: {},
+    st = { date: Tool.todayKey(), sv: 5, arrive: {}, clean: {}, lunch: {}, teeth: {},
            fluoride: {}, fluorideOn: false, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {} };
   }
-  /* 今天的浮動支援：{ 組別名: [座號…] }。舊版成員第 5 態（4＝＋支援）不知道支援哪一組，直接清掉。 */
+  /* 今天的浮動支援：{ 組別名: [座號…] }。
+     ⚠️ 原本這裡會刪掉打掃狀態 4（sv4 以前的「＋支援」）；sv5 起 4＝🎫 免打掃券，
+     舊資料已由上面的版本檢查整份重來，那行刪除碼留著會把免打掃券靜默吃掉（2026-09-11 實測抓到）。 */
   if (!st.cleanSup) st.cleanSup = {};
   if (!st.weekSup) st.weekSup = {};
-  Object.keys(st.clean || {}).forEach(function (k) { if (st.clean[k] === 4) delete st.clean[k]; });
   ['arrive', 'clean', 'lunch', 'teeth', 'fluoride'].forEach(function (k) { if (!st[k]) st[k] = {}; });
   if (!st.week) st.week = {};
   // v1 → v2：只搬「今天的打掃狀態」與週總覽，其餘讓它重來（跨版本硬搬容易搬出假資料）
@@ -119,6 +130,32 @@
     return ((data.rules || []).filter(function (c) { return Number(c.n) === Number(n); })[0]) || null;
   }
   function actOf(n, kind, i) { var c = cardOf(n); return c && (c[kind] || [])[i] ? c[kind][i] : null; }
+
+  /* 缺席原因（寫進 note）與「無故」的狀態號。無故另記班規⑦——用行為名稱找 act_i，
+     不寫死序號：班規卡增刪一行，序號就位移，排程端核對幣值會整批 E07。 */
+  var ABSENT = { clean: { 3: '請假', 4: '免打掃券', 5: '無故' }, lunch: { 2: '請假', 3: '無故' } };
+  var NOSHOW = { clean: 5, lunch: 3 };
+  var NOSHOW_ACT = '答應的工作或幹部職務擺爛';
+  function noShowRule() {
+    var bad = (cardOf(7) || {}).bad || [];
+    for (var i = 0; i < bad.length; i++) if (bad[i].act === NOSHOW_ACT) return { i: i, a: bad[i] };
+    return null;
+  }
+  function noShowFix() {
+    var r = noShowRule();
+    return r ? '那次沒薪水，另記班規⑦「' + NOSHOW_ACT + '」' + r.a.coin + '　·　' + (r.a.fix || '')
+             : '結算時會照班規⑦記一筆（目前讀不到班規，請先按「☁ 重讀雲端資料」）';
+  }
+  function absentEvents(kind, seat, v, period) {
+    var why = ABSENT[kind][v];
+    if (!why) return [];
+    var tool = TOOL[kind], evs = [{ tool: tool, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
+      kind: 'neutral', act: kind === 'clean' ? '打掃缺席' : '午餐缺席', period: period, note: why }];
+    var r = v === NOSHOW[kind] && noShowRule();
+    if (r) evs.push({ tool: tool, date: st.date, seat: seat, src: 'rule', rule_n: 7, kind: 'bad',
+      act_i: r.i, act: r.a.act, coin: r.a.coin, level: r.a.level, period: period });
+    return evs;
+  }
 
   /* ── 狀態存取（四個狀態式站共用）──────────────────────────── */
   function stateOf(kind, seat) { return st[kind][seat] || 0; }
@@ -263,10 +300,13 @@
     if (kind === 'clean') {
       if (v === 2) flashFix(who + '打掃未達標（這次不扣幣）',
         (actOf(3, 'bad', 0) || {}).fix + '　·　同一週第 3 次起才會扣 5 幣');
-      if (v === 3) flashFix(who + '打掃缺席', '週結薪水會少算一次出勤（不扣幣）');
+      if (v === 3) flashFix(who + '打掃請假（不是行為問題）', '週結薪水少算這一次出勤，不扣幣、不記班規');
+      if (v === 4) flashFix(who + '使用免打掃一次券', '這次沒有打掃薪水，不扣幣、不記班規（兌換紀錄已扣過就不重扣）');
+      if (v === 5) flashFix(who + '無故沒去打掃', noShowFix());
     } else if (kind === 'lunch') {
-      if (v === 2) flashFix(who + '午餐工作未到', '週結午餐薪水會少算一次（不扣幣）');
-      if (v === 3) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
+      if (v === 2) flashFix(who + '午餐工作請假（不是行為問題）', '週結午餐薪水少算一次，不扣幣、不記班規');
+      if (v === 3) flashFix(who + '無故沒做午餐工作', noShowFix());
+      if (v === 4) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
     } else if (kind === 'fluoride') {
       if (v === 2) flashFix(who + '今天沒做含氟漱口水',
         '不扣幣、不記班規；和沒潔牙一樣，今天的班級常規獎勵 +1 不給');
@@ -897,14 +937,16 @@
     }
     if (kind === 'clean') {
       Object.keys(st.clean).forEach(function (k) {
-        var seat = Number(k), v = st.clean[k], act = '';
+        var seat = Number(k), v = st.clean[k];
         // △ 到位未達標＝**只計次，不扣幣**（2026-09-06 老師裁示）：既有制度是
         // 「1～2 次沒做到不扣幣只補做、3 次以上才 −5」，當場記班規③ −5 等於第一次犯就重罰。
         // 累計判斷交給週結（本系統只收資料，加減點一律在任務處理端算）。
-        if (v === 2) act = '打掃未達標'; else if (v === 3) act = '打掃缺席';
-        if (!act) return;                              // 0 未檢核、1 到位達標都不產生事件
-        out.push({ tool: TOOL.clean, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
-                   kind: 'bad', act: act, period: '環境晨掃' });
+        if (v === 2) {
+          out.push({ tool: TOOL.clean, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
+                     kind: 'bad', act: '打掃未達標', period: '環境晨掃' });
+          return;
+        }
+        absentEvents('clean', seat, v, '環境晨掃').forEach(function (e) { out.push(e); });   // 0／1 不產生事件
       });
       // 浮動支援：一組一筆；同一人一天支援兩組會在 CMEvents 合併成一列、次數 2、備註兩組都留
       Object.keys(st.cleanSup).forEach(function (g) {
@@ -918,10 +960,12 @@
     if (kind === 'lunch') {
       Object.keys(st.lunch).forEach(function (k) {
         var seat = Number(k), v = st.lunch[k];
-        if (v !== 2 && v !== 3) return;                // 0 未檢核、1 到位都不產生事件
-        out.push({ tool: TOOL.lunch, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
-                   kind: v === 2 ? 'bad' : 'good', act: v === 2 ? '午餐缺席' : '午餐支援',
-                   period: '午餐工作' });
+        if (v === 4) {
+          out.push({ tool: TOOL.lunch, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
+                     kind: 'good', act: '午餐支援', period: '午餐工作' });
+          return;
+        }
+        absentEvents('lunch', seat, v, '午餐工作').forEach(function (e) { out.push(e); });   // 0／1 不產生事件
       });
       return out;
     }
@@ -980,15 +1024,18 @@
         '　⏰ 上學遲到（' + (a.coin || '') + '）　' + evs.length + ' 人\n' +
         '　✗ 未到（請假／缺席）不送出，只留在這台電腦\n\n再按一次是重新結算，不會疊加。';
     }
+    var ns = (noShowRule() || { a: {} }).a.coin || '';
     if (kind === 'clean') {
-      return '把打掃結果結算到「待送」嗎？（這三種都只記次數，不會當場加減幣）\n\n' +
-        '　△ 到位未達標　' + c('打掃未達標') + ' 人　→ 週結累計：1～2 次不扣幣只補做，3 次以上才 −5\n' +
-        '　✗ 未到　　　　' + c('打掃缺席') + ' 人　→ 週結少算一次出勤（那次沒薪水）\n' +
+      return '把打掃結果結算到「待送」嗎？\n\n' +
+        '　△ 到位未達標　' + c('打掃未達標') + ' 人　→ 只記次數；週結累計 1～2 次不扣幣只補做，3 次以上才 −5\n' +
+        '　✗ 請假／🎫 免打掃券　' + (c('打掃缺席') - c(NOSHOW_ACT)) + ' 人　→ 中性紀錄，那次沒薪水，不扣幣\n' +
+        '　⛔ 無故未到　　' + c(NOSHOW_ACT) + ' 人　→ 那次沒薪水，另記班規⑦ ' + ns + '\n' +
         '　＋ 臨時支援　　' + c('打掃支援') + ' 人次　→ 週結每支援一次多發一次打掃薪水\n\n再按一次是重新結算，不會疊加。';
     }
     if (kind === 'lunch') {
-      return '把午餐工作結算到「待送」嗎？（只記次數，不會當場加減幣）\n\n' +
-        '　✗ 未到　　　　' + c('午餐缺席') + ' 人　→ 週結少算一次午餐出勤\n' +
+      return '把午餐工作結算到「待送」嗎？\n\n' +
+        '　✗ 請假　　　　' + (c('午餐缺席') - c(NOSHOW_ACT)) + ' 人　→ 中性紀錄，週結少算一次午餐出勤，不扣幣\n' +
+        '　⛔ 無故未到　　' + c(NOSHOW_ACT) + ' 人　→ 週結少算一次，另記班規⑦ ' + ns + '\n' +
         '　＋ 臨時支援　　' + c('午餐支援') + ' 人　→ 週結加一次支援\n\n再按一次是重新結算，不會疊加。';
     }
     if (kind === 'teeth') {
@@ -1013,6 +1060,13 @@
     if (NEED_RULE[tab] && !cardOf(NEED_RULE[tab])) {
       alert('還讀不到班規，不能結算這一站。\n\n幣值一律抄班規，讀不到就不記——避免用到過期的數字。\n' +
             '連上網後按「☁ 重讀雲端資料」再試一次。');
+      return;
+    }
+    /* 打掃／午餐有人點「⛔ 無故」卻讀不到班規⑦：只送缺席不送⑦會讓無故看起來跟請假一樣，擋下來。 */
+    if (NOSHOW[tab] && !noShowRule() &&
+        seats.some(function (s2) { return stateOf(tab, s2) === NOSHOW[tab]; })) {
+      alert('還讀不到班規⑦，有「⛔ 無故未到」的這一站不能結算。\n\n' +
+            '無故要另記班規⑦，幣值一律抄班規。連上網後按「☁ 重讀雲端資料」再試一次。');
       return;
     }
     /* 潔牙／含氟漱口水：「還沒點」不會產生任何事件，等於默認全班通過——
@@ -1071,7 +1125,7 @@
     var days = Object.keys(st.week).sort().slice(-5);
     if (!days.length) { openPanel('<h2>本週總覽</h2><p class="hint">這週還沒有任何打掃紀錄。</p>'); return; }
     var html = '<h2>本週總覽</h2><p class="hint">對照紙本「個人打掃檢核表」那張表，投影就不必列印。' +
-      '空白＝✓ 到位達標；＋＝當天去支援（有支援才多發那一次薪水）。</p><table class="week"><tr><th>座號</th>' +
+      '空白＝✓ 到位達標；✗ 請假、🎫 免打掃券、⛔ 無故；＋＝當天去支援（有支援才多發那一次薪水）。</p><table class="week"><tr><th>座號</th>' +
       days.map(function (d) { return '<th>' + d.slice(5) + '</th>'; }).join('') + '</tr>';
     seats.forEach(function (s) {
       html += '<tr><td>' + s + '</td>' + days.map(function (d) {
