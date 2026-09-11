@@ -48,9 +48,10 @@
             { m: '△', l: '到位未達標', t: 'warn' },
             { m: '✗', l: '請假', t: 'purple' }, { m: '🎫', l: '免打掃券', t: 'purple' },
             { m: '⛔', l: '無故未到', t: 'pink' }],
+    /* 午餐支援比照打掃改浮動（2026-09-11 老師：午餐有人請假要能指派別人補位）——
+       不再是成員的第 5 態，改由各崗位卡片「＋ 加支援」選人，存在 st.lunchSup（sv 5→6）。 */
     lunch: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位', t: 'ok' },
-            { m: '✗', l: '請假', t: 'purple' }, { m: '⛔', l: '無故未到', t: 'pink' },
-            { m: '＋', l: '臨時支援', t: 'blue' }],
+            { m: '✗', l: '請假', t: 'purple' }, { m: '⛔', l: '無故未到', t: 'pink' }],
     teeth: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '沒潔牙', t: 'pink' }],
     /* 含氟漱口水：一週只有一次，由老師當天自己開（2026-09-07 老師要求），狀態與潔牙同三態。 */
     fluoride: [{ m: '', l: '未點', t: 'idle' }, { m: '✓', l: '已漱口', t: 'ok' }, { m: '✗', l: '沒漱口', t: 'pink' }]
@@ -60,7 +61,7 @@
     arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
     clean: '點座號檢核：未檢核 → ✓ 達標 → △ 未達標 → ✗ 請假 → 🎫 免打掃券 → ⛔ 無故；支援按各組「＋ 加支援」',
     hw: '未交 → 已交 → 要訂正 → 完成；右上可切「🪑 座位表／🔢 座號清單」',
-    lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 請假 → ⛔ 無故 → ＋ 臨時支援',
+    lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 請假 → ⛔ 無故；有人補位按各崗位「＋ 加支援」',
     teeth: '點座號檢核：未點 → ✓ 已潔牙 → ✗ 沒潔牙（不扣幣、不記班規）'
   };
 
@@ -69,16 +70,18 @@
   var st = sdb.get(null);
   /* 狀態編號版本：v3 起到校／打掃多了第 0 態「未點」，舊號碼的語意整個位移，
      照舊資料畫會變成「昨天的出席今天顯示成遲到」。版本不合就重來，不硬搬。
-     v5（2026-09-11）：打掃／午餐缺席拆原因，午餐 3 由「＋支援」變「無故」——舊值不可沿用。 */
-  if (st && st.sv !== 5) st = null;
+     v5（2026-09-11）：打掃／午餐缺席拆原因，午餐 3 由「＋支援」變「無故」——舊值不可沿用。
+     v6（2026-09-11）：午餐第 4 態「＋支援」移除，改浮動指派（st.lunchSup）。 */
+  if (st && st.sv !== 6) st = null;
   if (!st || st.date !== Tool.todayKey()) {
-    st = { date: Tool.todayKey(), sv: 5, arrive: {}, clean: {}, lunch: {}, teeth: {},
+    st = { date: Tool.todayKey(), sv: 6, arrive: {}, clean: {}, lunch: {}, teeth: {},
            fluoride: {}, fluorideOn: false, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {} };
   }
   /* 今天的浮動支援：{ 組別名: [座號…] }。
      ⚠️ 原本這裡會刪掉打掃狀態 4（sv4 以前的「＋支援」）；sv5 起 4＝🎫 免打掃券，
      舊資料已由上面的版本檢查整份重來，那行刪除碼留著會把免打掃券靜默吃掉（2026-09-11 實測抓到）。 */
   if (!st.cleanSup) st.cleanSup = {};
+  if (!st.lunchSup) st.lunchSup = {};
   if (!st.weekSup) st.weekSup = {};
   ['arrive', 'clean', 'lunch', 'teeth', 'fluoride'].forEach(function (k) { if (!st[k]) st[k] = {}; });
   if (!st.week) st.week = {};
@@ -164,13 +167,16 @@
     if (kind === 'clean') st.week[st.date] = st.clean;
     sdb.set(st);
   }
-  function supportOf(group) { return st.cleanSup[group] || []; }
-  function toggleSupport(group, seat) {
-    var list = supportOf(group).slice(), i = list.indexOf(seat);
+  /* 浮動支援：打掃存 st.cleanSup、午餐存 st.lunchSup，格式同為 { 組別／崗位名: [座號…] }。
+     本週總覽（weekSup）只有打掃用。 */
+  var SUP = { clean: { key: 'cleanSup', pay: '打掃薪水' }, lunch: { key: 'lunchSup', pay: '午餐工作薪水' } };
+  function supportOf(kind, group) { return st[SUP[kind].key][group] || []; }
+  function toggleSupport(kind, group, seat) {
+    var box = st[SUP[kind].key], list = supportOf(kind, group).slice(), i = list.indexOf(seat);
     if (i >= 0) list.splice(i, 1); else list.push(seat);
-    if (list.length) st.cleanSup[group] = list.sort(function (a, b) { return a - b; });
-    else delete st.cleanSup[group];
-    st.weekSup[st.date] = st.cleanSup;
+    if (list.length) box[group] = list.sort(function (a, b) { return a - b; });
+    else delete box[group];
+    if (kind === 'clean') st.weekSup[st.date] = st.cleanSup;
     sdb.set(st);
     return i < 0;
   }
@@ -220,8 +226,8 @@
       var ppl = document.createElement('div'); ppl.className = 'people';
       c.people.forEach(function (p) { ppl.appendChild(personCard(kind, p.seat, p.duty)); });
       if (c.supGroup) {
-        supportOf(c.supGroup).forEach(function (s) { ppl.appendChild(supportCard(c.supGroup, s)); });
-        ppl.appendChild(addSupportCard(c.supGroup, c.people));
+        supportOf(kind, c.supGroup).forEach(function (s) { ppl.appendChild(supportCard(kind, c.supGroup, s)); });
+        ppl.appendChild(addSupportCard(kind, c.supGroup, c.people));
       }
       el.appendChild(ppl);
       if (c.info) el.addEventListener('dblclick', function () { openPanel(c.info); });
@@ -230,37 +236,37 @@
   }
 
   /* 浮動支援（2026-09-10）：卡片上是藍色「＋ 支援」，點一下取消；最後一格「＋ 加支援」開選人面板。 */
-  function supportCard(group, seat) {
+  function supportCard(kind, group, seat) {
     var el = document.createElement('div'); el.className = 'pcard t-blue';
     el.innerHTML = '<div class="pn">' + seat + '</div><div class="ps">＋ 支援</div>';
     el.title = '點一下取消這位的支援';
     el.addEventListener('click', function () {
-      toggleSupport(group, seat); Tool.beep(1, 640); paint(); paintPend();
+      toggleSupport(kind, group, seat); Tool.beep(1, 640); paint(); paintPend();
       flashFix(seat + ' 號 · 取消支援「' + group + '」', '這次不算支援，週結不會多發');
     });
     return el;
   }
-  function addSupportCard(group, people) {
+  function addSupportCard(kind, group, people) {
     var el = document.createElement('div'); el.className = 'pcard t-idle addsup';
     el.innerHTML = '<div class="pn">＋</div><div class="ps">加支援</div>';
-    el.addEventListener('click', function () { openSupportPicker(group, people); });
+    el.addEventListener('click', function () { openSupportPicker(kind, group, people); });
     return el;
   }
-  function openSupportPicker(group, people) {
+  function openSupportPicker(kind, group, people) {
     var own = people.map(function (p) { return p.seat; });
     function draw() {
-      var on = supportOf(group);
+      var on = supportOf(kind, group);
       openPanel('<h2>＋ 今天誰來支援？</h2><p class="hint">' + esc(group) +
-        '　·　點座號加入，再點一次取消。有支援才多發這一次打掃薪水；本組成員不列出。</p>' +
+        '　·　點座號加入，再點一次取消。有支援才多發這一次' + SUP[kind].pay + '；本' + (kind === 'lunch' ? '崗位' : '組') + '成員不列出。</p>' +
         '<div class="supgrid">' + seats.filter(function (s) { return own.indexOf(s) < 0; }).map(function (s) {
           return '<button type="button" class="stbtn' + (on.indexOf(s) >= 0 ? ' t-blue' : '') +
             '" data-s="' + s + '">' + s + (on.indexOf(s) >= 0 ? ' ＋' : '') + '</button>';
         }).join('') + '</div>');
       Array.prototype.forEach.call($('panel-body').querySelectorAll('.supgrid button'), function (b) {
         b.addEventListener('click', function () {
-          var s = Number(b.dataset.s), added = toggleSupport(group, s);
+          var s = Number(b.dataset.s), added = toggleSupport(kind, group, s);
           Tool.beep(1, added ? 760 : 640); draw(); paint(); paintPend();
-          if (added) flashFix(s + ' 號 · 臨時支援「' + group + '」', '週結多發這一次打掃薪水（不當場加幣）');
+          if (added) flashFix(s + ' 號 · 臨時支援「' + group + '」', '週結多發這一次' + SUP[kind].pay + '（不當場加幣）');
         });
       });
     }
@@ -306,7 +312,6 @@
     } else if (kind === 'lunch') {
       if (v === 2) flashFix(who + '午餐工作請假（不是行為問題）', '週結午餐薪水少算一次，不扣幣、不記班規');
       if (v === 3) flashFix(who + '無故沒做午餐工作', noShowFix());
-      if (v === 4) flashFix(who + '午餐臨時支援', '這次支援會記進週結（加一次支援）');
     } else if (kind === 'fluoride') {
       if (v === 2) flashFix(who + '今天沒做含氟漱口水',
         '不扣幣、不記班規；和沒潔牙一樣，今天的班級常規獎勵 +1 不給');
@@ -795,6 +800,7 @@
         name: '🍚 ' + f.post,
         sub: (f.title || '') + (f.standard ? '　·　驗收：' + f.standard : ''),
         right: '固定崗',
+        supGroup: f.post,
         people: (f.seats || []).map(function (s) { return { seat: s, duty: '' }; }),
         info: '<h2>' + esc('🍚 ' + f.post) + '</h2>' + section('工作職稱', f.title) +
           section('要做的事', f.work) + section('能管的事', f.authority) + section('做好的標準', f.standard)
@@ -808,6 +814,7 @@
         name: '🍚 午餐值週生',
         sub: '第 ' + r.round + ' 輪　·　' + (r.week.標籤 || ''),
         right: '輪值崗（每週換）',
+        supGroup: '午餐值週生',
         people: ((L.rotation.filter(function (w) { return Number(w.week) === r.round; })[0]
                   || { assign: [] }).assign || []).map(function (a) {
           return { seat: a.seat, duty: a.slot };
@@ -826,7 +833,7 @@
   }
 
   function paintLunch() {
-    $('legend').innerHTML = '<span>✗ 未到與 ＋ 支援都<b>只記次數</b>，不當場加減幣</span>';
+    $('legend').innerHTML = '<span>✗ 請假與支援都<b>只記次數</b>，不當場加減幣；有人補位按各崗位「＋ 加支援」</span>';
     var cards = lunchCards();
     var seen = {}, list = [];
     (cards || []).forEach(function (c) {
@@ -950,7 +957,7 @@
       });
       // 浮動支援：一組一筆；同一人一天支援兩組會在 CMEvents 合併成一列、次數 2、備註兩組都留
       Object.keys(st.cleanSup).forEach(function (g) {
-        supportOf(g).forEach(function (seat) {
+        supportOf('clean', g).forEach(function (seat) {
           out.push({ tool: TOOL.clean, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
                      kind: 'good', act: '打掃支援', period: '環境晨掃', note: g });
         });
@@ -959,13 +966,14 @@
     }
     if (kind === 'lunch') {
       Object.keys(st.lunch).forEach(function (k) {
-        var seat = Number(k), v = st.lunch[k];
-        if (v === 4) {
+        absentEvents('lunch', Number(k), st.lunch[k], '午餐工作').forEach(function (e) { out.push(e); });   // 0／1 不產生事件
+      });
+      // 浮動支援：一崗一筆，備註＝支援哪一崗；同一人一天補兩崗會在 CMEvents 合併成一列、次數 2
+      Object.keys(st.lunchSup).forEach(function (g) {
+        supportOf('lunch', g).forEach(function (seat) {
           out.push({ tool: TOOL.lunch, date: st.date, seat: seat, src: 'tally', dedupe: 'day',
-                     kind: 'good', act: '午餐支援', period: '午餐工作' });
-          return;
-        }
-        absentEvents('lunch', seat, v, '午餐工作').forEach(function (e) { out.push(e); });   // 0／1 不產生事件
+                     kind: 'good', act: '午餐支援', period: '午餐工作', note: g });
+        });
       });
       return out;
     }
@@ -1036,7 +1044,7 @@
       return '把午餐工作結算到「待送」嗎？\n\n' +
         '　✗ 請假　　　　' + (c('午餐缺席') - c(NOSHOW_ACT)) + ' 人　→ 中性紀錄，週結少算一次午餐出勤，不扣幣\n' +
         '　⛔ 無故未到　　' + c(NOSHOW_ACT) + ' 人　→ 週結少算一次，另記班規⑦ ' + ns + '\n' +
-        '　＋ 臨時支援　　' + c('午餐支援') + ' 人　→ 週結加一次支援\n\n再按一次是重新結算，不會疊加。';
+        '　＋ 臨時支援　　' + c('午餐支援') + ' 人次　→ 週結每補位一次多發一次午餐工作薪水\n\n再按一次是重新結算，不會疊加。';
     }
     if (kind === 'teeth') {
       return '把潔牙檢核結算到「待送」嗎？\n\n' +
