@@ -120,6 +120,68 @@
   var layout = ldb.get('seat') === 'list' ? 'list' : 'seat';
   var showDone = false;         // 清單版面：完成的座號預設消失，這顆可以叫回來改
 
+  /* ↶ 復原上一步（2026-09-12 老師：學生誤按「全部」蓋掉紀錄、作業清點按過頭）。
+     每次存檔前的狀態進堆疊；同一個點擊（同一輪事件）裡的多次存檔併成一步。最多 30 步，只留在這次開頁。
+     做法是包住 sdb／hdb 的 set，所以**所有**會改狀態的按鈕自動納入，不必逐顆記得加。 */
+  var UNDO_MAX = 30, undoStack = [], undoBatch = false;
+  var saved = { st: JSON.stringify(st), hw: JSON.stringify(hw) };
+  var rawSet = { st: sdb.set, hw: hdb.set };
+  function remember(which, v) {
+    if (!undoBatch) {
+      undoStack.push({ st: saved.st, hw: saved.hw });
+      if (undoStack.length > UNDO_MAX) undoStack.shift();
+      undoBatch = true;
+      setTimeout(function () { undoBatch = false; }, 0);
+    }
+    saved[which] = JSON.stringify(v);
+    return rawSet[which](v);
+  }
+  sdb.set = function (v) { return remember('st', v); };
+  hdb.set = function (v) { return remember('hw', v); };
+  // 雲端帶入作業等「不是老師點的」變動：更新基準但不進復原，免得按復原把剛讀進來的作業退掉
+  function quietSet(which, v) { saved[which] = JSON.stringify(v); return rawSet[which](v); }
+  function undoLast() {
+    var u = undoStack.pop();
+    if (!u) { flashFix('沒有可以復原的動作', '這次開頁以來的點選都已經退回去了'); return; }
+    st = JSON.parse(u.st); hw = JSON.parse(u.hw);
+    quietSet('st', st); quietSet('hw', hw);
+    if (pnl) pnl.close();
+    Tool.beep(1, 600); paint(); paintPend();
+    flashFix('↶ 已復原上一步', '還可以再按，一次退一步（這次開頁最多 ' + UNDO_MAX + ' 步）');
+  }
+
+  /* 點一下＝下一個狀態；長按（或右鍵）＝退回上一個狀態——按過頭不必再繞一整圈（2026-09-12 老師）。 */
+  function cycleTap(el, step) {
+    var timer = null, longDone = false;
+    el.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      longDone = false; clearTimeout(timer);
+      timer = setTimeout(function () { longDone = true; step(-1); }, 550);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (t) {
+      el.addEventListener(t, function () { clearTimeout(timer); });
+    });
+    el.addEventListener('click', function () { if (longDone) { longDone = false; return; } step(1); });
+    el.addEventListener('contextmenu', function (e) {
+      e.preventDefault(); clearTimeout(timer);
+      if (!longDone) step(-1);
+      longDone = false;
+    });
+  }
+  /* 清單版面點到「完成」不立刻消失：留 4 秒讓老師看得到、按過頭來得及退回 */
+  var recentDone = {};
+  function hwStep(it, seat, dir) {
+    var nv = (hwState(it.key, seat) + dir + 4) % 4, k = it.key + '|' + seat;
+    hwSet(it.key, seat, nv);
+    if (nv === 3) {
+      recentDone[k] = true;
+      setTimeout(function () { delete recentDone[k]; if (tab === 'hw') paintHw(); }, 4000);
+    }
+    Tool.beep(1, nv === 3 ? 720 : 520); paintHw(); paintPend();
+    flashFix(seat + ' 號 · ' + it.name + ' → ' + HW_STATES[nv],
+      dir > 0 ? '按過頭了？長按（或右鍵）這格退一格，或按下方「↶ 復原」' : '已退回一格');
+  }
+
   var cache = Tool.store('classManager.routine.cache');
   var data = cache.get({ rules: null, duties: null, seating: null, lunch: null, weeks: null });
   var tab = 'arrive', zoneFilter = 'all';
@@ -205,6 +267,9 @@
     all.type = 'button'; all.className = 'sb-all'; all.disabled = !left;
     all.textContent = allLabel + (left ? '（' + left + '）' : '');
     all.addEventListener('click', function () {
+      // 學生經過投影幕誤按過（2026-09-12 老師回報），一鍵改全班一律先確認
+      if (!confirm('把還沒點的 ' + left + ' 位全部設成「' + ST[kind][allValue].l + '」嗎？\n\n' +
+                   '已經點好的不會被蓋掉；按錯可以按下方「↶ 復原」。')) return;
       list.forEach(function (s) { if (stateOf(kind, s) === 0) setState(kind, s, allValue); });
       Tool.beep(2, 760); paint(); paintPend();
     });
@@ -508,7 +573,7 @@
     function draw() {
       var body = $('panel-body'); body.innerHTML = '';
       var h = document.createElement('div');
-      h.innerHTML = '<h2>' + seat + ' 號的作業</h2><p class="hint">點右邊的狀態鈕循環：未交 → 已交 → 要訂正 → 完成。</p>';
+      h.innerHTML = '<h2>' + seat + ' 號的作業</h2><p class="hint">點右邊的狀態鈕循環：未交 → 已交 → 要訂正 → 完成；長按（或右鍵）退一格。</p>';
       body.appendChild(h);
       hw.items.forEach(function (it) {
         var v = hwState(it.key, seat);
@@ -517,8 +582,8 @@
           '<span class="dy">' + esc(String(it.due || '').slice(5)) + ' 派</span></span>';
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'stbtn t-' + HW_TONE[v]; b.textContent = HW_MARK[v];
-        b.addEventListener('click', function () {
-          hwSet(it.key, seat, (hwState(it.key, seat) + 1) % 4);
+        cycleTap(b, function (dir) {
+          hwSet(it.key, seat, (hwState(it.key, seat) + dir + 4) % 4);
           Tool.beep(1, 520); draw(); paintHw(); paintPend();
         });
         r.appendChild(b); body.appendChild(r);
@@ -658,7 +723,7 @@
         '　·　補交追蹤中，這一列不會再送出紀錄（不重複扣分）';
       row.appendChild(line);
     }
-    var shown = seats.filter(function (s) { return showDone || hwState(it.key, s) !== 3; });
+    var shown = seats.filter(function (s) { return showDone || hwState(it.key, s) !== 3 || recentDone[it.key + '|' + s]; });
     if (!shown.length) {
       var d = document.createElement('div'); d.className = 'rowclear';
       d.innerHTML = '全部完成 🎉<span class="sub">按「顯示已完成」可回頭改</span>';
@@ -668,11 +733,8 @@
     shown.forEach(function (s) {
       var v = hwState(it.key, s);
       var ch = document.createElement('div'); ch.className = 'chip s' + v; ch.textContent = s;
-      ch.title = HW_STATES[v];
-      ch.addEventListener('click', function () {
-        var nv = (hwState(it.key, s) + 1) % 4;
-        hwSet(it.key, s, nv); Tool.beep(1, nv === 3 ? 720 : 520); paintHw(); paintPend();
-      });
+      ch.title = HW_STATES[v] + '（點一下下一格、長按或右鍵退一格）';
+      cycleTap(ch, function (dir) { hwStep(it, s, dir); });
       chips.appendChild(ch);
     });
     row.appendChild(chips);
@@ -716,10 +778,7 @@
       var cell = document.createElement('div');
       cell.className = 'scell hwcell t-' + HW_TONE[v];
       cell.innerHTML = s + '<span class="mk">' + HW_MARK[v] + '</span>';
-      cell.addEventListener('click', function () {
-        var nv = (hwState(it.key, s) + 1) % 4;
-        hwSet(it.key, s, nv); Tool.beep(1, nv === 3 ? 720 : 520); paintHw(); paintPend();
-      });
+      cycleTap(cell, function (dir) { hwStep(it, s, dir); });
       return cell;
     }));
     box.appendChild(row);
@@ -727,7 +786,7 @@
 
   function paintHw() {
     var box = $('view-hw'); box.innerHTML = '';
-    $('legend').innerHTML = '<span>未交 → 已交 → 要訂正 → <b style="color:var(--ok)">完成</b></span>' +
+    $('legend').innerHTML = '<span>未交 → 已交 → 要訂正 → <b style="color:var(--ok)">完成</b>　·　按過頭：<b>長按／右鍵退一格</b>或「↶ 復原」</span>' +
       '<span>' + (hw.srcDate ? '清點 ' + hw.srcDate.slice(5) + ' 派的' : '雲端讀不到前一天作業') + '</span>';
     if (!hw.items.length) {
       box.innerHTML = '<div class="itemrow"><div class="rowclear">沒有可清點的項目' +
@@ -770,13 +829,13 @@
         });
         var ns = {}; keep.forEach(function (it) { if (hw.status[it.key]) ns[it.key] = hw.status[it.key]; });
         hw.items = keep; hw.status = ns; hw.carry = carry; hw.srcDate = src;
-        hdb.set(hw);
+        quietSet('hw', hw);
       })
       .catch(function () {
         if (!hw.items.length) {
           var t = Tool.todayKey();
           hw.items = [{ key: t + '|聯絡簿', name: '聯絡簿', due: t }];
-          hdb.set(hw);
+          quietSet('hw', hw);
         }
       });
   }
@@ -1219,11 +1278,13 @@
     $('tab-' + k).addEventListener('click', function () { setTab(k); });
   });
   $('btn-settle').addEventListener('click', settle);
+  $('btn-undo').addEventListener('click', undoLast);
   $('btn-week').addEventListener('click', weekOverview);
   $('btn-reload').addEventListener('click', function () { reload(true); });
   $('btn-full').addEventListener('click', Tool.fullscreen);
   document.addEventListener('keydown', function (e) {
-    if (e.key.toLowerCase() === 'f') Tool.fullscreen();
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLast(); return; }
+    if (e.key.toLowerCase() === 'f' && !e.metaKey && !e.ctrlKey) Tool.fullscreen();
     if (e.key === 'Escape') pnl.close();
   });
   Tool.autoHideHud($('hud'));
