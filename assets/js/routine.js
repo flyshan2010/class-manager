@@ -1187,15 +1187,26 @@
   function weekOverview() {
     var days = Object.keys(st.week).sort().slice(-5);
     if (!days.length) { openPanel('<h2>本週總覽</h2><p class="hint">這週還沒有任何打掃紀錄。</p>'); return; }
+    /* 「△ 未達標」最後一欄是計數，不是裝飾：週結的規則是**同一週 1～2 次只補做、≥3 次才記班規③ −5**，
+       而這張表原本要老師自己橫向數五欄才知道誰滿 3 次——會數錯的地方就該由機器算。
+       ≥3 標紅＝那一列今天已經達到扣 −5 的門檻（實際扣款仍由週結算，這裡只是讓老師看得到）。 */
+    var BAD = 2; // ST.clean[2] ＝ △ 到位未達標
     var html = '<h2>本週總覽</h2><p class="hint">對照紙本「個人打掃檢核表」那張表，投影就不必列印。' +
-      '空白＝✓ 到位達標；✗ 請假、🎫 免打掃券、⛔ 無故；＋＝當天去支援（有支援才多發那一次薪水）。</p><table class="week"><tr><th>座號</th>' +
-      days.map(function (d) { return '<th>' + d.slice(5) + '</th>'; }).join('') + '</tr>';
+      '空白＝✓ 到位達標；✗ 請假、🎫 免打掃券、⛔ 無故；＋＝當天去支援（有支援才多發那一次薪水）。' +
+      '<br />最後一欄「△ 次數」由系統數：<strong>1～2 次只補做不扣幣，滿 3 次才記班規③ −5</strong>（紅字＝已達門檻）。</p>' +
+      '<table class="week"><tr><th>座號</th>' +
+      days.map(function (d) { return '<th>' + d.slice(5) + '</th>'; }).join('') + '<th>△ 次數</th></tr>';
     seats.forEach(function (s) {
-      html += '<tr><td>' + s + '</td>' + days.map(function (d) {
+      var bad = 0;
+      var tds = days.map(function (d) {
         var v = (st.week[d] || {})[s] || 0, sup = st.weekSup[d] || {};
         var n = Object.keys(sup).filter(function (g) { return sup[g].indexOf(s) >= 0; }).length;
+        if (v === BAD) bad++;
         return '<td>' + (v && ST.clean[v] ? ST.clean[v].m : '') + (n ? '＋' + (n > 1 ? n : '') : '') + '</td>';
-      }).join('') + '</tr>';
+      }).join('');
+      html += '<tr><td>' + s + '</td>' + tds +
+        '<td' + (bad >= 3 ? ' style="color:#c92a2a;font-weight:700"' : '') + '>' +
+        (bad ? bad + (bad >= 3 ? '　⚠️ −5' : '') : '') + '</td></tr>';
     });
     openPanel(html + '</table>');
   }
