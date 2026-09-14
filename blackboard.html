@@ -759,7 +759,7 @@ body.wall .dyn{overflow:hidden}
       var swapped = !!(cell && typeof cell === 'object' && cell.swapped);
       var makeup = swapped && cell.kind === '補課';
       var c = document.createElement('div'); c.className = 'chip' + (now ? ' now' : '') + (swapped ? ' swap' : '') + (makeup ? ' makeup' : '');
-      c.innerHTML = '<span class="p">' + (p.name || '') + (makeup ? ' 📌補課' : swapped ? ' 🔄' : '') + '</span><span class="s">' + subj.replace(/[<>&]/g, '') + '</span>';
+      c.innerHTML = '<span class="p">' + (p.name || '') + (makeup ? ' 📌補課-' + String(cell.makeup || '').replace(/[<>&]/g, '') : swapped ? ' 🔄' : '') + '</span><span class="s">' + subj.replace(/[<>&]/g, '') + '</span>';
       box.appendChild(c);
     });
     if (!box.children.length) box.innerHTML = '<span class="none">今天沒有排課。</span>';
@@ -780,6 +780,14 @@ body.wall .dyn{overflow:hidden}
     (raw.periods || []).forEach(function (p, i) {
       var o = byPeriod[p.name]; if (!o) return;
       out.table[i] = out.table[i] || [];
+      /* 補課：課名照舊（例：綜合），只在小標寫「📌補課-數學」（2026-09-14 老師定義）。 */
+      if (o.kind === '補課') {
+        var orig = out.table[i][col];
+        var base = orig == null ? '' : (typeof orig === 'object' ? (orig.subject || '') : orig);
+        out.table[i][col] = { subject: base || o.subject, teacher: (orig && orig.teacher) || '', room: (orig && orig.room) || '',
+                              swapped: true, from: o.from || '', kind: '補課', makeup: o.subject };
+        return;
+      }
       out.table[i][col] = { subject: o.subject, teacher: '', room: '', swapped: true, from: o.from || '', kind: o.kind || '' };
     });
     return out;
