@@ -7,7 +7,7 @@
 <title>公布欄模式・示範｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📢</text></svg>" />
 <link rel="stylesheet" href="assets/css/projection.css?v=20260912-5" />
-<script src="assets/js/wall.js?v=20260912-5"></script>
+<script src="assets/js/wall.js?v=20260914-1"></script>
 <style>
 /* 公布欄（電子公布欄）示範：整頁只講一件事。
    版面＝頂一行細資訊 → 中間單一重點 → 底一行資訊帶。時段由日課表與 Notion 班規時段驅動。 */
@@ -83,7 +83,7 @@
 (function () {
   'use strict';
   var BASE = 'https://flyshan2010.github.io/class-website/data/';
-  var D = { sched: null, rules: null, lessons: null, ml: null, book: null, lunch: null };
+  var D = { sched: null, plan: null, rules: null, lessons: null, ml: null, book: null, lunch: null };
   var SIM = null;   // 模擬的「現在幾點」（分鐘）；null＝跟著真實時間
 
   function $(id) { return document.getElementById(id); }
@@ -144,19 +144,10 @@
     }
     return row || null;
   }
-  function lessonOf(subject) {
-    if (!subject || !D.lessons) return null;
-    var best = null;
-    D.lessons.forEach(function (L) {
-      if (!L || String(L.subject || '') !== String(subject)) return;
-      if (!best) best = L;
-    });
-    return best;
-  }
 
   /* 規則正本在 assets/js/wall.js（正式版白板與這頁共用，才不會兩邊各養一份）。 */
   function view() {
-    return Wall.view({ sched: D.sched, rules: D.rules, lessons: D.lessons, ml: D.ml,
+    return Wall.view({ sched: D.sched, plan: D.plan, rules: D.rules, lessons: D.lessons, ml: D.ml,
                        book: todayBook(), notice: '' }, nowMin(), dayIdx());
   }
 
@@ -217,7 +208,7 @@
 
   buildSim();
   Promise.all([get('schedule.json', 'sched'), get('class-rules.json', 'rules'),
-               get('lessons.json', 'lessons'), get('morning-launch.json', 'ml'),
+               get('lessons.json', 'lessons'), get('daily-plan.json', 'plan'), get('morning-launch.json', 'ml'),
                get('contactbook.json', 'book'), get('lunch.json', 'lunch')]).then(paint);
   paint();
   setInterval(function () { if (SIM == null) paint(); }, 20000);

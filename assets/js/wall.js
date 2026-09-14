@@ -54,7 +54,34 @@
     return { timed: timed, always: always };
   }
 
-  /* d＝{sched,rules,lessons,ml,book,notice}；t＝現在幾點（分鐘）；dow＝星期幾（0＝假日） */
+  /* 這一節上哪份教材——唯一正本（2026-09-14）：一律讀班網 daily-plan.json 的「當天課程進度」，
+     與駕駛艙同一份資料，不再從 lessons.json 猜（舊版取「同科第一筆」或「日期區間」，會掛到別輪教材）。
+     當天該科第 n 節 → 當天該科進度第 n 行；行數不夠沿用最後一行（與 sync-notion 的 planLines 同義）。
+     補課那一節（cell.makeup）算補的科目。當天沒有該科進度 → 回 null，不猜。
+     d＝{ sched, plan, lessons }；dateKey＝'YYYY-MM-DD'；dow＝1..5；pi＝節次在 periods 的索引。 */
+  function subjBase(s) { return String(s || '').replace(/[（(].*?[）)]/g, '').trim(); }
+  function lessonFor(d, dateKey, dow, pi) {
+    var sched = d && d.sched, plan = d && d.plan;
+    if (!sched || !sched.table || !plan || !plan.weeks || !dow) return null;
+    function subjAt(i) {
+      var c = (sched.table[i] || [])[dow - 1];
+      if (c == null) return '';
+      return subjBase(typeof c === 'object' ? (c.makeup || c.subject) : c);
+    }
+    var subj = subjAt(pi); if (!subj) return null;
+    var entries = [];
+    Object.keys(plan.weeks).forEach(function (w) {
+      ((plan.weeks[w] || {})[subj] || []).forEach(function (e) { if (e && e.date === dateKey && e.text) entries.push(e); });
+    });
+    if (!entries.length) return null;
+    var n = 0; for (var i = 0; i < pi; i++) if (subjAt(i) === subj) n++;
+    var e = entries[Math.min(n, entries.length - 1)], L = null;
+    if (e.unit) (d.lessons || []).forEach(function (x) { if (!L && x && String(x.title || '').split(/\s/)[0] === e.unit) L = x; });
+    return { subject: subj, text: e.text, unit: e.unit || '', title: L ? L.title : '', points: L ? (L.points || []) : [] };
+  }
+  function todayKey() { var x = new Date(); return x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2); }
+
+  /* d＝{sched,plan,rules,lessons,ml,book,notice}；t＝現在幾點（分鐘）；dow＝星期幾（0＝假日） */
   function view(d, t, dow) {
     d = d || {};
     var sched = d.sched || null, daily = (d.rules && d.rules.daily) || [];
@@ -66,9 +93,10 @@
       sched.periods.forEach(function (p, i) {
         var s = span(p.time); if (!s || t < s.a || t >= s.b) return;
         var cell = ((sched.table || [])[i] || [])[dow - 1];
-        hit = { name: p.name || '', time: p.time || '', start: s.a, end: s.b,
+        hit = { i: i, name: p.name || '', time: p.time || '', start: s.a, end: s.b,
                 subject: cell == null ? '' : String(typeof cell === 'object' ? (cell.subject || '') : cell),
-                room: (cell && typeof cell === 'object' && cell.room) || '' };
+                room: (cell && typeof cell === 'object' && cell.room) || '',
+                makeup: (cell && typeof cell === 'object' && cell.makeup) || '' };
       });
       return hit;
     }
@@ -112,19 +140,15 @@
 
     /* 1 上課中 */
     if (p && /節/.test(p.name) && p.subject) {
-      var L = null;
-      (d.lessons || []).forEach(function (x) {
-        if (!x || String(x.subject || '') !== String(p.subject)) return;
-        if (!L) L = x;
-      });
+      var L = lessonFor(d, d.date || todayKey(), dow, p.i);
       var own = (d.focus || '').trim();
       var body = own ? lines(own).slice(0, 3) : ((L && L.points) || []).slice(0, 3);
       var bring = bringOf(p.subject);
       if (!body.length && bring) body = ['要帶：' + bring];
       return wrap({
-        kick: p.name + '　' + p.time + (p.room ? '　' + p.room : ''),
+        kick: p.name + '　' + p.time + (p.room ? '　' + p.room : '') + (p.makeup ? '　📌補課-' + p.makeup : ''),
         title: p.subject,
-        sub: own ? '本節重點' : (L ? L.title : (bring ? '' : '')),
+        sub: own ? '本節重點' : (L ? (L.title || L.text) : ''),
         list: body,
         foot: nextLine(nx)
       });
@@ -194,5 +218,5 @@
                   list: b3 && b3.homework ? lines(b3.homework).slice(0, 3) : [], foot: ['明天見'] });
   }
 
-  global.Wall = { view: view, bringOf: bringOf, hhmm: hhmm, HOME_STEPS: HOME_STEPS };
+  global.Wall = { view: view, lessonFor: lessonFor, bringOf: bringOf, hhmm: hhmm, HOME_STEPS: HOME_STEPS };
 })(window);

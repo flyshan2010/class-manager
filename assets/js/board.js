@@ -26,7 +26,7 @@
   var ACS = ['--duty', '--pink', '--blue', '--lime', '--mark', '--purple', '--ok', '--warn'];
 
   var cache = Tool.store('classManager.board.cache');
-  var data = cache.get({ rules: null, lessons: null, ml: null, seating: null });
+  var data = cache.get({ rules: null, lessons: null, plan: null, ml: null, seating: null });
 
   var sdb = Tool.store('classManager.board.v1');
   var st = sdb.get(null);
@@ -131,17 +131,11 @@
     return best;
   }
 
-  /* 今天這一科的進度重點：老師就地改的優先，其次抓班網 lessons.json 的單元重點。 */
-  function lessonOf(subject) {
-    if (!subject || !data.lessons) return null;
-    var today = Tool.todayKey(), best = null;
-    data.lessons.forEach(function (L) {
-      if (!L || String(L.subject || '') !== String(subject)) return;
-      var a = String(L.date || '').slice(0, 10), b = String(L.dateEnd || L.date || '').slice(0, 10);
-      if (!a) return;
-      if (today >= a && today <= (b || a)) { if (!best || a > String(best.date || '')) best = L; }
-    });
-    return best;
+  /* 這一節的教材：老師就地改的重點優先；其次一律讀「當天課程進度」（Wall.lessonFor，公布欄同一支）。 */
+  function lessonNow(p) {
+    if (!p || !global.Wall) return null;
+    var day = new Date().getDay(); if (day === 0 || day === 6) return null;
+    return Wall.lessonFor({ sched: sched, plan: data.plan, lessons: data.lessons }, Tool.todayKey(), day, p.i);
   }
 
   /* ── 主區描繪 ───────────────────────────────────────────── */
@@ -189,7 +183,7 @@
   function paintWall(box) {
     var d = new Date(), dow = (d.getDay() === 0 || d.getDay() === 6) ? 0 : d.getDay();
     var v = (global.Wall ? Wall.view({
-      sched: sched, rules: data.rules, lessons: data.lessons, ml: data.ml,
+      sched: sched, plan: data.plan, rules: data.rules, lessons: data.lessons, ml: data.ml,
       book: hooks.book ? hooks.book() : null,
       focus: st.focus[periodKey()] || '',
       notice: hooks.notice ? hooks.notice() : ''
@@ -285,19 +279,19 @@
   function paintLesson(box) {
     var p = periodNow(), subj = p ? p.subject : '';
     var key = periodKey(), own = st.focus[key];
-    var L = lessonOf(subj);
-    var title = own ? (subj ? subj + ' 本節重點' : '本節重點') : (L ? L.title : (subj ? subj + ' 本節重點' : '本節重點'));
+    var L = lessonNow(p);
+    var title = own ? (subj ? subj + ' 本節重點' : '本節重點') : (L ? (L.title || L.text) : (subj ? subj + ' 本節重點' : '本節重點'));
     var lines = own ? String(own).split(/\n+/).filter(Boolean) : ((L && L.points) || []).slice(0, 5);
     var html = '<div class="lesson"><h2>' + esc(title) + '</h2>';
     if (!lines.length) {
       html += '<p class="rnone">這一節還沒有寫重點。按下方「重點板」就可以直接打字，' +
-              '或到 Notion 的教學單元填「重點」讓它自動帶入。</p>';
+              '或到 Notion「📅 每日課程進度」掛上當天的單元、並在教學單元填「重點」讓它自動帶入。</p>';
     } else {
       html += '<ul class="lpoints">';
       lines.forEach(function (t) { html += '<li>' + esc(t) + '</li>'; });
       html += '</ul>';
     }
-    if (!own && L) html += '<p class="lfrom">來源：教學單元「' + esc(L.title) + '」</p>';
+    if (!own && L) html += '<p class="lfrom">來源：當天課程進度' + (L.unit ? '「' + esc(L.unit) + '」' : '（未掛單元）') + '</p>';
     html += '</div>';
     box.innerHTML = html;
   }
@@ -749,6 +743,7 @@
     render();
     pull('class-rules.json', 'rules');
     pull('lessons.json', 'lessons');
+    pull('daily-plan.json', 'plan');
     pull('morning-launch.json', 'ml');
     pull('seating-seats.json', 'seating');
     setInterval(watchPeriod, 5000);
@@ -774,8 +769,8 @@
     },
     focusKey: periodKey,
     lessonPoints: function () {
-      var p = periodNow(), L = p ? lessonOf(p.subject) : null;
-      return L ? { title: L.title, points: (L.points || []).slice(0, 6) } : null;
+      var L = lessonNow(periodNow());
+      return L && L.points.length ? { title: L.title, points: L.points.slice(0, 6) } : null;
     },
     drawQuiz: drawQuiz, endPeriod: endPeriod, log: function () { return st.log; },
     setDraw: setDraw, isDraw: function () { return dr.on; }, clearDraw: clearDraw,
