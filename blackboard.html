@@ -51,6 +51,8 @@
 /* 調課那一節要看得出來，不然畫面跟平常一模一樣，老師會以為自己記錯課表（2026-09-09）。 */
 .chip.swap{border-color:var(--warn);background:rgba(240,149,78,.16)}
 .chip.swap .s{color:var(--warn)}
+/* 補課（不跟別天互換，只把這一節改上別科）另標 📌，跟調課 🔄 分得開（2026-09-14）。 */
+.chip.makeup{border-style:dashed}
 .chip.now .s{color:var(--mark)}
 .sched .none{color:var(--chalk-3);font-size:clamp(14px,1.8vh,20px);padding:.4vh 0}
 
@@ -755,8 +757,9 @@ body.wall .dyn{overflow:hidden}
       var mt = String(p.time || '').match(/(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2}):(\d{2})/);
       if (mt) { var a = +mt[1] * 60 + +mt[2], b = +mt[3] * 60 + +mt[4]; now = nowMin >= a && nowMin < b; }
       var swapped = !!(cell && typeof cell === 'object' && cell.swapped);
-      var c = document.createElement('div'); c.className = 'chip' + (now ? ' now' : '') + (swapped ? ' swap' : '');
-      c.innerHTML = '<span class="p">' + (p.name || '') + (swapped ? ' 🔄' : '') + '</span><span class="s">' + subj.replace(/[<>&]/g, '') + '</span>';
+      var makeup = swapped && cell.kind === '補課';
+      var c = document.createElement('div'); c.className = 'chip' + (now ? ' now' : '') + (swapped ? ' swap' : '') + (makeup ? ' makeup' : '');
+      c.innerHTML = '<span class="p">' + (p.name || '') + (makeup ? ' 📌補課' : swapped ? ' 🔄' : '') + '</span><span class="s">' + subj.replace(/[<>&]/g, '') + '</span>';
       box.appendChild(c);
     });
     if (!box.children.length) box.innerHTML = '<span class="none">今天沒有排課。</span>';
@@ -777,7 +780,7 @@ body.wall .dyn{overflow:hidden}
     (raw.periods || []).forEach(function (p, i) {
       var o = byPeriod[p.name]; if (!o) return;
       out.table[i] = out.table[i] || [];
-      out.table[i][col] = { subject: o.subject, teacher: '', room: '', swapped: true, from: o.from || '' };
+      out.table[i][col] = { subject: o.subject, teacher: '', room: '', swapped: true, from: o.from || '', kind: o.kind || '' };
     });
     return out;
   }
