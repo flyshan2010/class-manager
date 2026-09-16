@@ -504,8 +504,8 @@
         if (dir > 0 && g === n - 1) dir = -1; else if (dir < 0 && g === 0) dir = 1; else g += dir;
       });
     } else {
-      var per = Math.ceil(seats.length / n);
-      seats.forEach(function (s, i2) { groups[Math.min(n - 1, Math.floor(i2 / per))].push(s); });
+      // 依比例分（2026-09-16）：原本用 ceil(人數/組數) 每組塞滿，24 人分 7 組只會分出 6 組
+      seats.forEach(function (s, i2) { groups[Math.floor(i2 * n / seats.length)].push(s); });
     }
     return groups.filter(function (x) { return x.length; });
   }
@@ -526,7 +526,10 @@
   function paintGroup(box) {
     ensureGroups(false, true);
     var top = Math.max.apply(null, gst.groups.map(function (g) { return g.score; }));
-    var html = '<div class="gcards">';
+    var gsum = 0; gst.groups.forEach(function (g) { gsum += Math.abs(g.score); });
+    var html = '<div class="gbar"><span>' + gst.groups.length + ' 組　·　下課結算時，每位組員各記一筆小組表現（只記次數、不動錢）</span>' +
+      '<button type="button" id="g-edit">✏️ 調整分組</button></div>' +
+      '<div class="gcards' + (gst.groups.length > 8 ? ' many' : '') + '">';
     gst.groups.forEach(function (g, i) {
       var lead = g.score === top && g.score !== 0;
       html += '<div class="gcard' + (lead ? ' lead' : '') + '" style="--ac:var(' + ACS[i % ACS.length] + ')">' +
@@ -538,6 +541,7 @@
         '<button type="button" data-i="' + i + '" data-d="5">＋5</button></div></div>';
     });
     box.innerHTML = html + '</div>';
+    $('g-edit').addEventListener('click', groupEditor);
     Array.prototype.forEach.call(box.querySelectorAll('.gbtns button'), function (b) {
       b.addEventListener('click', function () {
         var i = +b.dataset.i, d = +b.dataset.d;
@@ -545,6 +549,69 @@
         gdb.set(gst); Tool.beep(1, d > 0 ? 720 : 320); render();
       });
     });
+  }
+
+  /* 調整分組（2026-09-16 老師：組員被鎖死、要能擴到 6～8 組以上）。
+     一行一組「組名：座號…」，可直接改組員；也可先按「依組數重新分」產生草稿再改。
+     套用後存成手動分組，分數依組別順序保留。 */
+  var G_MAX = 12;
+  function groupEditor() {
+    ensureGroups(false, true);
+    function lines(gs) { return gs.map(function (g) { return g.name + '：' + g.seats.join(','); }).join('\n'); }
+    hooks.panel('<h2>✏️ 調整分組</h2>' +
+      '<p class="hint">一行一組，格式「組名：座號,座號」。可直接搬動座號；要換組數就先按「依組數重新分」。分數依組別順序保留。</p>' +
+      '<div class="row"><label>組數 <input id="ge-n" type="number" min="2" max="' + G_MAX + '" value="' + gst.groups.length + '" style="width:5em" /></label>' +
+      '<select id="ge-mode"><option value="serial">依座號連號分</option><option value="snake">依座號蛇形分</option></select>' +
+      '<button type="button" class="ghost" id="ge-split">依組數重新分</button></div>' +
+      '<textarea id="ge-ta" style="min-height:260px;width:100%">' + esc(lines(gst.groups)) + '</textarea>' +
+      '<div class="row"><button type="button" id="ge-apply">套用分組</button><span class="status" id="ge-st"></span></div>');
+    $('ge-split').addEventListener('click', function () {
+      var n = Math.max(2, Math.min(G_MAX, parseInt($('ge-n').value, 10) || 4));
+      $('ge-n').value = n;
+      var sets = splitSeats(n, $('ge-mode').value, '');
+      $('ge-ta').value = lines(sets.map(function (ss, i) {
+        return { name: (gst.groups[i] && gst.groups[i].name) || ('第 ' + (i + 1) + ' 組'), seats: ss };
+      }));
+    });
+    $('ge-apply').addEventListener('click', function () {
+      var names = [], sets = [], seen = {}, dup = [];
+      $('ge-ta').value.split(/\n+/).forEach(function (line, i) {
+        if (!line.trim()) return;
+        var m = line.split(/[：:]/), nm = m.length > 1 ? m[0].trim() : '', body = m.length > 1 ? m.slice(1).join(' ') : m[0];
+        var ss = body.split(/[^0-9]+/).filter(Boolean).map(Number).filter(function (x) { return seats.indexOf(x) >= 0; });
+        if (!ss.length) return;
+        ss.forEach(function (x) { if (seen[x]) dup.push(x); seen[x] = 1; });
+        names.push(nm || ('第 ' + (sets.length + 1) + ' 組')); sets.push(ss);
+      });
+      var st2 = $('ge-st');
+      if (sets.length < 2 || sets.length > G_MAX) { st2.className = 'status err'; st2.textContent = '組數要在 2～' + G_MAX + ' 組之間'; return; }
+      if (dup.length) { st2.className = 'status err'; st2.textContent = '座號重複：' + dup.join('、'); return; }
+      var miss = seats.filter(function (x) { return !seen[x]; });
+      if (miss.length && !confirm('還沒分到組的座號：' + miss.join('、') + '\n\n照這樣套用嗎？')) return;
+      gst.config = { n: sets.length, mode: 'manual',
+        manual: sets.map(function (ss) { return ss.join(','); }).join('\n'), names: names.join('\n') };
+      ensureGroups(true, true); render(); hooks.closePanel();
+      hooks.subtitle && hooks.subtitle('已套用分組', 'say', sets.length + ' 組' + (miss.length ? '　·　未分組：' + miss.join('、') : ''));
+    });
+  }
+  /* 小組分數 → 個人紀錄：每位組員各 push |分數| 次（CMEvents 會合併成一列、次數＝分數），結完歸零。 */
+  function groupsDirty() { return !!(gst && gst.groups && gst.groups.some(function (g) { return g.score; })); }
+  function settleGroups(subj, key) {
+    if (!groupsDirty()) return 0;
+    var n = 0;
+    gst.groups.forEach(function (g) {
+      var sc = g.score; if (!sc) return;
+      g.seats.forEach(function (seat) {
+        for (var i = 0; i < Math.abs(sc); i++) {
+          CMEvents.push({ tool: TOOL, date: st.date, seat: Number(seat), src: 'tally',
+            kind: sc > 0 ? 'good' : 'bad', act: sc > 0 ? '小組加分' : '小組扣分', subj: subj, period: key, note: g.name });
+          n++;
+        }
+      });
+      g.score = 0;
+    });
+    gdb.set(gst);
+    return n;
   }
 
   /* ── 抽籤問答（併掉原本的獨立「抽籤」：抽人本身就是抽籤）─────────── */
@@ -636,7 +703,8 @@
         pushed++;
       }
     });
-    if (seatTotal || qc || qw || (st.focus[key] || '').trim()) {
+    var gp = settleGroups(subj, key); pushed += gp;
+    if (seatTotal || qc || qw || gp || (st.focus[key] || '').trim()) {
       st.log.unshift({ date: st.date, at: new Date().toTimeString().slice(0, 5), period: key, subj: subj,
         seatTotal: seatTotal, seats: cnt, quizC: qc, quizW: qw, focus: st.focus[key] || '' });
       st.log = st.log.slice(0, 60);
@@ -653,11 +721,11 @@
   function endPeriod() {
     var key = periodKey();
     var cnt = st.seat[key] || {}, q = (st.quiz[key] || { stats: {} }).stats || {};
-    if (!Object.keys(cnt).length && !Object.keys(q).length) {
-      hooks.subtitle && hooks.subtitle('這一節沒有紀錄', 'say', '沒有計次也沒有抽問，不必結算');
+    if (!Object.keys(cnt).length && !Object.keys(q).length && !groupsDirty()) {
+      hooks.subtitle && hooks.subtitle('這一節沒有紀錄', 'say', '沒有計次、抽問或小組分數，不必結算');
       return;
     }
-    if (!confirm('結束「' + key + '」並把紀錄放進待送嗎？\n\n（只記次數不加減幣；要動錢的班規在長按時就已經記過了）')) return;
+    if (!confirm('結束「' + key + '」並把紀錄放進待送嗎？\n\n（只記次數不加減幣；小組分數會記到每位組員並歸零；要動錢的班規在長按時就已經記過了）')) return;
     settle(key, false);
   }
 
@@ -667,7 +735,7 @@
     if (st.curPeriod && st.curPeriod !== k) {
       var prev = st.curPeriod;
       var cnt = st.seat[prev] || {}, q = (st.quiz[prev] || { stats: {} }).stats || {};
-      if (Object.keys(cnt).length || Object.keys(q).length) settle(prev, true);
+      if (Object.keys(cnt).length || Object.keys(q).length || groupsDirty()) settle(prev, true);
     }
     if (st.curPeriod !== k) { st.curPeriod = k; save(); render(); }
   }

@@ -39,7 +39,9 @@
        學生看得到自己被點名的那一下，老師也一眼看得出哪幾個還沒點到。
        第 0 態＝還沒點，一樣不產生事件。 */
     arrive: [{ m: '', l: '未點名', t: 'idle' }, { m: '✓', l: '出席', t: 'ok' },
-             { m: '⏰', l: '遲到', t: 'warn' }, { m: '✗', l: '未到', t: 'pink' }],
+             { m: '⏰', l: '遲到', t: 'warn' }, { m: '✗', l: '請假', t: 'purple' }],
+    /* 2026-09-16 老師：到校第 3 態改名「請假」（紫・中性）。沒有「缺席未請假」——那要通報，不是點名選項。
+       編號沒動（仍是 3），所以不必推 sv。簽到點請假 → 打掃／午餐／潔牙／含氟自動帶入請假（見 syncLeave）。 */
     /* 打掃的「＋ 支援」不再是成員的第 5 態（2026-09-10 老師：實際沒有固定支援）——
        改由各組卡片上的「＋ 加支援」當天指派任何人，存在 st.cleanSup，有支援才多發那一次薪水。 */
     /* 缺席拆原因（2026-09-11，sv 4→5）：請假、免打掃券是出勤不是行為（紫・中性）；
@@ -54,17 +56,17 @@
             { m: '✗', l: '請假', t: 'purple' }, { m: '⛔', l: '無故未到', t: 'pink' }],
     /* 潔牙／含氟（2026-09-11 定案、09-12 簡化為兩態，sv 7→8）：沒點＝沒做；有補做就點成 ✓（補做算已潔牙）。
        結算時仍沒做＝不肯重做 → 常規未達成＋班規⑦。 */
-    teeth: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已潔牙', t: 'ok' }],
+    teeth: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '請假', t: 'purple' }],
     /* 含氟漱口水：一週只有一次，由老師當天自己開（2026-09-07 老師要求），狀態與潔牙同三態。 */
-    fluoride: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已漱口', t: 'ok' }]
+    fluoride: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已漱口', t: 'ok' }, { m: '✗', l: '請假', t: 'purple' }]
   };
 
   var TAB_TITLE = {
-    arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 未到（請假）',
+    arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 請假（其他站自動帶入請假）',
     clean: '點座號檢核：未檢核 → ✓ 達標 → △ 未達標 → ✗ 請假 → 🎫 免打掃券 → ⛔ 無故；支援按各組「＋ 加支援」',
     hw: '未交 → 已交 → 要訂正 → 完成；右上可切「🪑 座位表／🔢 座號清單」',
     lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 請假 → ⛔ 無故；有人補位按各崗位「＋ 加支援」',
-    teeth: '沒點＝沒做：點一下 ✓ 已潔牙（補做完也點 ✓）；結算時仍沒做的記常規未達成＋班規⑦'
+    teeth: '沒點＝沒做：點一下 ✓ 已潔牙（補做完也點 ✓）→ ✗ 請假；結算時仍沒做的記常規未達成＋班規⑦'
   };
 
   /* 五站的狀態存一起，一天一份；week 留每天的打掃快照供「本週總覽」。 */
@@ -236,9 +238,25 @@
   /* ── 狀態存取（四個狀態式站共用）──────────────────────────── */
   function stateOf(kind, seat) { return st[kind][seat] || 0; }
   function setState(kind, seat, v) {
+    var was = st[kind][seat] || 0;
     if (v === 0) delete st[kind][seat]; else st[kind][seat] = v;
+    if (kind === 'arrive' && (was === LEAVE_ARRIVE) !== (v === LEAVE_ARRIVE)) syncLeave(seat, v === LEAVE_ARRIVE);
     if (kind === 'clean') st.week[st.date] = st.clean;
     sdb.set(st);
+  }
+  /* 請假一次、各站跟著走（2026-09-16）：簽到點 ✗ 請假 → 其他站「還沒點」的格子帶入各站的請假態；
+     取消請假 → 只收回仍是請假態的格子（老師已改成別的就不動）。寫的是真實狀態，結算照舊用 absentEvents。 */
+  var LEAVE_ARRIVE = 3;
+  var LEAVE_OF = { clean: 3, lunch: 2, teeth: 2, fluoride: 2 };
+  function onLeave(seat) { return (st.arrive[seat] || 0) === LEAVE_ARRIVE; }
+  function syncLeave(seat, on) {
+    Object.keys(LEAVE_OF).forEach(function (k) {
+      if (k === 'fluoride' && !st.fluorideOn) return;
+      var cur = st[k][seat] || 0;
+      if (on && cur === 0) st[k][seat] = LEAVE_OF[k];
+      else if (!on && cur === LEAVE_OF[k]) delete st[k][seat];
+    });
+    if (st.clean) st.week[st.date] = st.clean;
   }
   /* 浮動支援：打掃存 st.cleanSup、午餐存 st.lunchSup，格式同為 { 組別／崗位名: [座號…] }。
      本週總覽（weekSup）只有打掃用。 */
@@ -280,7 +298,7 @@
     clr.textContent = '↺ 全部重來';
     clr.addEventListener('click', function () {
       if (!confirm('把這一站全部改回「還沒點」嗎？')) return;
-      list.forEach(function (s) { setState(kind, s, 0); });
+      list.forEach(function (s) { setState(kind, s, (kind !== 'arrive' && onLeave(s) && LEAVE_OF[kind]) || 0); });   // 請假不跟著重來
       paint(); paintPend();
     });
     bar.appendChild(clr);
@@ -389,17 +407,18 @@
       if (v === 2) flashFix(who + '午餐工作請假（不是行為問題）', '週結午餐薪水少算一次，不扣幣、不記班規');
       if (v === 3) flashFix(who + '無故沒做午餐工作', noShowFix());
     } else if (kind === 'fluoride' || kind === 'teeth') {
-      // 兩態（2026-09-12）：✓ 就是做到（含補做），不必另外提示
+      // ✓ 就是做到（含補做），不必另外提示；✗ 請假（2026-09-16）結算時跳過
+      if (v === 2) flashFix(who + '請假（不是行為問題）', '結算時跳過，不記常規、不扣幣');
     } else if (kind === 'arrive') {
       if (v === 2) flashFix(who + '上學遲到', (actOf(1, 'bad', 0) || {}).fix || '結算時會照班規①記一筆');
-      if (v === 3) flashFix(who + '今天未到（請假／缺席）', '只留在這台電腦提醒老師，不會送出任何紀錄');
+      if (v === 3) flashFix(who + '今天請假', '打掃／午餐／潔牙自動記請假；當天作業不算未交，回來後照常追交');
     }
   }
 
   /* ── 1 到校簽到：座位表輕點（與電子白板同一套手勢）──────────────── */
   function paintArrive() {
     var box = $('view-arrive'); box.innerHTML = '';
-    $('legend').innerHTML = '<span>只有 <b>⏰ 遲到</b> 會照班規①記一筆，✗ 未到不送出</span>';
+    $('legend').innerHTML = '<span>只有 <b>⏰ 遲到</b> 會照班規①記一筆；✗ 請假不送出，其他站自動帶入請假</span>';
     box.appendChild(actionBar('arrive', seats, '✅ 全部出席', 1));
     var wrap = document.createElement('div'); wrap.className = 'seatgrid';
     var podium = document.createElement('div'); podium.className = 'podium'; podium.textContent = '講　台';
@@ -636,13 +655,13 @@
     box.appendChild(seatGrid('agggrid', function (s) {
       var pend = pendingOf(s);
       var cell = document.createElement('div');
-      cell.className = 'scell agg' + (pend.length ? '' : ' alldone');
+      cell.className = 'scell agg' + (pend.length ? '' : ' alldone') + (onLeave(s) ? ' lv' : '');
       var bd = pend.map(function (it) {
         var v = hwState(it.key, s);
         return '<span class="b s' + v + (hw.carry[it.key] ? ' old' : '') + '">' +
                (hw.carry[it.key] ? '⏳' : '') + esc(shortName(it.name)) + '</span>';
       }).join('');
-      cell.innerHTML = '<span class="sn">' + s + '</span>' +
+      cell.innerHTML = '<span class="sn">' + s + (onLeave(s) ? '<span class="lvt">請假</span>' : '') + '</span>' +
         '<span class="bd">' + (pend.length ? bd : '<span class="ok">✓ 交齊</span>') + '</span>';
       cell.addEventListener('click', function () { openSeatPanel(s); });
       return cell;
@@ -732,8 +751,8 @@
     var chips = document.createElement('div'); chips.className = 'chips';
     shown.forEach(function (s) {
       var v = hwState(it.key, s);
-      var ch = document.createElement('div'); ch.className = 'chip s' + v; ch.textContent = s;
-      ch.title = HW_STATES[v] + '（點一下下一格、長按或右鍵退一格）';
+      var ch = document.createElement('div'); ch.className = 'chip s' + v + (onLeave(s) && v !== 3 ? ' lv' : ''); ch.textContent = s;
+      ch.title = (onLeave(s) ? '今天請假・' : '') + HW_STATES[v] + '（點一下下一格、長按或右鍵退一格）';
       cycleTap(ch, function (dir) { hwStep(it, s, dir); });
       chips.appendChild(ch);
     });
@@ -921,18 +940,22 @@
     var states = ST[kind];
     /* 沒點＝沒做（2026-09-11 老師：潔牙不要預設全班做到）——所以拿掉「✅ 全部已潔牙」，一格一格點。 */
     var ok = seats.filter(function (s) { return stateOf(kind, s) === 1; });
-    var miss = seats.length - ok.length;
+    var lv = seats.filter(function (s) { return stateOf(kind, s) === 2; });
+    var miss = seats.length - ok.length - lv.length;
     var row = document.createElement('div');
     row.className = 'itemrow' + (miss ? '' : ' clear');
     var head = document.createElement('div'); head.className = 'rowhead';
     head.innerHTML = '<span class="name">' + esc(title) + '</span>' +
       '<span class="cnt"><span class="d">' + states[1].l + ' <b>' + ok.length + '</b></span>　' +
-      '<span class="c">沒做 <b>' + miss + '</b></span></span><span class="grow"></span>';
+      '<span class="c">沒做 <b>' + miss + '</b></span>' +
+      (lv.length ? '　<span class="u">請假 <b>' + lv.length + '</b></span>' : '') + '</span><span class="grow"></span>';
     var clr = document.createElement('button'); clr.className = 'reset';
     clr.textContent = '↺ 全部重來'; clr.disabled = ok.length === 0;
     clr.addEventListener('click', function () {
       if (!confirm('把「' + title + '」全部改回「沒做」嗎？')) return;
-      st[kind] = {}; sdb.set(st); paintTeeth(); paintPend();
+      st[kind] = {};
+      seats.forEach(function (x) { if (onLeave(x)) st[kind][x] = LEAVE_OF[kind]; });   // 請假不跟著重來
+      sdb.set(st); paintTeeth(); paintPend();
     });
     head.appendChild(clr);
     row.appendChild(head);
@@ -940,7 +963,7 @@
     seats.forEach(function (s) {
       var v = stateOf(kind, s);
       var ch = document.createElement('div');
-      ch.className = 'chip' + (v === 0 ? ' bad' : ' s3'); ch.textContent = s;
+      ch.className = 'chip' + (v === 0 ? ' bad' : v === 2 ? ' lv' : ' s3'); ch.textContent = s;
       ch.title = states[v].l;
       ch.addEventListener('click', function () {
         /* 現讀狀態再 +1，不要用畫這一格時的舊值——重畫後同一顆按鈕若被再點到會算錯格。 */
@@ -972,6 +995,7 @@
           !confirm('關掉含氟漱口水？已經點好的那一列會一起清掉，也不會結算。')) return;
       st.fluorideOn = !st.fluorideOn;
       if (!st.fluorideOn) st.fluoride = {};
+      else seats.forEach(function (s) { if (onLeave(s)) st.fluoride[s] = LEAVE_OF.fluoride; });
       sdb.set(st); paintTeeth(); paintPend();
     });
     bar.appendChild(tog);
@@ -1064,6 +1088,7 @@
         seats.forEach(function (s) {
           var v = hwState(it.key, s);
           if (v === 1) return;                  // 已交：不產生事件
+          if (v !== 3 && onLeave(s)) return;    // 請假（2026-09-16）：當天不算未交；沒交完的隔天自動轉 ⏳ 追交
           if (v === 3) {                        // 完成：只計次，週結才給幣（避免每天 +5 的通膨）
             out.push({ tool: TOOL.hw, date: st.date, seat: s, src: 'tally', dedupe: 'day',
                        kind: 'good', act: '作業完成', note: item });

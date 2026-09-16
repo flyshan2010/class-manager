@@ -212,6 +212,13 @@ body.timing .notes{padding-bottom:20vh}
 
 /* 小組計分 */
 .gcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(11em,1fr));gap:1.2vw}
+.gbar{display:flex;align-items:center;gap:1vw;justify-content:space-between;margin-bottom:1vh;
+  font-size:clamp(12px,1.6vh,18px);color:var(--chalk-3)}
+.gbar button{font-family:inherit;font-size:clamp(13px,1.7vh,20px);font-weight:700;cursor:pointer;border-radius:10px;
+  padding:.2em .8em;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--chalk)}
+.gcards.many{grid-template-columns:repeat(auto-fit,minmax(9em,1fr));gap:.8vw}
+.gcards.many .gcard{padding:.6vh .6vw}
+.gcards.many .gscore{font-size:clamp(28px,4.6vh,64px)}
 .gcard{background:var(--board-2);border:2px solid var(--line);border-top:5px solid var(--ac);
   border-radius:16px;padding:1.2vh 1vw;text-align:center}
 .gcard.lead{border-color:var(--ac)}
@@ -526,7 +533,7 @@ body.wall .dyn{overflow:hidden}
   <h3>小組計分</h3>
   <p class="hint">分組與分數沿用原本的小組計分工具，換到白板不會歸零。</p>
   <div class="row">
-    <div class="col"><label for="g-n">組數</label><input id="g-n" type="number" min="2" max="8" value="4" /></div>
+    <div class="col"><label for="g-n">組數</label><input id="g-n" type="number" min="2" max="12" value="4" /></div>
     <div class="col"><label for="g-mode">分法</label>
       <select id="g-mode">
         <option value="serial">依座號平均分（連號）</option>
@@ -560,7 +567,7 @@ body.wall .dyn{overflow:hidden}
 <script src="assets/js/tool.js?v=20260912-5"></script>
 <script src="assets/js/events.js?v=20260912-5"></script>
 <script src="assets/js/wall.js?v=20260914-1"></script>
-<script src="assets/js/board.js?v=20260914-1"></script>
+<script src="assets/js/board.js?v=20260916-1"></script>
 <script>
 (function () {
   'use strict';
@@ -1136,7 +1143,7 @@ body.wall .dyn{overflow:hidden}
   }
   $('g-mode').addEventListener('change', function () { $('g-wrap-manual').hidden = $('g-mode').value !== 'manual'; });
   $('btn-g-apply').addEventListener('click', function () {
-    Board.groupsConfig({ n: Math.max(2, Math.min(8, parseInt($('g-n').value, 10) || 4)),
+    Board.groupsConfig({ n: Math.max(2, Math.min(12, parseInt($('g-n').value, 10) || 4)),
       mode: $('g-mode').value, manual: $('g-manual').value, names: $('g-names').value });
     $('g-status').className = 'status ok'; $('g-status').textContent = '已重新分組，分數保留。';
   });
