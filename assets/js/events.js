@@ -165,17 +165,20 @@
        「作業缺交、複習卷沒交」），整串照抄進標題會讓老師以為今天真的有複習卷
        （2026-09-09 老師回報）。摘要只取第一個情境，完整行為名仍原封留在 JSON
        明細與寫進紀錄庫的欄位裡，週結比對不受影響。 */
-    function shortAct(act) {
-      var a = String(act || '').trim();
-      var i = a.indexOf('\u3001');            // 、
-      return i > 0 ? a.slice(0, i) : a;
+    /* 2026-09-17 改：原本「取第一個、之前」會把「衝突動口（罵人、挑釁）」切成「衝突動口（罵人」。
+       改成作業清點依狀態對固定短名，其他工具保留原名（與班網 teacher.js cmAct 同口徑）。 */
+    var HW_ACT = { 0: '作業缺交', 1: '作業潦草／未訂正' };
+    function shortAct(e, tool) {
+      if (!e.act) return '';
+      if (tool === 'homework' && e.src === 'rule' && e.rule_n === 4 && HW_ACT[e.act_i]) return HW_ACT[e.act_i];
+      return String(e.act).trim();
     }
 
     /* 一行摘要：📋 作業清點 09/07 · 27 筆：作業完成×24、未帶課本×3（第1/3包） */
     function headline(body) {
       var evs = body.events || [];
       var by = {};
-      evs.forEach(function (e) { var k = shortAct(e.act) || '（未填行為）'; by[k] = (by[k] || 0) + 1; });
+      evs.forEach(function (e) { var k = shortAct(e, body.tool) || '（未填行為）'; by[k] = (by[k] || 0) + 1; });
       var acts = Object.keys(by).sort(function (a, b) { return by[b] - by[a]; });
       var brief = acts.slice(0, 3).map(function (a) { return a + '×' + by[a]; }).join('、') +
                   (acts.length > 3 ? ' 等' + acts.length + '種' : '');
