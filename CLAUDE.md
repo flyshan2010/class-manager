@@ -43,7 +43,7 @@
 全站視覺參照 apaulliao.github.io/schooltool（近黑星空底、玻璃圓角卡片、彩色膠囊工具列），
 正本在 `assets/css/projection.css`（投影工具外殼）與 `assets/css/style.css`（工作台）的 `:root` 色票與 `body::before` 星空。
 改配色改這兩處即可，六支工具用同一組 CSS 變數（--duty/--mark/--ok/--warn/--pink/--blue/--purple/--lime/--board*/--chalk*），不要在個別工具硬寫色。
-**全站 RWD**：每頁都有 `@media (max-width:900px/560px)` 斷點；投影仍是主場景（1600×900），但平板／手機開也不得橫向捲動（改版後一律在 390 寬回讀 `scrollWidth<=innerWidth`）。星空是內嵌 SVG data-URI，非外部資源，不違反離線硬規則。
+**全站 RWD**：每頁都有 `@media (max-width:900px/560px)` 斷點；投影仍是主場景（1600×900），但平板／手機開也不得橫向捲動（改版後一律在 390 寬回讀 `scrollWidth<=innerWidth`）。**「Mac 正常、教室 PC 要縮放」＝有效寬度差（U65）**：Windows 125%／150% 縮放落在 1280～1600，一列 flex 全不縮又 `overflow:hidden` 會被無聲切掉 → 加中寬斷點＋`flex-wrap` 保底，驗收在 1280／1024 量關鍵元素 `getBoundingClientRect().right`；resize 後第一張截圖常是縮圖假象，以 DOM 量測為準。星空是內嵌 SVG data-URI，非外部資源，不違反離線硬規則。
 
 ## 課堂工具共用資產（Phase 1 六支上線 → 3-1／3-2 收成三頁）
 
