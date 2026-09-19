@@ -18,7 +18,7 @@
  * 缺席依原因分（2026-09-11 計分口徑定案，討論紀錄 §六 A）：
  *   打掃 ✗ 請假／🎫 免打掃券／⛔ 無故；午餐 ✗ 請假／⛔ 無故（午餐沒有免工作特權）。
  *   三種都送原 act「打掃缺席／午餐缺席」（週結撈取鍵不變）、kind 一律 'neutral'、原因寫 note；
- *   只有「無故」另送一筆班規⑦「答應的工作或幹部職務擺爛」（幣值照抄 class-rules.json）。
+ *   只有「無故」另送一筆班規⑦「輪到的工作或幹部職務沒做完」（幣值照抄 class-rules.json）。
  *
  * ⚠️ 原「上午課堂」分頁在 3-2 移除：電子白板的座位板長按（右鍵）就是同一套班規選單，
  *    而且白板才是上課中投影的那一頁。留兩個入口只會讓同一件事有兩個正本。
@@ -206,18 +206,26 @@
      不寫死序號：班規卡增刪一行，序號就位移，排程端核對幣值會整批 E07。 */
   var ABSENT = { clean: { 3: '請假', 4: '免打掃券', 5: '無故' }, lunch: { 2: '請假', 3: '無故' } };
   var NOSHOW = { clean: 5, lunch: 3 };
-  var NOSHOW_ACT = '答應的工作或幹部職務擺爛';
+  var NOSHOW_ACT = '輪到的工作或幹部職務沒做完';
   function noShowRule() {
     var bad = (cardOf(7) || {}).bad || [];
     for (var i = 0; i < bad.length; i++) if (bad[i].act === NOSHOW_ACT) return { i: i, a: bad[i] };
     return null;
   }
-  /* 常規沒做到、也不肯重做 → 班規⑦（2026-09-11 老師定案，Notion 📋 班規與獎懲 新增這一行） */
-  var ROUTINE_ACT = '常規沒做到、也不肯重做';
-  function routineRule() {
-    var bad = (cardOf(7) || {}).bad || [];
-    for (var i = 0; i < bad.length; i++) if (bad[i].act === ROUTINE_ACT) return { i: i, a: bad[i] };
+  /* 潔牙／含氟沒做也沒補做 → 班規⑦。2026-09-19 老師要求拆成兩行：帳本事由要讓學生
+     一眼看出扣的是哪一項，原本共用的「常規沒做到、也不肯重做」看不出補什麼。 */
+  var ROUTINE_ACT = { teeth: '午餐後沒潔牙，也沒有補刷', fluoride: '含氟漱口水沒做，也沒有補做' };
+  function routineRule(kind) {
+    var want = ROUTINE_ACT[kind], bad = (cardOf(7) || {}).bad || [];
+    for (var i = 0; i < bad.length; i++) if (bad[i].act === want) return { i: i, a: bad[i] };
     return null;
+  }
+  /* 含氟漱口水＝當天的潔牙（2026-09-19 老師定案），所以潔牙站一天只檢核一項：
+     含氟日看含氟、其餘日子看午餐後潔牙。畫面與結算都只認這一項。 */
+  function teethItem() {
+    return st.fluorideOn
+      ? { kind: 'fluoride', title: '💧 含氟漱口水（＝今天的潔牙）', period: '含氟漱口水', miss: '沒做含氟漱口水' }
+      : { kind: 'teeth', title: '🦷 午餐後潔牙', period: '午餐潔牙', miss: '沒潔牙' };
   }
   function noShowFix() {
     var r = noShowRule();
@@ -934,9 +942,9 @@
   }
 
   /* ── 5 潔牙 ───────────────────────────────────────────── */
-  /* 潔牙站：固定「午餐後潔牙」＋（老師當天自己開的）「含氟漱口水」兩張卡。
-     含氟漱口水一週只有一次，所以不預設顯示，由本站上方的按鈕開關（只影響今天）。 */
-  function teethCard(kind, title, allLabel) {
+  /* 潔牙站一天只檢核一項（2026-09-19 老師定案：含氟漱口水＝當天的潔牙，兩列都點會重複記）：
+     含氟日只出「含氟漱口水」卡，其餘日子只出「午餐後潔牙」卡。含氟一週一次，由本站上方按鈕開關（只影響今天）。 */
+  function teethCard(kind, title) {
     var states = ST[kind];
     /* 沒點＝沒做（2026-09-11 老師：潔牙不要預設全班做到）——所以拿掉「✅ 全部已潔牙」，一格一格點。 */
     var ok = seats.filter(function (s) { return stateOf(kind, s) === 1; });
@@ -983,8 +991,9 @@
 
     var bar = document.createElement('div'); bar.className = 'statbar';
     var info = document.createElement('span'); info.className = 'sb-n';
-    info.innerHTML = '🦷 午餐後潔牙每天做；💧 <b>含氟漱口水一週一次</b>，' +
-      (st.fluorideOn ? '<span class="sb-ok">今天有</span>' : '<span class="sb-left">今天沒有</span>');
+    info.innerHTML = st.fluorideOn
+      ? '💧 <b>今天做含氟漱口水</b>，<span class="sb-ok">做了就算今天的潔牙</span>，不必再點潔牙'
+      : '🦷 午餐後潔牙每天做；💧 <b>含氟漱口水一週一次</b>，<span class="sb-left">今天沒有</span>';
     bar.appendChild(info);
     var tog = document.createElement('button');
     tog.className = st.fluorideOn ? 'sb-clear' : 'sb-all';
@@ -993,6 +1002,9 @@
     tog.addEventListener('click', function () {
       if (st.fluorideOn && Object.keys(st.fluoride).length &&
           !confirm('關掉含氟漱口水？已經點好的那一列會一起清掉，也不會結算。')) return;
+      if (!st.fluorideOn && Object.keys(st.teeth).length &&
+          !confirm('今天改成含氟漱口水？含氟＝今天的潔牙，所以只檢核含氟那一列，\n'
+                 + '已經點好的潔牙那一列今天不會結算（留著，關掉含氟就會回來）。')) return;
       st.fluorideOn = !st.fluorideOn;
       if (!st.fluorideOn) st.fluoride = {};
       else seats.forEach(function (s) { if (onLeave(s)) st.fluoride[s] = LEAVE_OF.fluoride; });
@@ -1001,9 +1013,9 @@
     bar.appendChild(tog);
     box.appendChild(bar);
 
+    var it = teethItem();
     var items = document.createElement('div'); items.className = 'items';
-    items.appendChild(teethCard('teeth', '🦷 午餐後潔牙', '✅ 全部已潔牙'));
-    if (st.fluorideOn) items.appendChild(teethCard('fluoride', '💧 含氟漱口水', '✅ 全部已漱口'));
+    items.appendChild(teethCard(it.kind, it.title));
     box.appendChild(items);
   }
 
@@ -1061,19 +1073,15 @@
     if (kind === 'teeth') {
       /* 2026-09-11 老師定案：常規沒做但有重做＝不熟（常規層，不記、+1 照給）；
          沒重做＝當無故（班規層）。所以結算時「仍是沒做」的座號送兩筆：
-         ①「常規未達成」tally → 週結那天常規獎勵不給 ② 班規⑦「常規沒做到、也不肯重做」→ 扣幣。
-         含氟漱口水沿用同一個 act；同一人兩項都沒做會合併成一列（次數 2），⑦ 金幣算一次。 */
-      var rr = routineRule();
-      var items = [['teeth', '午餐潔牙', '沒潔牙']];
-      if (st.fluorideOn) items.push(['fluoride', '含氟漱口水', '沒做含氟漱口水']);
-      items.forEach(function (it) {
-        seats.forEach(function (s) {
-          if (stateOf(it[0], s) !== 0) return;         // 1 ✓（含補做）不送
-          out.push({ tool: TOOL.teeth, date: st.date, seat: s, src: 'tally', dedupe: 'day',
-                     kind: 'bad', act: '常規未達成', period: it[1], note: it[2] + '，未補做' });
-          if (rr) out.push({ tool: TOOL.teeth, date: st.date, seat: s, src: 'rule', rule_n: 7, kind: 'bad',
-                             act_i: rr.i, act: rr.a.act, coin: rr.a.coin, level: rr.a.level, period: it[1] });
-        });
+         ①「常規未達成」tally → 週結那天常規獎勵不給 ② 班規⑦ → 扣幣。
+         2026-09-19：含氟漱口水＝當天的潔牙，含氟日只結算含氟那一項，避免同一天記兩次。 */
+      var it = teethItem(), rr = routineRule(it.kind);
+      seats.forEach(function (s) {
+        if (stateOf(it.kind, s) !== 0) return;         // 1 ✓（含補做）不送
+        out.push({ tool: TOOL.teeth, date: st.date, seat: s, src: 'tally', dedupe: 'day',
+                   kind: 'bad', act: '常規未達成', period: it.period, note: it.miss + '，未補做' });
+        if (rr) out.push({ tool: TOOL.teeth, date: st.date, seat: s, src: 'rule', rule_n: 7, kind: 'bad',
+                           act_i: rr.i, act: rr.a.act, coin: rr.a.coin, level: rr.a.level, period: it.period });
       });
       return out;
     }
@@ -1131,14 +1139,15 @@
         '　＋ 臨時支援　　' + c('午餐支援') + ' 人次　→ 週結每補位一次多發一次午餐工作薪水\n\n再按一次是重新結算，不會疊加。';
     }
     if (kind === 'teeth') {
-      var rc = (routineRule() || { a: {} }).a.coin || '';
+      var ti = teethItem(), rc = (routineRule(ti.kind) || { a: {} }).a.coin || '';
       return '把潔牙檢核結算到「待送」嗎？\n\n' +
-        '　沒做、也沒補做（潔牙／含氟漱口水）　' + c('常規未達成') + ' 人次\n' +
+        '　今天檢核的是：' + ti.period + (st.fluorideOn ? '（＝今天的潔牙）' : '') + '\n' +
+        '　沒做、也沒補做　' + c('常規未達成') + ' 人\n' +
         '　　→ 記「常規未達成」：今天的班級常規獎勵 +1 不給（全勤獎也就沒有）\n' +
-        '　　→ 另記班規⑦「' + ROUTINE_ACT + '」' + rc + '\n' +
-        '　補做完的請先點成 ✓ 已潔牙＝當作做到：不記任何紀錄，+1 照給\n\n' +
+        '　　→ 另記班規⑦「' + ROUTINE_ACT[ti.kind] + '」' + rc + '\n' +
+        '　補做完的請先點成 ✓＝當作做到：不記任何紀錄，+1 照給\n\n' +
         '⚠️ 沒點＝沒做。請等補做時間過了再結算——送出到 Notion 後就收不回來。\n' +
-        '同一人兩項都沒做會合併成一列（次數 2）。再按一次是重新結算，不會疊加。';
+        '再按一次是重新結算，不會疊加。';
     }
     var c4 = cardOf(4) || { bad: [{}, {}] };
     return '要把作業清點結果結算到「待送」嗎？\n\n' +
@@ -1165,11 +1174,11 @@
       return;
     }
     /* 潔牙／含氟漱口水：沒點＝沒做（2026-09-11 起），沒做要另記班規⑦——讀不到那一行就擋下來，
-       不然只送常規未達成、漏掉⑦，「不肯重做」看起來會跟「不熟」一樣。 */
-    if (tab === 'teeth' && !routineRule() && seats.some(function (s2) {
-      return stateOf('teeth', s2) === 0 || (st.fluorideOn && stateOf('fluoride', s2) === 0);
+       不然只送常規未達成、漏掉⑦，「沒補做」看起來會跟「不熟」一樣。 */
+    if (tab === 'teeth' && !routineRule(teethItem().kind) && seats.some(function (s2) {
+      return stateOf(teethItem().kind, s2) === 0;
     })) {
-      alert('還讀不到班規⑦「' + ROUTINE_ACT + '」，潔牙站不能結算。\n\n' +
+      alert('還讀不到班規⑦「' + ROUTINE_ACT[teethItem().kind] + '」，潔牙站不能結算。\n\n' +
             '沒做也沒補做的要另記班規⑦，幣值一律抄班規。連上網後按「☁ 重讀雲端資料」再試一次。');
       return;
     }
