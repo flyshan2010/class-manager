@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-8" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-9" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -184,6 +184,13 @@ body.timing .notes{padding-bottom:20vh}
    公布欄模式有自己的版型（.dyn-wall 撐滿高度），所以排除 body.wall。 */
 body:not(.wall) #slot-left .dyn{display:flex;flex-direction:column;justify-content:safe center}
 body:not(.wall) #slot-left .dyn > *{width:fit-content;max-width:min(1100px,100%);margin-left:auto;margin-right:auto}
+
+/* 聯絡簿在主畫面時吃不到上面那條 .dyn 的置中規則（它是 #slot-left 的獨立元素，不是 .dyn 的小孩），
+   所以要自己來一份：橫式＝整塊水平置中＋上下置中，字仍靠左（2026-09-20 老師回報「看起來沒置中」）。
+   直式本來就靠 justify-content:center 置中，從上往下寫才像紙本聯絡簿，不動。 */
+body:not(.wall):not(.notes-aside) #slot-left .notes.horiz{
+  justify-content:safe center;padding-left:0;
+  width:fit-content;max-width:min(1100px,100%);margin-left:auto;margin-right:auto}
 
 /* 聯絡簿被當成功能搬進右側欄時，字級上限要放小（主畫面版下限 40px 在窄欄會爆版）。 */
 body.notes-aside #aside-body .notes{flex:1 1 auto;min-height:0;gap:.4vh;padding-left:0}
@@ -434,9 +441,6 @@ body.wall .dyn{overflow:hidden}
     </div>
     <aside id="slot-rules" hidden>
       <div class="fnbar" id="fn-bar"></div>
-      <span id="notes-layout" hidden>
-        <button type="button" class="mchip" id="btn-notes-layout">↕ 直式</button>
-      </span>
       <div id="aside-body"></div>
     </aside>
     <canvas id="doodle"></canvas>
@@ -498,6 +502,7 @@ body.wall .dyn{overflow:hidden}
   <button type="button" id="btn-say-menu" class="green">廣播</button>
   <span class="sep"></span>
   <button type="button" id="btn-aside" title="顯示／收起右側功能欄（R）">▤ 右欄</button>
+  <span id="notes-layout" hidden><button type="button" id="btn-notes-layout">↕ 直式</button></span>
   <button type="button" id="btn-panel">設定</button>
   <button type="button" id="btn-timer">⏱ 計時</button>
   <button type="button" id="btn-full">全螢幕</button>
@@ -624,11 +629,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-8"></script>
-<script src="assets/js/tool.js?v=20260920-8"></script>
-<script src="assets/js/events.js?v=20260920-8"></script>
-<script src="assets/js/wall.js?v=20260920-8"></script>
-<script src="assets/js/board.js?v=20260920-8"></script>
+<script src="assets/js/common.js?v=20260920-9"></script>
+<script src="assets/js/tool.js?v=20260920-9"></script>
+<script src="assets/js/events.js?v=20260920-9"></script>
+<script src="assets/js/wall.js?v=20260920-9"></script>
+<script src="assets/js/board.js?v=20260920-9"></script>
 <script>
 (function () {
   'use strict';
@@ -732,11 +737,11 @@ body.wall .dyn{overflow:hidden}
   }
   function fitNotes() {
     var box = $('notes'), tip = $('overflow-tip');
-    /* 被當成功能搬進右側欄時：**一律橫式**（窄欄直書會變成一條擠死的字），
-       字級區間也整組換小——主畫面版的下限 40px 在 320px 寬的欄位裡一定爆版，
-       於是「當天功課看不完整」（2026-09-20 老師回報）。 */
+    /* 直式／橫式**一律聽老師那顆鈕**（2026-09-20 老師回報「直式橫式看起來一樣」——
+       原本右側欄強制橫式，而那顆鈕又只在右側欄露出，等於按了永遠沒反應）。
+       右側欄只調字級區間：主畫面版的下限 40px 在 320–500px 寬的欄位裡一定爆版。 */
     var inAside = !!(box.parentElement && box.parentElement.id === 'aside-body');
-    var horiz = inAside ? true : (state.notesHoriz === 1);
+    var horiz = state.notesHoriz === 1;
     box.classList.toggle('horiz', horiz);
     paintNotesLayoutBtn();
     box.style.removeProperty('--note-fs');

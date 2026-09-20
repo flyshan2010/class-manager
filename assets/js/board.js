@@ -159,6 +159,7 @@
     if (hooks.onMode) hooks.onMode(mode);   /* HUD 那顆切換鈕的字要跟著換 */
     if (mode === 'wall') {
       mountNotes(false); notes.hidden = true; aside.hidden = true; dyn.hidden = false;
+      syncNotesLayoutBtn(notes);
       dyn.className = 'dyn dyn-wall';
       paintWall(dyn); paintCaption();
       return;
@@ -166,8 +167,11 @@
 
     /* 主畫面：永遠是「電子白板」該時段的內容，**不會被功能鈕換掉**（2026-09-20 老師）。
        聯絡簿是個獨立元素：當它是主畫面內容時留在左邊，被當成功能打開時搬進右側欄。 */
-    var mainNotes = (m === 'notes') && fn !== 'notes';
-    notes.hidden = !(mainNotes || fn === 'notes');
+    /* 右側欄收起時（✕／R），被借去當功能的聯絡簿要**回到主畫面**——
+       原本它還留在收起來的欄位裡，等於整份聯絡簿憑空消失（2026-09-20 老師回報）。 */
+    var notesInAside = (fn === 'notes') && !!view.rules;
+    var mainNotes = !notesInAside && (m === 'notes' || fn === 'notes');
+    notes.hidden = !(mainNotes || notesInAside);
     dyn.hidden = mainNotes;
     if (!mainNotes) {
       dyn.className = 'dyn dyn-' + m;
@@ -197,7 +201,7 @@
     /* ⚠️ 聯絡簿是搬進來的真元素，不是複製的 HTML：**動 abody 之前一定要先把它搬走**，
        否則 `abody.innerHTML = ...` 會把它整個刪掉，而且錯誤只會在下一輪 render 才爆
        （2026-09-20 實測踩到兩次：#notes 消失、render 在 notes.hidden 丟 null）。 */
-    if (fn !== 'notes') mountNotes(false);
+    if (!notesInAside) mountNotes(false);
     if (!aside.hidden) {
       paintFnChips();
       if (fn === 'notes') { clearAside(true); mountNotes(true); }
@@ -211,7 +215,8 @@
       else if (dupRules) abody.innerHTML = '';         /* 主畫面已經是常規，不重複 */
       else paintRules(abody);
     }
-    if ((mainNotes || fn === 'notes') && hooks.onNotes) hooks.onNotes();
+    if ((mainNotes || notesInAside) && hooks.onNotes) hooks.onNotes();
+    syncNotesLayoutBtn(notes);
     paintCaption();
   }
 
@@ -302,8 +307,12 @@
     hide.textContent = '✕'; hide.title = '收起整個右側欄（下方「▤ 右欄」或鍵盤 R 叫回來）';
     hide.addEventListener('click', function () { setViewFlag('rules', false); });
     box.appendChild(hide);
-    /* 聯絡簿的直式／橫式鈕只在聯絡簿開著時露出。 */
-    var nl = $('notes-layout'); if (nl) nl.hidden = (fn !== 'notes');
+  }
+
+  /* 直式／橫式鈕在 HUD 上，只要聯絡簿看得到就露出（在右側欄或在主畫面都算）。 */
+  function syncNotesLayoutBtn(notes) {
+    var nl = $('notes-layout'); if (!nl) return;
+    nl.hidden = !notes || notes.hidden;
   }
 
   /* 常規側欄：文案全部取自 Notion（class-rules.json），不寫死在程式裡。 */
