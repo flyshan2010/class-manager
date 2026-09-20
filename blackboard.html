@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-6" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-8" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -186,8 +186,7 @@ body:not(.wall) #slot-left .dyn{display:flex;flex-direction:column;justify-conte
 body:not(.wall) #slot-left .dyn > *{width:fit-content;max-width:min(1100px,100%);margin-left:auto;margin-right:auto}
 
 /* 聯絡簿被當成功能搬進右側欄時，字級上限要放小（主畫面版下限 40px 在窄欄會爆版）。 */
-body.notes-aside #aside-body .notes{--note-fs:clamp(16px,2.2vh,26px)}
-body.notes-aside #aside-body .note{font-size:var(--note-fs)}
+body.notes-aside #aside-body .notes{flex:1 1 auto;min-height:0;gap:.4vh;padding-left:0}
 #notes-layout{display:flex;gap:.4vw;align-items:center;margin-right:.6vw}
 
 .main{flex:1 1 auto;display:flex;min-height:0;gap:1.6vw;position:relative}
@@ -197,7 +196,10 @@ body.notes-aside #aside-body .note{font-size:var(--note-fs)}
    預設瘦一點；只有座位加分／小組計分／抽籤問答這種要排版的功能才加寬（.wide）。
    整欄可收起（HUD「▤ 右欄」或鍵盤 R），收起後主畫面佔滿。 */
 #slot-rules{flex:0 0 min(21vw,320px);border-left:1px solid var(--line);padding-left:1.1vw;
-  overflow-y:auto;min-height:0}
+  overflow-y:auto;min-height:0;display:flex;flex-direction:column}
+/* 功能內容區要吃掉剩下的高度——聯絡簿是靠「容器高度」量溢出再縮字的，
+   容器高度跟著內容長就永遠量不到溢出，字不會縮、下面直接被切掉（2026-09-20 老師回報）。 */
+#aside-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
 #slot-rules.wide{flex-basis:min(33vw,500px)}
 /* 主畫面已經在講常規時，右側欄只剩功能鈕 → 縮到最窄，把寬度還給白板 */
 #slot-rules.slim{flex-basis:min(13vw,190px)}
@@ -622,11 +624,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-6"></script>
-<script src="assets/js/tool.js?v=20260920-6"></script>
-<script src="assets/js/events.js?v=20260920-6"></script>
-<script src="assets/js/wall.js?v=20260920-6"></script>
-<script src="assets/js/board.js?v=20260920-6"></script>
+<script src="assets/js/common.js?v=20260920-8"></script>
+<script src="assets/js/tool.js?v=20260920-8"></script>
+<script src="assets/js/events.js?v=20260920-8"></script>
+<script src="assets/js/wall.js?v=20260920-8"></script>
+<script src="assets/js/board.js?v=20260920-8"></script>
 <script>
 (function () {
   'use strict';
@@ -730,16 +732,23 @@ body.wall .dyn{overflow:hidden}
   }
   function fitNotes() {
     var box = $('notes'), tip = $('overflow-tip');
-    var horiz = state.notesHoriz === 1;
+    /* 被當成功能搬進右側欄時：**一律橫式**（窄欄直書會變成一條擠死的字），
+       字級區間也整組換小——主畫面版的下限 40px 在 320px 寬的欄位裡一定爆版，
+       於是「當天功課看不完整」（2026-09-20 老師回報）。 */
+    var inAside = !!(box.parentElement && box.parentElement.id === 'aside-body');
+    var horiz = inAside ? true : (state.notesHoriz === 1);
     box.classList.toggle('horiz', horiz);
     paintNotesLayoutBtn();
     box.style.removeProperty('--note-fs');
     if (!box.querySelector('.note')) { tip.hidden = true; return; }
     /* 直式量寬、橫式量高——量錯軸就會永遠判成沒溢出，字級也不會縮。 */
     function over() { return horiz ? (box.scrollHeight > box.clientHeight + 1) : (box.scrollWidth > box.clientWidth + 1); }
-    var fs = Math.max(40, Math.min(84, window.innerHeight * 0.062)), guard = 0;
-    while (over() && fs > 40 && guard++ < 40) { fs = Math.max(40, fs - 2); box.style.setProperty('--note-fs', fs + 'px'); }
-    if (fs < 84) box.style.setProperty('--note-fs', fs + 'px');
+    var maxFs = inAside ? Math.max(22, Math.min(40, window.innerHeight * 0.040))
+                        : Math.max(40, Math.min(84, window.innerHeight * 0.062));
+    var minFs = inAside ? 12 : 40, step = inAside ? 1 : 2;
+    var fs = maxFs, guard = 0;
+    box.style.setProperty('--note-fs', fs + 'px');   /* 先套上限，才量得到真正的溢出 */
+    while (over() && fs > minFs && guard++ < 60) { fs = Math.max(minFs, fs - step); box.style.setProperty('--note-fs', fs + 'px'); }
     tip.hidden = !over();
     if (!tip.hidden) tip.textContent = horiz
       ? '項目太多，下面還有沒顯示出來的——可刪幾項或分兩次投影。'

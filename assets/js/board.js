@@ -175,7 +175,11 @@
       else if (m === 'ml') paintML(dyn);
       else if (m === 'sop') paintSop(dyn);
       else if (m === 'break') paintBreak(dyn);
-      else if (m === 'notes') paintSop(dyn);      /* 聯絡簿被借去右欄時，主畫面退回本時段常規 */
+      else if (m === 'notes') {
+        /* 聯絡簿被借去右欄時，主畫面退回本時段常規；連時段都沒有（放學後）就留白，
+           不要印「這個時間沒有對應的時段」——那是錯誤訊息，不是投影內容。 */
+        if (segNow()) paintSop(dyn); else dyn.innerHTML = '';
+      }
       else dyn.innerHTML = '';
     }
 
@@ -187,7 +191,8 @@
        ⚠️ 不可以因為重複就整欄藏起來：功能鈕在這一欄裡，藏了就沒有入口。 */
     var dupRules = (fn === '' && (m === 'sop' || m === 'break' || m === 'notes'));
     aside.hidden = !view.rules;
-    aside.classList.toggle('wide', fn === 'seat' || fn === 'group' || fn === 'quiz');
+    /* 聯絡簿也走寬欄：那是全班要「一眼看完」的東西，窄欄會被迫縮到看不清（2026-09-20 老師）。 */
+    aside.classList.toggle('wide', fn === 'seat' || fn === 'group' || fn === 'quiz' || fn === 'notes');
     aside.classList.toggle('slim', dupRules);
     /* ⚠️ 聯絡簿是搬進來的真元素，不是複製的 HTML：**動 abody 之前一定要先把它搬走**，
        否則 `abody.innerHTML = ...` 會把它整個刪掉，而且錯誤只會在下一輪 render 才爆
