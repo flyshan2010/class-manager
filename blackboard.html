@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-5" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-6" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -178,6 +178,13 @@ body.timing .notes{padding-bottom:20vh}
   box-shadow:0 16px 40px rgba(0,0,0,.5)}
 .mode-pop .mchip{text-align:center;white-space:nowrap}
 .mchip.mode-toggle{background:rgba(255,255,255,.10);color:var(--chalk);border-color:var(--line-2)}
+/* 主畫面的內容要**擺在畫面中間**（2026-09-20 老師：這是本時段的重點，要讓後排看清楚）。
+   垂直用 `safe center`（內容比容器高時仍從頂端開始，純 center 會切掉上緣又捲不回去）；
+   水平是把內容區塊置中、**字仍靠左**（清單置中會很難讀）。右側欄收起時自然就落在整個畫面正中。
+   公布欄模式有自己的版型（.dyn-wall 撐滿高度），所以排除 body.wall。 */
+body:not(.wall) #slot-left .dyn{display:flex;flex-direction:column;justify-content:safe center}
+body:not(.wall) #slot-left .dyn > *{width:fit-content;max-width:min(1100px,100%);margin-left:auto;margin-right:auto}
+
 /* 聯絡簿被當成功能搬進右側欄時，字級上限要放小（主畫面版下限 40px 在窄欄會爆版）。 */
 body.notes-aside #aside-body .notes{--note-fs:clamp(16px,2.2vh,26px)}
 body.notes-aside #aside-body .note{font-size:var(--note-fs)}
@@ -615,11 +622,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-5"></script>
-<script src="assets/js/tool.js?v=20260920-5"></script>
-<script src="assets/js/events.js?v=20260920-5"></script>
-<script src="assets/js/wall.js?v=20260920-5"></script>
-<script src="assets/js/board.js?v=20260920-5"></script>
+<script src="assets/js/common.js?v=20260920-6"></script>
+<script src="assets/js/tool.js?v=20260920-6"></script>
+<script src="assets/js/events.js?v=20260920-6"></script>
+<script src="assets/js/wall.js?v=20260920-6"></script>
+<script src="assets/js/board.js?v=20260920-6"></script>
 <script>
 (function () {
   'use strict';
