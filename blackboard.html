@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260919-1" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-1" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -36,9 +36,11 @@
 .lunch .lc .who{display:block;font-size:clamp(15px,2vh,24px);font-weight:700;color:var(--chalk);white-space:nowrap}
 .lunch .none{font-size:clamp(13px,1.6vh,19px);color:var(--chalk-3)}
 
-.clock{text-align:right;font-variant-numeric:tabular-nums}
-.clock .hm{font-size:clamp(40px,5.6vh,80px);font-weight:300;line-height:1}
-.clock .sec{font-size:.4em;color:var(--chalk-3);margin-left:.12em}
+/* ⚠️ 頂列時鐘一律用 #clock 選取，不要用 .clock——公布欄的大時鐘是 .wtitle.clock，
+   共用 .clock 會讓它繼承這裡的 text-align:right 而跑到畫面右邊（2026-09-20 老師回報後修）。 */
+#clock{text-align:right;font-variant-numeric:tabular-nums}
+#clock .hm{font-size:clamp(40px,5.6vh,80px);font-weight:300;line-height:1}
+#clock .sec{font-size:.4em;color:var(--chalk-3);margin-left:.12em}
 
 /* 今日課表 chips */
 .sched{flex:0 0 auto;display:flex;gap:.7vw;overflow-x:auto;padding-bottom:.8vh;margin-bottom:1.2vh}
@@ -96,12 +98,32 @@ body.timing .notes{padding-bottom:20vh}
 .overflow-tip{position:fixed;left:2.4vw;bottom:9vh;font-size:clamp(15px,1.9vh,22px);color:var(--warn);
   background:rgba(240,149,78,.14);border:1px solid rgba(240,149,78,.4);border-radius:10px;padding:6px 12px;z-index:15}
 
-/* 倒數（右下） */
-.timer{position:fixed;right:2.4vw;bottom:10vh;text-align:right;font-variant-numeric:tabular-nums;
+/* 計時（畫面正中央；2026-09-20 老師：放右下角學生看不清楚）。
+   整層 pointer-events:none，只有卡片本身收事件——不然它會蓋住整塊白板，連座位都點不到。 */
+.timer{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1.2vh;text-align:center;font-variant-numeric:tabular-nums;
   pointer-events:none;transition:opacity .2s;z-index:14}
 .timer.idle{opacity:0}
-.timer .t{font-size:clamp(60px,12vh,170px);font-weight:200;line-height:.95;letter-spacing:-.02em}
-.timer .cap{font-size:clamp(15px,1.9vh,23px);color:var(--chalk-3);letter-spacing:.16em}
+.timer .tcard{pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:.6vh;
+  background:rgba(10,15,26,.82);border:1px solid var(--line);border-radius:28px;
+  padding:2.4vh 4vw;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+.timer .t{font-size:clamp(70px,20vh,260px);font-weight:200;line-height:.95;letter-spacing:-.02em}
+.timer .cap{font-size:clamp(16px,2.2vh,28px);color:var(--chalk-3);letter-spacing:.16em}
+.timer .tbtns{display:flex;gap:.8vw;margin-top:.6vh}
+.timer .tbtns button{font-family:inherit;font-size:clamp(15px,2vh,22px);color:var(--chalk);cursor:pointer;
+  background:var(--board-2);border:1px solid var(--line);border-radius:999px;padding:.5em 1.4em}
+.timer .tbtns button:hover{border-color:var(--chalk-3)}
+/* 計時設定小浮窗（HUD「⏱ 計時」開的那個） */
+.timer-pop{position:fixed;left:50%;bottom:13vh;transform:translateX(-50%);z-index:23;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:92vw;
+  background:rgba(14,20,33,.95);border:1px solid var(--line);border-radius:22px;padding:12px 16px;
+  box-shadow:0 12px 34px rgba(0,0,0,.45)}
+.timer-pop label{font-size:15px;color:var(--chalk-3)}
+.timer-pop input{font-family:inherit;font-size:18px;width:4.5em;text-align:center;color:var(--chalk);
+  background:var(--board-2);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.timer-pop button{font-family:inherit;font-size:15px;color:var(--chalk);cursor:pointer;
+  background:var(--board-2);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
+.timer-pop button.go{background:var(--ok);border-color:transparent;color:#07231b;font-weight:700}
 .timer.paused .t{color:var(--chalk-3)}
 .timer.warn .t{color:var(--warn)}
 .timer.over .t{color:var(--warn)}
@@ -265,7 +287,7 @@ body.wall .dyn{overflow:hidden}
   align-items:center;justify-content:center;text-align:center;gap:1.4vh;padding:1.4vh 0}
 .wkick{font-size:clamp(18px,2.6vh,34px);letter-spacing:.34em;color:var(--duty);font-weight:700}
 .wtitle{font-size:clamp(56px,15vh,200px);font-weight:800;line-height:1;letter-spacing:.02em}
-.wtitle.clock{font-variant-numeric:tabular-nums;font-weight:300;letter-spacing:-.02em}
+.wtitle.clock{font-variant-numeric:tabular-nums;font-weight:300;letter-spacing:-.02em;text-align:center}
 .wsub{font-size:clamp(22px,4vh,58px);color:var(--mark);font-weight:700;line-height:1.35;max-width:88vw}
 .wcount{font-size:clamp(26px,5vh,72px);color:var(--warn);font-weight:800;font-variant-numeric:tabular-nums}
 .wnotice{font-size:clamp(24px,4.2vh,58px);font-weight:800;color:var(--pink);line-height:1.35;max-width:88vw;
@@ -328,7 +350,7 @@ body.wall .dyn{overflow:hidden}
    教室 PC 要縮到 80% 才看得到時鐘。頂列六塊都不縮、body 又 overflow:hidden，午餐值週生一出現
    時鐘就被推出畫面且沒有捲軸（1280 寬實測超出 76px）。先縮字，再保底：放不下就換行，時鐘永遠靠右可見。 */
 .top{flex-wrap:wrap;row-gap:.8vh}
-.clock{flex:0 0 auto;margin-left:auto}
+#clock{flex:0 0 auto;margin-left:auto}
 @media (max-width:1700px){
   .top{gap:1.2vw}
   .date .d1{font-size:clamp(22px,3vh,38px)}
@@ -336,7 +358,7 @@ body.wall .dyn{overflow:hidden}
   .lunch .lc{min-width:2.8em;padding:.25vh .35vw}
   .lunch .lc .who{font-size:clamp(14px,1.8vh,20px)}
   .duty .seat{font-size:clamp(24px,3.4vh,44px)}
-  .clock .hm{font-size:clamp(34px,5vh,64px)}
+  #clock .hm{font-size:clamp(34px,5vh,64px)}
 }
 
 @media (max-width:900px){
@@ -349,10 +371,10 @@ body.wall .dyn{overflow:hidden}
   .top .grow{flex-basis:100%;height:0;order:5}
   .date{min-width:0}
   .date .d1{font-size:clamp(22px,3.2vh,34px)}
-  .clock .hm{font-size:clamp(34px,5vh,64px)}
+  #clock .hm{font-size:clamp(34px,5vh,64px)}
   .duty .seat{font-size:clamp(24px,3.4vh,44px)}
   .note{font-size:var(--note-fs,clamp(34px,5.4vh,64px))}
-  .timer .t{font-size:clamp(48px,9vh,120px)}
+  .timer .t{font-size:clamp(56px,14vh,150px)}
   .main{flex-direction:column;gap:1.2vh}
   #slot-rules{flex:0 0 auto;border-left:none;border-top:1px solid var(--line);padding-left:0;padding-top:1vh;max-height:36vh}
   .quizwrap{flex-direction:column}
@@ -423,7 +445,25 @@ body.wall .dyn{overflow:hidden}
 </div>
 
 <div class="overflow-tip" id="overflow-tip" hidden></div>
-<div class="timer idle" id="timer"><div class="t" id="timer-t">00:00</div><div class="cap" id="timer-cap">計時</div></div>
+<div class="timer idle" id="timer">
+  <div class="tcard">
+    <div class="t" id="timer-t">00:00</div>
+    <div class="cap" id="timer-cap">計時</div>
+    <div class="tbtns">
+      <button type="button" id="timer-toggle">⏸ 暫停</button>
+      <button type="button" id="timer-stop">■ 結束</button>
+    </div>
+  </div>
+</div>
+<div class="timer-pop" id="timer-pop" hidden>
+  <label>幾分鐘 <input id="timer-min" type="number" min="1" max="120" step="1" value="5" /></label>
+  <button type="button" data-min="1">1</button>
+  <button type="button" data-min="3">3</button>
+  <button type="button" data-min="5">5</button>
+  <button type="button" data-min="10">10</button>
+  <button type="button" data-min="15">15</button>
+  <button type="button" class="go" id="timer-go">▶ 開始</button>
+</div>
 <div class="toast" id="toast"></div>
 
 <a class="sendtip" id="sendtip" href="index.html" hidden>⏰ <b id="sendtip-n">0</b> 筆未送出　·　回工作台收班</a>
@@ -432,14 +472,14 @@ body.wall .dyn{overflow:hidden}
   <button type="button" id="btn-quiz" class="primary">抽一位</button>
   <button type="button" id="btn-end" class="pink">結束課程</button>
   <span class="sep"></span>
-  <button type="button" id="btn-wall" class="lime">📢 公布欄</button>
+  <button type="button" id="btn-wall" class="lime">📢 電子公布欄</button>
   <button type="button" id="btn-draw" class="purple">畫記</button>
   <button type="button" id="btn-quiet" class="blue">精簡</button>
   <button type="button" id="btn-focus" class="orange">寫重點</button>
   <button type="button" id="btn-say-menu" class="green">廣播</button>
   <span class="sep"></span>
   <button type="button" id="btn-panel">設定</button>
-  <button type="button" data-min="5">計時5分</button>
+  <button type="button" id="btn-timer">⏱ 計時</button>
   <button type="button" id="btn-full">全螢幕</button>
   <a class="tip" href="index.html">← 工作台</a>
 </div>
@@ -563,11 +603,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260919-1"></script>
-<script src="assets/js/tool.js?v=20260919-1"></script>
-<script src="assets/js/events.js?v=20260919-1"></script>
-<script src="assets/js/wall.js?v=20260919-1"></script>
-<script src="assets/js/board.js?v=20260919-1"></script>
+<script src="assets/js/common.js?v=20260920-1"></script>
+<script src="assets/js/tool.js?v=20260920-1"></script>
+<script src="assets/js/events.js?v=20260920-1"></script>
+<script src="assets/js/wall.js?v=20260920-1"></script>
+<script src="assets/js/board.js?v=20260920-1"></script>
 <script>
 (function () {
   'use strict';
@@ -996,7 +1036,7 @@ body.wall .dyn{overflow:hidden}
     } catch (e) { /* 字幕已經出來了，語音失敗不影響 */ }
   }
 
-  /* ── 計時（右下角；與「節慶倒數」是兩件事） ── */
+  /* ── 計時（畫面正中央；與左上角的「節慶倒數」是兩件事） ── */
   var timer = { endAt: 0, left: 0, running: false, total: 0 }, rang = false;
   function fmt(ms) { var neg = ms < 0, s = Math.ceil(Math.abs(ms) / 1000), m = Math.floor(s / 60); return (neg ? '-' : '') + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
   function startTimer(min) { timer.total = min * 60000; timer.endAt = Date.now() + timer.total; timer.running = true; rang = false; Tool.beep(2, 660); paintTimer(); }
@@ -1009,8 +1049,33 @@ body.wall .dyn{overflow:hidden}
     var left = timer.running ? timer.endAt - Date.now() : timer.left, cls = 'timer';
     if (!timer.running) cls += ' paused';
     if (left <= 0) { cls += ' over'; if (!rang) { rang = true; Tool.beep(3, 880); } } else if (left <= 60000) cls += ' warn';
-    el.className = cls; $('timer-t').textContent = fmt(left); $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '計時' : '暫停');
+    el.className = cls; $('timer-t').textContent = fmt(left); $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '計時中' : '已暫停');
+    var tg = $('timer-toggle'); if (tg) tg.textContent = timer.running ? '⏸ 暫停' : '▶ 繼續';
   }
+
+  /* 計時設定小浮窗：分鐘可自己填（1～120），也留 1／3／5／10／15 的快捷。
+     老師的用法是「這題給你們 7 分鐘」，寫死 5 分鐘的按鈕不夠用（2026-09-20）。 */
+  function timerPop(open) {
+    var pop = $('timer-pop'); if (!pop) return;
+    pop.hidden = (open === false) ? true : (open === true ? false : !pop.hidden);
+    if (!pop.hidden) setTimeout(function () { $('timer-min').select(); }, 40);
+  }
+  function startFromInput() {
+    var v = parseInt($('timer-min').value, 10);
+    if (!(v > 0)) { $('timer-min').focus(); return; }
+    startTimer(Math.min(120, v)); timerPop(false);
+  }
+  $('btn-timer').addEventListener('click', function (e) { e.stopPropagation(); timerPop(); });
+  $('timer-go').addEventListener('click', startFromInput);
+  $('timer-min').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); startFromInput(); } });
+  $('timer-toggle').addEventListener('click', toggleTimer);
+  $('timer-stop').addEventListener('click', stopTimer);
+  document.addEventListener('click', function (e) {
+    var pop = $('timer-pop');
+    if (!pop || pop.hidden) return;
+    if (pop.contains(e.target) || e.target.id === 'btn-timer') return;
+    pop.hidden = true;
+  });
 
   /* ── 面板 ── */
   var panel = Tool.panel($('panel'), $('scrim'));
@@ -1040,7 +1105,9 @@ body.wall .dyn{overflow:hidden}
   $('opt-bell').addEventListener('change', function () { state.opt.bell = $('opt-bell').checked; save(); });
 
   Array.prototype.forEach.call(document.querySelectorAll('[data-say]'), function (b) { b.addEventListener('click', function () { speak(b.dataset.say); }); });
-  Array.prototype.forEach.call(document.querySelectorAll('.hud [data-min]'), function (b) { b.addEventListener('click', function () { startTimer(parseInt(b.dataset.min, 10)); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#timer-pop [data-min]'), function (b) {
+    b.addEventListener('click', function () { $('timer-min').value = b.dataset.min; startTimer(parseInt(b.dataset.min, 10)); timerPop(false); });
+  });
   $('btn-full').addEventListener('click', Tool.fullscreen);
 
   /* ── 電子白板（board.js）接線 ─────────────────────────────────

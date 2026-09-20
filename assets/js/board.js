@@ -219,7 +219,7 @@
     var el = $('board-cap'); if (!el) return;
     var p = periodNow(), seg = segNow();
     var main = p ? (p.name + (p.subject ? '　' + p.subject : '')) : (seg ? seg.name : '課後');
-    var extra = mode === 'auto' ? '自動跟著課表' : '手動固定';
+    var extra = mode === 'auto' ? '課堂常規板・自動跟著課表' : '手動固定這個模式';
     el.innerHTML = '<b>' + esc(main) + '</b><span>' + esc(extra) + '</span>';
   }
 
@@ -229,14 +229,16 @@
   var modePopOpen = false;
   function paintModeChips(active) {
     var box = $('mode-chips'); if (!box) return;
-    var list = [['wall', '📢 公布欄'], ['auto', '自動'], ['notes', '聯絡簿'], ['focus', '重點板'], ['seat', '座位加分'], ['group', '小組計分'], ['quiz', '抽籤問答']];
+    /* 名稱＝老師在教室裡會講的那個名字。'auto' 舊標「自動」看不出是什麼模式（2026-09-20 老師回報）。 */
+    var list = [['wall', '📢 電子公布欄'], ['auto', '📋 課堂常規板（跟著課表）'], ['notes', '📒 聯絡簿'],
+      ['focus', '🎯 本節重點板'], ['seat', '🪑 座位加分板'], ['group', '👥 小組計分'], ['quiz', '🎲 抽籤問答']];
     var cur = '';
     list.forEach(function (it) { if (mode === it[0]) cur = it[1]; });
     box.innerHTML = '';
 
     var tgl = document.createElement('button');
     tgl.type = 'button'; tgl.className = 'mchip mode-toggle';
-    tgl.textContent = '☰ ' + (cur || '模式');
+    tgl.textContent = '☰ 現在：' + (cur || '模式');
     tgl.title = '切換白板模式';
 
     var pop = document.createElement('div');
@@ -509,6 +511,29 @@
     }
     return groups.filter(function (x) { return x.length; });
   }
+  /* 依座位表分組（2026-09-20 老師要求）：一「排」＝一組，排別與順序取自班網
+     `seating-seats.json`（純座號版，無姓名）。該檔 columns 由左至右是第六排→第一排，
+     所以輸出時反過來跑，讓「第一排」排在最前面；同一排由前排到後排。
+     沒讀到座位表就回 null，由呼叫端顯示原因——**不要偷偷退回連號分**，
+     那會讓老師以為按到的是座位表分組（U53：判不出來不能預設成「正常」）。 */
+  function seatColumnGroups() {
+    var grid = (data.seating && data.seating.grid) || null;
+    var cols = (data.seating && data.seating.columns) || [];
+    if (!grid || !grid.length) return null;
+    var width = 0;
+    grid.forEach(function (row) { width = Math.max(width, (row || []).length); });
+    var out = [];
+    for (var c = width - 1; c >= 0; c--) {
+      var ss = [];
+      grid.forEach(function (row) {
+        var v = (row || [])[c];
+        if (v != null && seats.indexOf(+v) >= 0) ss.push(+v);
+      });
+      if (ss.length) out.push({ name: '第' + (cols[c] || (width - c)) + '排', seats: ss });
+    }
+    return out.length ? out : null;
+  }
+
   function ensureGroups(rebuild, keepScores) {
     if (!gst || !gst.config) gst = { config: { n: 4, mode: 'serial', manual: '', names: '' }, groups: null };
     if (!gst.groups || rebuild) {
@@ -559,19 +584,36 @@
     ensureGroups(false, true);
     function lines(gs) { return gs.map(function (g) { return g.name + '：' + g.seats.join(','); }).join('\n'); }
     hooks.panel('<h2>✏️ 調整分組</h2>' +
-      '<p class="hint">一行一組，格式「組名：座號,座號」。可直接搬動座號；要換組數就先按「依組數重新分」。分數依組別順序保留。</p>' +
+      '<p class="hint">一行一組，格式「組名：座號,座號」。可直接搬動座號；要換組數就先按「依組數重新分」。<br>選「依座位表分」時排數由座位表決定（組數欄不生效）。分數依組別順序保留。</p>' +
       '<div class="row"><label>組數 <input id="ge-n" type="number" min="2" max="' + G_MAX + '" value="' + gst.groups.length + '" style="width:5em" /></label>' +
-      '<select id="ge-mode"><option value="serial">依座號連號分</option><option value="snake">依座號蛇形分</option></select>' +
+      '<select id="ge-mode"><option value="serial">依座號連號分</option><option value="snake">依座號蛇形分</option>' +
+      '<option value="seatcol">依座位表分（一排一組）</option></select>' +
       '<button type="button" class="ghost" id="ge-split">依組數重新分</button></div>' +
       '<textarea id="ge-ta" style="min-height:260px;width:100%">' + esc(lines(gst.groups)) + '</textarea>' +
       '<div class="row"><button type="button" id="ge-apply">套用分組</button><span class="status" id="ge-st"></span></div>');
     $('ge-split').addEventListener('click', function () {
+      var st0 = $('ge-st');
+      if ($('ge-mode').value === 'seatcol') {
+        /* 排數由座位表決定，不吃「組數」欄——填 4 卻分出 6 排不是 bug，是座位表就 6 排。 */
+        var cg = seatColumnGroups();
+        if (!cg) {
+          st0.className = 'status err';
+          st0.textContent = '還讀不到座位表（班網 seating-seats.json）——先確認有網路、或改用座號分。';
+          return;
+        }
+        $('ge-n').value = cg.length;
+        $('ge-ta').value = lines(cg);
+        st0.className = 'status ok';
+        st0.textContent = '已依座位表排出 ' + cg.length + ' 排，確認後按「套用分組」。';
+        return;
+      }
       var n = Math.max(2, Math.min(G_MAX, parseInt($('ge-n').value, 10) || 4));
       $('ge-n').value = n;
       var sets = splitSeats(n, $('ge-mode').value, '');
       $('ge-ta').value = lines(sets.map(function (ss, i) {
         return { name: (gst.groups[i] && gst.groups[i].name) || ('第 ' + (i + 1) + ' 組'), seats: ss };
       }));
+      st0.className = 'status'; st0.textContent = '';
     });
     $('ge-apply').addEventListener('click', function () {
       var names = [], sets = [], seen = {}, dup = [];
