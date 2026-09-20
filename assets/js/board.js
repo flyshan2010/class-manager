@@ -313,12 +313,12 @@
   }
 
   /* 直式／橫式鈕在 HUD 上，只要聯絡簿看得到就露出（在右側欄或在主畫面都算）。 */
+  /* 直式／橫式只剩右欄這一顆（2026-09-20 A 案，HUD 那顆移除）：
+     **聯絡簿不論在右欄或在主畫面都露出**，只要右欄開著就按得到；右欄收著時用鍵盤 L。 */
   function syncNotesLayoutBtn(notes) {
-    var hide = !notes || notes.hidden;
-    var nl = $('notes-layout'); if (nl) nl.hidden = hide;
-    /* 右欄裡也有一顆（老師：切換鈕就在聯絡簿旁邊最好按），只有聯絡簿真的在右欄時才露出。 */
-    var na = $('notes-layout-aside');
-    if (na) na.hidden = hide || !(notes && notes.parentElement && notes.parentElement.id === 'aside-body');
+    var na = $('notes-layout-aside'); if (!na) return;
+    var aside = $('slot-rules');
+    na.hidden = !notes || notes.hidden || !aside || aside.hidden;
   }
 
   /* 常規側欄：文案全部取自 Notion（class-rules.json），不寫死在程式裡。 */
@@ -356,14 +356,17 @@
   function paintFocus(box) {
     var key = periodKey(), own = st.focus[key] || '';
     var html = '<div class="lesson"><h2>本節重點　<span class="rlabel">' + esc(key) + '</span></h2>';
-    if (!own.trim()) html += '<p class="rnone">按 HUD 的「寫重點」開始打字，寫什麼投影就出什麼。</p>';
+    if (!own.trim()) html += '<p class="rnone">還沒寫本節重點。按下面「✏️ 編輯重點」開始打字，寫什麼投影就出什麼。</p>';
     else {
       html += '<ul class="lpoints">';
       own.split(/\n+/).filter(Boolean).forEach(function (t) { html += '<li>' + esc(t) + '</li>'; });
       html += '</ul>';
     }
-    html += '</div>';
+    /* 「寫重點」從 HUD 移到這裡（2026-09-20 A 案）：重點的顯示端與編輯端本來就該是同一處。 */
+    html += '<button type="button" class="mchip" id="focus-edit">✏️ 編輯重點</button></div>';
     box.innerHTML = html;
+    var fe = $('focus-edit');
+    if (fe) fe.addEventListener('click', function () { if (global.openFocusEditor) global.openFocusEditor(); });
   }
 
   function paintSop(box) {

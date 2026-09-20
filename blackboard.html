@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-13" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-14" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -163,6 +163,8 @@ body.timing .notes{padding-bottom:20vh}
 .panel .cloud-head .grow{flex:1 1 auto}
 .panel .toggle{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--chalk-2)}
 .panel .toggle input{width:auto}
+.panel .quickrow{gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.panel .quickrow .tip{color:var(--chalk-3);font-size:14px;text-decoration:none;margin-left:auto}
 /* ── 主區：白板本體（自動情境／聯絡簿／重點板／座位加分／小組／抽問共用一塊版面） ── */
 .boardbar{flex:0 0 auto;display:flex;align-items:center;gap:.8vw;margin-bottom:1vh;flex-wrap:wrap}
 .boardbar .cap{font-size:clamp(15px,2vh,24px);color:var(--chalk-2);display:flex;gap:.6em;align-items:baseline}
@@ -198,8 +200,8 @@ body:not(.wall):not(.notes-aside) #slot-left .notes.horiz{
 
 /* 聯絡簿被當成功能搬進右側欄時，字級上限要放小（主畫面版下限 40px 在窄欄會爆版）。 */
 body.notes-aside #aside-body .notes{flex:1 1 auto;min-height:0;gap:.4vh;padding-left:0}
-#notes-layout{display:flex;gap:.4vw;align-items:center;margin-right:.6vw}
 #notes-layout-aside{display:flex;margin-bottom:1vh}
+#focus-edit{margin-top:1.2vh}
 #notes-layout-aside[hidden]{display:none}
 /* 右側欄收起後，右緣留一個小標籤點得回來——比照 HUD 的「⌃ 工具列」
    （2026-09-20 老師：收起後只剩 HUD 那顆與鍵盤 R，投影時想不起來怎麼叫回）。 */
@@ -542,22 +544,18 @@ body.wall .dyn{overflow:hidden}
 
 <a class="sendtip" id="sendtip" href="index.html" hidden>⏰ <b id="sendtip-n">0</b> 筆未送出　·　回工作台收班</a>
 
+<!-- HUD 精簡為一排六顆（2026-09-20 老師 A 案）：**已經有別的入口的就不放這裡**——
+     抽一位在抽籤問答面板與鍵盤 Q；直式／橫式在右欄聯絡簿旁與鍵盤 L；右欄在右緣標籤、✕ 與鍵盤 R；
+     寫重點改在右欄「本節重點板」面板裡（看得到的地方就能改）；
+     精簡／全螢幕／工作台收進設定面板頂端（一堂課按不到一次的東西不占投影版面）。 -->
 <div class="hud" id="hud">
-  <button type="button" id="btn-quiz" class="primary">抽一位</button>
   <button type="button" id="btn-end" class="pink">結束課程</button>
   <span class="sep"></span>
   <button type="button" id="btn-wall" class="lime">📢 電子公布欄</button>
   <button type="button" id="btn-draw" class="purple">畫記</button>
-  <button type="button" id="btn-quiet" class="blue">精簡</button>
-  <button type="button" id="btn-focus" class="orange">寫重點</button>
+  <button type="button" id="btn-timer" class="blue">⏱ 計時</button>
   <button type="button" id="btn-say-menu" class="green">廣播</button>
-  <span class="sep"></span>
-  <button type="button" id="btn-aside" title="顯示／收起右側功能欄（R）">▤ 右欄</button>
-  <span id="notes-layout" hidden><button type="button" id="btn-notes-layout">↕ 直式</button></span>
   <button type="button" id="btn-panel">設定</button>
-  <button type="button" id="btn-timer">⏱ 計時</button>
-  <button type="button" id="btn-full">全螢幕</button>
-  <a class="tip" href="index.html">← 工作台</a>
 </div>
 
 <button type="button" class="aside-open" id="aside-open" title="展開右側功能欄（R）">‹ 右欄</button>
@@ -568,6 +566,13 @@ body.wall .dyn{overflow:hidden}
 </aside>
 <aside class="panel" id="panel" aria-label="白板設定">
   <h2>白板設定</h2>
+  <!-- 一堂課按不到一次的三顆，從 HUD 移來這裡（2026-09-20 A 案）。 -->
+  <div class="row quickrow">
+    <button type="button" class="ghost" id="btn-quiet" title="一鍵關掉月相／節慶／午餐／值日生／課表（H）">精簡</button>
+    <button type="button" class="ghost" id="btn-full" title="全螢幕（F）">全螢幕</button>
+    <button type="button" class="ghost" id="btn-aside" title="顯示／收起右側功能欄（R）">▤ 右欄</button>
+    <a class="tip" href="index.html">← 工作台</a>
+  </div>
   <h3>聯絡簿</h3>
   <p class="hint">一行一項，直接寫在看板上。<br>
     行首 <b>#</b> 是分隔標題（例 <code>#國語</code>）；<b>*</b> 是重點（黃字）；<b>~</b> 是已完成（劃掉）。</p>
@@ -681,11 +686,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-13"></script>
-<script src="assets/js/tool.js?v=20260920-13"></script>
-<script src="assets/js/events.js?v=20260920-13"></script>
-<script src="assets/js/wall.js?v=20260920-13"></script>
-<script src="assets/js/board.js?v=20260920-13"></script>
+<script src="assets/js/common.js?v=20260920-14"></script>
+<script src="assets/js/tool.js?v=20260920-14"></script>
+<script src="assets/js/events.js?v=20260920-14"></script>
+<script src="assets/js/wall.js?v=20260920-14"></script>
+<script src="assets/js/board.js?v=20260920-14"></script>
 <script>
 (function () {
   'use strict';
@@ -818,12 +823,9 @@ body.wall .dyn{overflow:hidden}
       : '項目太多，右側還有沒顯示出來的——可刪幾項或分兩次投影。';
   }
   function paintNotesLayoutBtn() {
-    /* HUD 一顆、右欄一顆，字要一起換——兩顆寫不一樣就等於畫面自己在打架。 */
-    ['btn-notes-layout', 'btn-notes-layout-2'].forEach(function (id) {
-      var b = $(id); if (!b) return;
-      b.textContent = state.notesHoriz === 1 ? '↔ 橫式' : '↕ 直式';
-      b.title = '切換聯絡簿排版（直式／橫式）';
-    });
+    var b = $('btn-notes-layout-2'); if (!b) return;
+    b.textContent = state.notesHoriz === 1 ? '↔ 橫式' : '↕ 直式';
+    b.title = '切換聯絡簿排版（直式／橫式，鍵盤 L）';
   }
 
   function rowToText(row) {
@@ -1240,13 +1242,11 @@ body.wall .dyn{overflow:hidden}
 
   /* 聯絡簿直式／橫式切換（2026-09-09 老師要求「依情況切換」）。
      只影響顯示，內容仍是同一份 state.text；選擇存本機，隔天照樣沿用。 */
-  ['btn-notes-layout', 'btn-notes-layout-2'].forEach(function (id) {
-    var b = $(id); if (!b) return;
-    b.addEventListener('click', function () {
-      state.notesHoriz = state.notesHoriz === 1 ? 0 : 1;
-      save(); paintNotesLayoutBtn(); paintNotes();
-    });
-  });
+  function toggleNotesLayout() {
+    state.notesHoriz = state.notesHoriz === 1 ? 0 : 1;
+    save(); paintNotesLayoutBtn(); paintNotes();
+  }
+  $('btn-notes-layout-2').addEventListener('click', toggleNotesLayout);
   $('aside-open').addEventListener('click', function () { Board.setAside(true); });
 
   /* 這顆是「公布欄 ⇄ 電子白板」的切換鈕。**按鈕上寫的是「按下去會切到哪」**，不是現在在哪——
@@ -1272,7 +1272,6 @@ body.wall .dyn{overflow:hidden}
     $('wall-status').className = 'status'; $('wall-status').textContent = '已清空。';
   });
 
-  $('btn-quiz').addEventListener('click', Board.drawQuiz);
   $('btn-end').addEventListener('click', Board.endPeriod);
   $('btn-quiet').addEventListener('click', Board.toggleQuiet);
   $('btn-draw').addEventListener('click', function () { Board.setDraw(!Board.isDraw()); });
@@ -1295,7 +1294,8 @@ body.wall .dyn{overflow:hidden}
   /* 橡皮擦＝框選清除（2026-09-20 老師：塗擦與框選是同一種效果，不要兩顆鈕）。
      塗擦模式（`erase`）的程式留著給 setPen(…, true) 的舊呼叫法，UI 不再提供入口。 */
   $('pen-erase').addEventListener('click', function () { pickTool($('pen-erase'), 'rect'); });
-  $('btn-focus').addEventListener('click', function () { openPanel(true); setTimeout(function () { $('focus-ta').focus(); }, 80); });
+  /* 「寫重點」移進右欄的本節重點板：那塊是重點的顯示端，看得到的地方就能改（2026-09-20 A 案）。 */
+  window.openFocusEditor = function () { openPanel(true); setTimeout(function () { $('focus-ta').focus(); }, 80); };
 
   function syncFocus() {
     $('focus-key').textContent = Board.focusKey();
@@ -1349,6 +1349,7 @@ body.wall .dyn{overflow:hidden}
     else if (k === 'd') Board.setDraw(!Board.isDraw());
     else if (k === 'h') Board.toggleQuiet();
     else if (k === 'r') Board.setAside(!Board.aside());
+    else if (k === 'l') { var nb = $('btn-notes-layout-2'); if (nb) toggleNotesLayout(); }
     else if (k === '0') stopTimer();
     else if (k === 'escape') openPanel(false);
   });
