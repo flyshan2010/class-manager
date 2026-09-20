@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-3" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-4" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -178,6 +178,12 @@ body.timing .notes{padding-bottom:20vh}
   box-shadow:0 16px 40px rgba(0,0,0,.5)}
 .mode-pop .mchip{text-align:center;white-space:nowrap}
 .mchip.mode-toggle{background:rgba(255,255,255,.10);color:var(--chalk);border-color:var(--line-2)}
+.mchip.mode-hide{padding:.45vh .7vw;color:var(--chalk-3)}
+/* 模式列收起（2026-09-20）：整列不占高度，白板內容改成垂直置中——
+   投影時學生要看的是內容，不是老師的按鈕。`safe center` 是為了內容比容器高時
+   仍從頂端開始（純 center 會把上緣切掉、而且捲不回去）。 */
+body.barless .boardbar{display:none!important}
+body.barless #slot-left .dyn{display:flex;flex-direction:column;justify-content:safe center}
 #notes-layout{display:flex;gap:.4vw;align-items:center;margin-right:.6vw}
 
 .main{flex:1 1 auto;display:flex;min-height:0;gap:1.6vw;position:relative}
@@ -478,6 +484,7 @@ body.wall .dyn{overflow:hidden}
   <button type="button" id="btn-focus" class="orange">寫重點</button>
   <button type="button" id="btn-say-menu" class="green">廣播</button>
   <span class="sep"></span>
+  <button type="button" id="btn-modebar" title="顯示／收起白板上的模式列（M）">☰ 模式</button>
   <button type="button" id="btn-panel">設定</button>
   <button type="button" id="btn-timer">⏱ 計時</button>
   <button type="button" id="btn-full">全螢幕</button>
@@ -568,6 +575,7 @@ body.wall .dyn{overflow:hidden}
   <label class="toggle"><input type="checkbox" id="vw-duty" /> 值日生</label>
   <label class="toggle"><input type="checkbox" id="vw-sched" /> 今日課表</label>
   <label class="toggle"><input type="checkbox" id="vw-clock" /> 時鐘</label>
+  <label class="toggle"><input type="checkbox" id="vw-modebar" /> 白板上的模式列</label>
   <label class="toggle"><input type="checkbox" id="vw-rules" /> 自動模式的常規側欄</label>
 
   <h3>小組計分</h3>
@@ -603,11 +611,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-3"></script>
-<script src="assets/js/tool.js?v=20260920-3"></script>
-<script src="assets/js/events.js?v=20260920-3"></script>
-<script src="assets/js/wall.js?v=20260920-3"></script>
-<script src="assets/js/board.js?v=20260920-3"></script>
+<script src="assets/js/common.js?v=20260920-4"></script>
+<script src="assets/js/tool.js?v=20260920-4"></script>
+<script src="assets/js/events.js?v=20260920-4"></script>
+<script src="assets/js/wall.js?v=20260920-4"></script>
+<script src="assets/js/board.js?v=20260920-4"></script>
 <script>
 (function () {
   'use strict';
@@ -1091,6 +1099,8 @@ body.wall .dyn{overflow:hidden}
   function applyNotes() { state.text = $('ta').value; state.source = 'local'; state.localEditDate = todayKey(); var ok = save(); var st = $('notes-status'); st.className = ok ? 'status ok' : 'status warn'; st.textContent = ok ? '已寫上看板。' : '瀏覽器不允許儲存（無痕模式？），畫面有，但關掉會不見。'; paintNotes(); }
   function applyDuty() { state.duty.mode = $('duty-mode').value; state.duty.per = Math.max(1, Math.min(10, parseInt($('duty-per').value, 10) || 1)); state.duty.base = $('duty-base').value; state.duty.start = parseInt($('duty-start').value, 10) || 1; state.duty.manual = $('duty-manual').value; save(); paintDuty(); var r = computeDuty(); var st = $('duty-status'); st.className = r.seats.length ? 'status ok' : 'status warn'; st.textContent = r.seats.length ? '今天輪到 ' + r.seats.join('、') + ' 號。' : (r.reason || '沒有算出值日生。'); }
 
+  /* 模式列的顯示開關（老師 2026-09-20：投影時那一列占畫面，收起後內容要置中）。 */
+  $('btn-modebar').addEventListener('click', function () { Board.setModeBar(!Board.modeBar()); });
   $('btn-panel').addEventListener('click', function () { openPanel(true); });
   $('btn-close').addEventListener('click', function () { openPanel(false); });
   $('btn-apply').addEventListener('click', applyNotes);
@@ -1207,7 +1217,7 @@ body.wall .dyn{overflow:hidden}
   });
   $('btn-focus-clear').addEventListener('click', function () { $('focus-ta').value = ''; Board.focusText(''); $('focus-status').textContent = '已清空。'; });
 
-  ['moon', 'fest', 'lunch', 'duty', 'sched', 'clock', 'rules'].forEach(function (k) {
+  ['moon', 'fest', 'lunch', 'duty', 'sched', 'clock', 'rules', 'modebar'].forEach(function (k) {
     $('vw-' + k).addEventListener('change', function () { Board.setViewFlag(k, $('vw-' + k).checked); });
   });
 
@@ -1241,6 +1251,7 @@ body.wall .dyn{overflow:hidden}
     else if (k === 'q') { e.preventDefault(); Board.drawQuiz(); }
     else if (k === 'd') Board.setDraw(!Board.isDraw());
     else if (k === 'h') Board.toggleQuiet();
+    else if (k === 'm') Board.setModeBar(!Board.modeBar());
     else if (k === '0') stopTimer();
     else if (k === 'escape') openPanel(false);
   });

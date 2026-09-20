@@ -41,7 +41,11 @@
 
   /* 顯示開關（哪些資訊要出現在投影上）——分心來源可以一鍵關掉。 */
   var vdb = Tool.store('classManager.board.view.v1');
-  var view = vdb.get(null) || { moon: 1, fest: 1, lunch: 1, duty: 1, sched: 1, clock: 1, rules: 1 };
+  var view = vdb.get(null) || { moon: 1, fest: 1, lunch: 1, duty: 1, sched: 1, clock: 1, rules: 1, modebar: 1 };
+  /* modebar＝白板上那一列「模式切換」要不要顯示（2026-09-20 老師：投影時它占掉版面，
+     而學生要看的是白板內容）。舊資料沒有這個鍵，預設顯示。收起後整列不占高度，
+     白板內容改為垂直置中（body.barless），要叫回來按 HUD 的「☰ 模式」或鍵盤 M。 */
+  if (view.modebar == null) view.modebar = 1;
 
   var seats = [], sched = null, hooks = {};
   var mode = st.mode || 'wall';
@@ -232,14 +236,16 @@
     /* 名稱＝老師在教室裡會講的那個名字。'auto' 舊標「自動」看不出是什麼模式（2026-09-20 老師回報）。 */
     var list = [['wall', '📢 電子公布欄'], ['auto', '🖥️ 電子白板（跟著課表）'], ['notes', '📒 聯絡簿'],
       ['focus', '🎯 本節重點板'], ['seat', '🪑 座位加分板'], ['group', '👥 小組計分'], ['quiz', '🎲 抽籤問答']];
-    var cur = '';
-    list.forEach(function (it) { if (mode === it[0]) cur = it[1]; });
+    /* 按鈕上只放短名（2026-09-20 老師：那一列占畫面太多）；全名留在下拉裡。 */
+    var SHORT = { wall: '公布欄', auto: '電子白板', notes: '聯絡簿', focus: '重點板',
+      seat: '座位加分', group: '小組計分', quiz: '抽籤問答' };
+    var cur = SHORT[mode] || '';
     box.innerHTML = '';
 
     var tgl = document.createElement('button');
     tgl.type = 'button'; tgl.className = 'mchip mode-toggle';
-    tgl.textContent = '☰ 現在：' + (cur || '模式');
-    tgl.title = '切換白板模式';
+    tgl.textContent = '☰ ' + (cur || '模式');
+    tgl.title = '切換白板模式（現在：' + (cur || '—') + '）';
 
     var pop = document.createElement('div');
     pop.className = 'mode-pop'; pop.hidden = !modePopOpen;
@@ -256,7 +262,13 @@
     tgl.addEventListener('click', function (e) {
       e.stopPropagation(); modePopOpen = !modePopOpen; pop.hidden = !modePopOpen;
     });
-    box.appendChild(tgl); box.appendChild(pop);
+    /* 收起整列：投影給學生看的時候，白板上不該有老師才會用的按鈕。 */
+    var hide = document.createElement('button');
+    hide.type = 'button'; hide.className = 'mchip mode-hide';
+    hide.textContent = '✕'; hide.title = '收起這一列（要叫回來按下方「☰ 模式」或鍵盤 M）';
+    hide.addEventListener('click', function (e) { e.stopPropagation(); setModeBar(false); });
+
+    box.appendChild(tgl); box.appendChild(pop); box.appendChild(hide);
 
     /* 聯絡簿的直式／橫式切換鈕只在聯絡簿模式露出（blackboard.html 掛的行為）。 */
     var nl = $('notes-layout'); if (nl) nl.hidden = (mode !== 'notes');
@@ -792,15 +804,19 @@
       el.style.display = view[k] ? '' : 'none';
     });
     var aside = $('slot-rules'); if (aside) aside.hidden = !(mode === 'auto' && view.rules);
+    var bar = document.querySelector('.boardbar');
+    if (bar) bar.hidden = !view.modebar;
+    document.body.classList.toggle('barless', !view.modebar);
+    var mb = $('btn-modebar'); if (mb) mb.classList.toggle('on', !view.modebar);
     Object.keys(view).forEach(function (k) {
       var cb = $('vw-' + k); if (cb) cb.checked = !!view[k];
     });
     var b = $('btn-quiet'); if (b) b.classList.toggle('on', isQuiet());
   }
-  function isQuiet() { return !view.moon && !view.fest && !view.lunch && !view.duty && !view.sched; }
+  function isQuiet() { return !view.moon && !view.fest && !view.lunch && !view.duty && !view.sched && !view.modebar; }
   function toggleQuiet() {
     var quiet = isQuiet(), v = quiet ? 1 : 0;
-    view.moon = view.fest = view.lunch = view.duty = view.sched = v;
+    view.moon = view.fest = view.lunch = view.duty = view.sched = view.modebar = v;
     saveView(); applyView(); render();
     hooks.onResize && hooks.onResize();
   }
@@ -847,6 +863,11 @@
 
   /* ── 對外 ─────────────────────────────────────────────── */
   function setMode(m) { mode = m; save(); render(); }
+  /* 模式列顯示／隱藏（true＝顯示）。收起時白板內容垂直置中，交給 CSS 的 body.barless。 */
+  function setModeBar(on) {
+    view.modebar = on ? 1 : 0; saveView(); applyView(); render();
+    hooks.onResize && hooks.onResize();
+  }
 
   function init(opts) {
     seats = opts.seats || [];
@@ -873,6 +894,7 @@
 
   global.Board = {
     init: init, setMode: setMode, mode: function () { return mode; }, render: render,
+    modeBar: function () { return !!view.modebar; }, setModeBar: setModeBar,
     setSchedule: function (d) { sched = d; render(); },
     focusText: function (v) {
       var k = periodKey();
