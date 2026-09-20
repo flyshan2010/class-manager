@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-9" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-10" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -291,7 +291,21 @@ body.notes-aside #aside-body .notes{flex:1 1 auto;min-height:0;gap:.4vh;padding-
   padding:.3em 1.1em;border-radius:16px;cursor:pointer;border:3px solid;background:transparent}
 .qans .yes{color:var(--ok);border-color:var(--ok)}
 .qans .no{color:var(--warn);border-color:var(--warn)}
-.qboard{flex:0 0 min(26vw,360px);border-left:1px solid var(--line);padding-left:1.4vw;overflow-y:auto}
+.qboard{flex:0 1 min(26vw,360px);min-width:0;border-left:1px solid var(--line);padding-left:1.4vw;overflow-y:auto}
+/* 面板裡的「抽一位」：功能開在右欄時，HUD 那顆離題目區很遠又會自動收起（2026-09-20 老師）。 */
+.qdraw{font-family:inherit;font-weight:700;font-size:clamp(16px,2.4vh,28px);margin-top:2vh;cursor:pointer;
+  color:#08201d;background:var(--duty);border:none;border-radius:999px;padding:.6vh 1.6vw}
+/* 抽籤問答被當功能開在右側欄時：左右兩欄擠在 500px 裡，左欄會窄到「按「抽一位」」直著排
+   （2026-09-20 老師回報）。改成上下兩段：上面題目、下面記分。 */
+#aside-body .quizwrap{flex-direction:column;gap:1.2vh}
+#aside-body .qmain{flex:1 1 auto;min-height:0}
+#aside-body .qnum{font-size:clamp(56px,14vh,140px)}
+#aside-body .qnum.idle{font-size:clamp(18px,2.6vh,26px)}
+#aside-body .qans{gap:1vw;margin-top:1.2vh}
+#aside-body .qans button{font-size:clamp(16px,2.4vh,26px)}
+#aside-body .qdraw{margin-top:1.2vh;padding:.6vh 1.2em}
+#aside-body .qboard{flex:0 1 auto;max-height:42%;border-left:none;border-top:1px solid var(--line);
+  padding-left:0;padding-top:1vh}
 .qboard h3{margin:0 0 1vh;font-size:clamp(15px,2vh,24px);color:var(--duty)}
 .qrk{display:flex;align-items:center;gap:.7em;font-size:clamp(17px,2.4vh,30px);padding:.2em .4em}
 .qrk .s{font-weight:700;min-width:2em}
@@ -629,11 +643,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-9"></script>
-<script src="assets/js/tool.js?v=20260920-9"></script>
-<script src="assets/js/events.js?v=20260920-9"></script>
-<script src="assets/js/wall.js?v=20260920-9"></script>
-<script src="assets/js/board.js?v=20260920-9"></script>
+<script src="assets/js/common.js?v=20260920-10"></script>
+<script src="assets/js/tool.js?v=20260920-10"></script>
+<script src="assets/js/events.js?v=20260920-10"></script>
+<script src="assets/js/wall.js?v=20260920-10"></script>
+<script src="assets/js/board.js?v=20260920-10"></script>
 <script>
 (function () {
   'use strict';

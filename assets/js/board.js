@@ -719,7 +719,9 @@
       '<div class="qnum' + (q.current == null ? ' idle' : '') + '" id="qnum">' + (q.current == null ? '按「抽一位」' : q.current) + '</div>' +
       '<div class="qans"' + (q.current == null ? ' hidden' : '') + '>' +
       '<button type="button" class="yes" id="q-yes">答對 ✓</button>' +
-      '<button type="button" class="no" id="q-no">答錯 ✗</button></div></div>' +
+      '<button type="button" class="no" id="q-no">答錯 ✗</button></div>' +
+      /* 抽一位也做在面板裡：功能開在右欄時，HUD 那顆離得遠又會自動收起（2026-09-20 老師）。 */
+      '<button type="button" class="qdraw" id="q-draw">🎲 抽一位</button></div>' +
       '<div class="qboard"><h3>本節記分（答對次數）</h3><div class="qrows">';
     if (!arr.length) html += '<p class="rnone">還沒有紀錄。抽一位、答對或答錯就會累積。<br>下課按「結束課程」才送進待送。</p>';
     else arr.forEach(function (x) {
@@ -727,6 +729,7 @@
         (x.w ? '<span class="w">✗' + x.w + '</span>' : '') + '</div>';
     });
     box.innerHTML = html + '</div></div></div>';
+    var d2 = $('q-draw'); if (d2) d2.addEventListener('click', function () { drawQuiz(); });
     var y = $('q-yes'), n2 = $('q-no');
     if (y) y.addEventListener('click', function () { markQuiz(true); });
     if (n2) n2.addEventListener('click', function () { markQuiz(false); });
