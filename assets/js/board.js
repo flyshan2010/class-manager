@@ -156,6 +156,7 @@
     if (!dyn) return;
     /* 公布欄模式：整頁只留一件事，其餘（課表 chips、右側欄）都收起來。 */
     document.body.classList.toggle('wall', mode === 'wall');
+    var ao2 = $('aside-open'); if (ao2) ao2.classList.toggle('show', !view.rules && mode !== 'wall');
     if (hooks.onMode) hooks.onMode(mode);   /* HUD 那顆切換鈕的字要跟著換 */
     if (mode === 'wall') {
       mountNotes(false); notes.hidden = true; aside.hidden = true; dyn.hidden = false;
@@ -215,8 +216,10 @@
       else if (dupRules) abody.innerHTML = '';         /* 主畫面已經是常規，不重複 */
       else paintRules(abody);
     }
-    if ((mainNotes || notesInAside) && hooks.onNotes) hooks.onNotes();
+    /* ⚠️ 切換鈕要在重畫聯絡簿**之前**決定露不露：它就在右欄裡，晚一步露出會讓
+       容器再矮 30px，而字級已經照舊高度算完——畫面就是最後一項被切掉（2026-09-20 實測）。 */
     syncNotesLayoutBtn(notes);
+    if ((mainNotes || notesInAside) && hooks.onNotes) hooks.onNotes();
     paintCaption();
   }
 
@@ -311,8 +314,11 @@
 
   /* 直式／橫式鈕在 HUD 上，只要聯絡簿看得到就露出（在右側欄或在主畫面都算）。 */
   function syncNotesLayoutBtn(notes) {
-    var nl = $('notes-layout'); if (!nl) return;
-    nl.hidden = !notes || notes.hidden;
+    var hide = !notes || notes.hidden;
+    var nl = $('notes-layout'); if (nl) nl.hidden = hide;
+    /* 右欄裡也有一顆（老師：切換鈕就在聯絡簿旁邊最好按），只有聯絡簿真的在右欄時才露出。 */
+    var na = $('notes-layout-aside');
+    if (na) na.hidden = hide || !(notes && notes.parentElement && notes.parentElement.id === 'aside-body');
   }
 
   /* 常規側欄：文案全部取自 Notion（class-rules.json），不寫死在程式裡。 */
@@ -843,6 +849,8 @@
     });
 
     var ab = $('btn-aside'); if (ab) ab.classList.toggle('on', !view.rules);
+    /* 收起後右緣留一個標籤點得回來；公布欄模式整頁只講一件事，不出現。 */
+    var ao = $('aside-open'); if (ao) ao.classList.toggle('show', !view.rules && mode !== 'wall');
     Object.keys(view).forEach(function (k) {
       var cb = $('vw-' + k); if (cb) cb.checked = !!view[k];
     });
