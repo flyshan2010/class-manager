@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-2" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-3" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -603,11 +603,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-2"></script>
-<script src="assets/js/tool.js?v=20260920-2"></script>
-<script src="assets/js/events.js?v=20260920-2"></script>
-<script src="assets/js/wall.js?v=20260920-2"></script>
-<script src="assets/js/board.js?v=20260920-2"></script>
+<script src="assets/js/common.js?v=20260920-3"></script>
+<script src="assets/js/tool.js?v=20260920-3"></script>
+<script src="assets/js/events.js?v=20260920-3"></script>
+<script src="assets/js/wall.js?v=20260920-3"></script>
+<script src="assets/js/board.js?v=20260920-3"></script>
 <script>
 (function () {
   'use strict';
@@ -1136,7 +1136,8 @@ body.wall .dyn{overflow:hidden}
         else if (!foldedBeforeDraw) hudFold.show(true);
       },
       panel: function (html) { $('panel-body').innerHTML = html; panel.close(); panel2.open(); },
-      closePanel: function () { panel2.close(); }
+      closePanel: function () { panel2.close(); },
+      onMode: paintWallBtn
     }
   });
   $('btn-close2').addEventListener('click', function () { panel2.close(); });
@@ -1148,11 +1149,19 @@ body.wall .dyn{overflow:hidden}
     save(); paintNotesLayoutBtn(); paintNotes();
   });
 
+  /* 這顆是「公布欄 ⇄ 電子白板」的切換鈕。**按鈕上寫的是「按下去會切到哪」**，不是現在在哪——
+     2026-09-20 老師回報：原本固定寫「公布欄」、只用亮不亮（顏色）表示現在是哪一邊，投影時分不出來。
+     現在在哪一邊看右上角的「☰ 現在：<模式>」；這顆只負責「換到另一邊」。 */
+  function paintWallBtn(mode) {
+    var b = $('btn-wall'); if (!b) return;
+    b.textContent = (mode === 'wall') ? '🖥️ 電子白板' : '📢 電子公布欄';
+    b.title = (mode === 'wall') ? '切到電子白板（跟著課表）' : '切到電子公布欄';
+    b.classList.remove('on');      /* 不用顏色區分，字就是答案 */
+  }
   $('btn-wall').addEventListener('click', function () {
     Board.setMode(Board.mode() === 'wall' ? 'auto' : 'wall');
-    $('btn-wall').classList.toggle('on', Board.mode() === 'wall');
   });
-  $('btn-wall').classList.toggle('on', Board.mode() === 'wall');   /* 開頁預設就是公布欄，按鈕要亮著 */
+  paintWallBtn(Board.mode());
   $('wall-ta').value = state.wallNotice || '';
   $('btn-wall-apply').addEventListener('click', function () {
     state.wallNotice = $('wall-ta').value; save(); Board.render();

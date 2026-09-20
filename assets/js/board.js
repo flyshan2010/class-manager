@@ -219,7 +219,7 @@
     var el = $('board-cap'); if (!el) return;
     var p = periodNow(), seg = segNow();
     var main = p ? (p.name + (p.subject ? '　' + p.subject : '')) : (seg ? seg.name : '課後');
-    var extra = mode === 'auto' ? '課堂常規板・自動跟著課表' : '手動固定這個模式';
+    var extra = mode === 'auto' ? '電子白板・自動跟著課表' : '手動固定這個模式';
     el.innerHTML = '<b>' + esc(main) + '</b><span>' + esc(extra) + '</span>';
   }
 
@@ -230,7 +230,7 @@
   function paintModeChips(active) {
     var box = $('mode-chips'); if (!box) return;
     /* 名稱＝老師在教室裡會講的那個名字。'auto' 舊標「自動」看不出是什麼模式（2026-09-20 老師回報）。 */
-    var list = [['wall', '📢 電子公布欄'], ['auto', '📋 課堂常規板（跟著課表）'], ['notes', '📒 聯絡簿'],
+    var list = [['wall', '📢 電子公布欄'], ['auto', '🖥️ 電子白板（跟著課表）'], ['notes', '📒 聯絡簿'],
       ['focus', '🎯 本節重點板'], ['seat', '🪑 座位加分板'], ['group', '👥 小組計分'], ['quiz', '🎲 抽籤問答']];
     var cur = '';
     list.forEach(function (it) { if (mode === it[0]) cur = it[1]; });
@@ -260,6 +260,8 @@
 
     /* 聯絡簿的直式／橫式切換鈕只在聯絡簿模式露出（blackboard.html 掛的行為）。 */
     var nl = $('notes-layout'); if (nl) nl.hidden = (mode !== 'notes');
+    /* HUD 那顆公布欄／白板切換鈕的字要跟著換（2026-09-20 老師：靠顏色分不出現在是哪一邊）。 */
+    if (hooks.onMode) hooks.onMode(mode);
   }
   document.addEventListener('click', function () {
     if (!modePopOpen) return;
