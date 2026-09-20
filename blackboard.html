@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-10" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-11" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -82,6 +82,10 @@ body.timing .notes{padding-bottom:20vh}
 .note .no{color:var(--mark);font-weight:800;flex:0 0 auto;font-size:.78em;padding-top:.1em}
 .note .no .num{text-combine-upright:all}
 .note .txt{flex:1 1 auto;text-orientation:upright;letter-spacing:.02em}
+/* 直式一律**一行一項**：一項折成兩三欄，學生會從第二欄開始讀成另一項（2026-09-20 老師）。
+   nowrap 讓它寧可超出高度也不折——超出時縮字迴圈會把字級降到剛好一欄裝得下。 */
+.notes:not(.horiz) .note{white-space:nowrap}
+.notes:not(.horiz) .note .txt{white-space:nowrap}
 /* 半形數字直排時合併成一格（縱中橫），P.10-11 讀起來跟中文一樣是直的 */
 .note .txt .tcy{text-combine-upright:all;letter-spacing:normal}
 /* 範圍號（P.3-13 中間那一橫）直書時轉成直線，才跟上下的數字同一個方向 */
@@ -355,6 +359,9 @@ body.wall .dyn{overflow:hidden}
 /* 白板畫記層 */
 #doodle{position:absolute;inset:0;z-index:8;pointer-events:none;touch-action:none}
 #doodle.on{pointer-events:auto;cursor:crosshair}
+/* 螢光筆與框選的**暫存層**：同一筆畫在這裡用不透明色畫，抬筆才以半透明合進正本——
+   直接在正本上一段一段畫半透明線，交疊處會愈疊愈深，看起來像塗黑（2026-09-20）。 */
+#doodle-tmp{position:absolute;inset:0;z-index:9;pointer-events:none;touch-action:none;opacity:.38}
 /* 畫記／廣播兩條浮動列：分別貼右、貼左的側邊直列——
    舊版兩條都在右下 bottom:12vh，同時開會疊在一起、連「收起」都被蓋住（2026-09-07 老師反映）。
    側邊直列也讓出白板下緣，底部 HUD 不再被壓住。 */
@@ -368,6 +375,11 @@ body.wall .dyn{overflow:hidden}
 .drawbar .off{color:var(--chalk-3)}
 .drawbar .pen{width:30px;height:30px;border-radius:50%;padding:0;border:2px solid transparent}
 .drawbar .pen.on{border-color:var(--chalk)}
+.drawbar .bt2{font-size:11px;color:var(--chalk-3);letter-spacing:.08em}
+.drawbar .pens{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;max-width:76px}
+.drawbar .pen.hl{opacity:.55;border-radius:8px;height:22px}
+.drawbar .tool.on{box-shadow:0 0 0 2px var(--chalk) inset}
+.drawbar .pen.tool.on{box-shadow:none}
 #drawbar{right:1.4vw;top:50%;transform:translateY(-50%)}
 #saybar{left:1.4vw;top:50%;transform:translateY(-50%)}
 /* ⚠️ 這一行是「收不起來」的真正原因：class 的 display:flex 蓋過瀏覽器預設的 [hidden]{display:none}，
@@ -458,6 +470,7 @@ body.wall .dyn{overflow:hidden}
       <div id="aside-body"></div>
     </aside>
     <canvas id="doodle"></canvas>
+    <canvas id="doodle-tmp"></canvas>
   </div>
 </div>
 
@@ -473,10 +486,21 @@ body.wall .dyn{overflow:hidden}
 </div>
 <div class="drawbar" id="drawbar" hidden>
   <span class="bt">畫記</span>
-  <button type="button" class="pen on" id="pen-w" style="background:#f4f6fb" title="白"></button>
-  <button type="button" class="pen" id="pen-y" style="background:#f0c85a" title="黃"></button>
-  <button type="button" class="pen" id="pen-p" style="background:#f2789b" title="粉"></button>
-  <button type="button" id="pen-erase">橡皮擦</button>
+  <span class="bt2">畫筆</span>
+  <div class="pens">
+    <button type="button" class="pen tool on" data-pen="#f4f6fb" style="background:#f4f6fb" title="白筆"></button>
+    <button type="button" class="pen tool" data-pen="#ff6b6b" style="background:#ff6b6b" title="紅筆"></button>
+    <button type="button" class="pen tool" data-pen="#5aa9f0" style="background:#5aa9f0" title="藍筆"></button>
+    <button type="button" class="pen tool" data-pen="#f0c85a" style="background:#f0c85a" title="黃筆"></button>
+  </div>
+  <span class="bt2">螢光筆</span>
+  <div class="pens">
+    <button type="button" class="pen hl tool" data-hl="#ff5a5a" style="background:#ff5a5a" title="紅螢光筆"></button>
+    <button type="button" class="pen hl tool" data-hl="#4da3ff" style="background:#4da3ff" title="藍螢光筆"></button>
+    <button type="button" class="pen hl tool" data-hl="#ffd84d" style="background:#ffd84d" title="黃螢光筆"></button>
+  </div>
+  <button type="button" class="tool" id="pen-erase">橡皮擦</button>
+  <button type="button" class="tool" id="pen-rect" title="拖出一個框，放開就清掉框裡的畫記">框選清除</button>
   <button type="button" id="pen-clear">清空</button>
   <button type="button" class="off" id="pen-off">收起</button>
 </div>
@@ -643,11 +667,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-10"></script>
-<script src="assets/js/tool.js?v=20260920-10"></script>
-<script src="assets/js/events.js?v=20260920-10"></script>
-<script src="assets/js/wall.js?v=20260920-10"></script>
-<script src="assets/js/board.js?v=20260920-10"></script>
+<script src="assets/js/common.js?v=20260920-11"></script>
+<script src="assets/js/tool.js?v=20260920-11"></script>
+<script src="assets/js/events.js?v=20260920-11"></script>
+<script src="assets/js/wall.js?v=20260920-11"></script>
+<script src="assets/js/board.js?v=20260920-11"></script>
 <script>
 (function () {
   'use strict';
@@ -760,11 +784,17 @@ body.wall .dyn{overflow:hidden}
     paintNotesLayoutBtn();
     box.style.removeProperty('--note-fs');
     if (!box.querySelector('.note')) { tip.hidden = true; return; }
-    /* 直式量寬、橫式量高——量錯軸就會永遠判成沒溢出，字級也不會縮。 */
-    function over() { return horiz ? (box.scrollHeight > box.clientHeight + 1) : (box.scrollWidth > box.clientWidth + 1); }
+    /* 橫式量高；直式**兩軸都要量**——欄數太多會橫向溢出，而一項太長（nowrap 後不折行）
+       會縱向溢出，只量寬就會留下半截看不到的項目（2026-09-20）。 */
+    function over() {
+      return horiz ? (box.scrollHeight > box.clientHeight + 1)
+                   : (box.scrollWidth > box.clientWidth + 1 || box.scrollHeight > box.clientHeight + 1);
+    }
     var maxFs = inAside ? Math.max(22, Math.min(40, window.innerHeight * 0.040))
                         : Math.max(40, Math.min(84, window.innerHeight * 0.062));
-    var minFs = inAside ? 12 : 40, step = inAside ? 1 : 2;
+    /* 直式一行一項後，長句（20 字以上）在 900 高的畫面要縮到 30px 才裝得下一欄，
+       所以主畫面直式的下限放到 28px；橫式維持 40px。 */
+    var minFs = inAside ? 12 : (horiz ? 40 : 28), step = inAside ? 1 : 2;
     var fs = maxFs, guard = 0;
     box.style.setProperty('--note-fs', fs + 'px');   /* 先套上限，才量得到真正的溢出 */
     while (over() && fs > minFs && guard++ < 60) { fs = Math.max(minFs, fs - step); box.style.setProperty('--note-fs', fs + 'px'); }
@@ -1229,14 +1259,20 @@ body.wall .dyn{overflow:hidden}
   $('say-off').addEventListener('click', function () { toggleBar('saybar', false); });
   $('pen-off').addEventListener('click', function () { Board.setDraw(false); });
   $('pen-clear').addEventListener('click', Board.clearDraw);
-  $('pen-erase').addEventListener('click', function () { Board.setPen(null, null, true); });
-  [['pen-w', '#f4f6fb'], ['pen-y', '#f0c85a'], ['pen-p', '#f2789b']].forEach(function (it) {
-    $(it[0]).addEventListener('click', function () {
-      Board.setPen(it[1], null, false);
-      Array.prototype.forEach.call(document.querySelectorAll('.drawbar .pen'), function (b) { b.classList.remove('on'); });
-      $(it[0]).classList.add('on');
-    });
+  /* 畫記工具列：畫筆四色／螢光筆三色／橡皮擦／框選清除——同一時間只有一個工具亮著。 */
+  function pickTool(btn, tool, color) {
+    Board.setTool(tool, color || null);
+    Array.prototype.forEach.call(document.querySelectorAll('#drawbar .tool'), function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#drawbar .pen[data-pen]'), function (b) {
+    b.addEventListener('click', function () { pickTool(b, 'pen', b.getAttribute('data-pen')); });
   });
+  Array.prototype.forEach.call(document.querySelectorAll('#drawbar .pen[data-hl]'), function (b) {
+    b.addEventListener('click', function () { pickTool(b, 'hl', b.getAttribute('data-hl')); });
+  });
+  $('pen-erase').addEventListener('click', function () { pickTool($('pen-erase'), 'erase'); });
+  $('pen-rect').addEventListener('click', function () { pickTool($('pen-rect'), 'rect'); });
   $('btn-focus').addEventListener('click', function () { openPanel(true); setTimeout(function () { $('focus-ta').focus(); }, 80); });
 
   function syncFocus() {

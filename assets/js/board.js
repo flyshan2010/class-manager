@@ -858,8 +858,11 @@
   function setViewFlag(k, on) { view[k] = on ? 1 : 0; saveView(); applyView(); render(); hooks.onResize && hooks.onResize(); }
 
   /* ── 白板畫記（覆蓋在主區上的一層 canvas）───────────────────── */
-  var dr = { on: false, drawing: false, color: '#f4f6fb', size: 6, erase: false };
+  /* tool：pen（畫筆）／hl（螢光筆）／erase（塗擦）／rect（框選清除）。
+     erase 仍保留在 dr.erase，舊的 setPen(…, true) 呼叫法不變。 */
+  var dr = { on: false, drawing: false, color: '#f4f6fb', hl: '#ffd84d', size: 6, erase: false, tool: 'pen', x0: 0, y0: 0 };
   function canvasEl() { return $('doodle'); }
+  function tmpEl() { return $('doodle-tmp'); }
   function fitCanvas() {
     var c = canvasEl(); if (!c) return;
     var box = $('board-main'); if (!box) return;
@@ -868,23 +871,74 @@
     var img = null;
     try { if (c.width && c.height) img = c.toDataURL(); } catch (e) {}
     c.width = w; c.height = h;
+    var t = tmpEl(); if (t) { t.width = w; t.height = h; }
     if (img) { var im = new Image(); im.onload = function () { c.getContext('2d').drawImage(im, 0, 0); }; im.src = img; }
   }
+  function clearTmp() { var t = tmpEl(); if (t) t.getContext('2d').clearRect(0, 0, t.width, t.height); }
+  function at(e, c) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
   function drawStart(e) {
     if (!dr.on) return;
-    dr.drawing = true; var c = canvasEl(), r = c.getBoundingClientRect(), ctx = c.getContext('2d');
-    ctx.beginPath(); ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
+    dr.drawing = true;
+    var c = canvasEl(), p = at(e, c);
+    dr.x0 = p.x; dr.y0 = p.y;
+    if (dr.tool === 'hl' || dr.tool === 'rect') {
+      clearTmp();
+      var tc = tmpEl().getContext('2d');
+      tc.beginPath(); tc.moveTo(p.x, p.y);
+    } else {
+      var ctx = c.getContext('2d');
+      ctx.beginPath(); ctx.moveTo(p.x, p.y);
+    }
     c.setPointerCapture && c.setPointerCapture(e.pointerId);
   }
   function drawMove(e) {
     if (!dr.on || !dr.drawing) return;
-    var c = canvasEl(), r = c.getBoundingClientRect(), ctx = c.getContext('2d');
+    var c = canvasEl(), p = at(e, c);
+    if (dr.tool === 'rect') {
+      /* 框選預覽畫在暫存層，放開才真的清——邊拖邊清會把還沒選定的東西也擦掉。 */
+      clearTmp();
+      var rc = tmpEl().getContext('2d');
+      rc.globalCompositeOperation = 'source-over';
+      rc.strokeStyle = '#f4f6fb'; rc.lineWidth = 2; rc.setLineDash([8, 6]);
+      rc.strokeRect(dr.x0, dr.y0, p.x - dr.x0, p.y - dr.y0);
+      rc.setLineDash([]);
+      return;
+    }
+    if (dr.tool === 'hl') {
+      var hc = tmpEl().getContext('2d');
+      hc.lineCap = 'butt'; hc.lineJoin = 'round';
+      hc.globalCompositeOperation = 'source-over';
+      hc.strokeStyle = dr.hl; hc.lineWidth = 26;
+      hc.lineTo(p.x, p.y); hc.stroke();
+      return;
+    }
+    var ctx = c.getContext('2d');
     ctx.lineCap = ctx.lineJoin = 'round';
     ctx.globalCompositeOperation = dr.erase ? 'destination-out' : 'source-over';
     ctx.strokeStyle = dr.color; ctx.lineWidth = dr.erase ? dr.size * 4 : dr.size;
-    ctx.lineTo(e.clientX - r.left, e.clientY - r.top); ctx.stroke();
+    ctx.lineTo(p.x, p.y); ctx.stroke();
   }
-  function drawEnd() { dr.drawing = false; }
+  function drawEnd(e) {
+    if (!dr.drawing) { dr.drawing = false; return; }
+    dr.drawing = false;
+    var c = canvasEl(), ctx = c.getContext('2d'), t = tmpEl();
+    if (dr.tool === 'rect') {
+      var p = e && e.clientX != null ? at(e, c) : { x: dr.x0, y: dr.y0 };
+      var x = Math.min(dr.x0, p.x), y = Math.min(dr.y0, p.y);
+      var w = Math.abs(p.x - dr.x0), h = Math.abs(p.y - dr.y0);
+      if (w > 4 && h > 4) ctx.clearRect(x, y, w, h);
+      clearTmp(); return;
+    }
+    if (dr.tool === 'hl' && t) {
+      /* 整筆一次合進正本、只在這裡套一次半透明：交疊處才不會愈疊愈深。 */
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 0.38;
+      ctx.drawImage(t, 0, 0);
+      ctx.restore();
+      clearTmp();
+    }
+  }
   function setDraw(on) {
     dr.on = on;
     var c = canvasEl(); if (c) c.classList.toggle('on', on);
@@ -894,7 +948,7 @@
     if (on) fitCanvas();
     hooks.onDraw && hooks.onDraw(on);                          /* 進畫記自動收起底部 HUD，畫下緣不會誤按 */
   }
-  function clearDraw() { var c = canvasEl(); if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height); }
+  function clearDraw() { var c = canvasEl(); if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height); clearTmp(); }
 
   /* ── 對外 ─────────────────────────────────────────────── */
   function setMode(m) { mode = (m === 'wall' ? 'wall' : 'auto'); save(); render(); }
@@ -948,7 +1002,12 @@
     },
     drawQuiz: drawQuiz, endPeriod: endPeriod, log: function () { return st.log; },
     setDraw: setDraw, isDraw: function () { return dr.on; }, clearDraw: clearDraw,
-    setPen: function (color, size, erase) { dr.color = color || dr.color; dr.size = size || dr.size; dr.erase = !!erase; },
+    setPen: function (color, size, erase) { dr.color = color || dr.color; dr.size = size || dr.size; dr.erase = !!erase; dr.tool = erase ? 'erase' : 'pen'; },
+    setTool: function (tool, color) {
+      dr.tool = tool; dr.erase = (tool === 'erase');
+      if (tool === 'pen' && color) dr.color = color;
+      if (tool === 'hl' && color) dr.hl = color;
+    },
     toggleQuiet: toggleQuiet, setViewFlag: setViewFlag, view: view,
     groupsConfig: function (cfg) {
       if (cfg) { gst = gst || { config: {}, groups: null }; gst.config = cfg; ensureGroups(true, true); render(); }
