@@ -168,10 +168,11 @@
 
     /* 主畫面：永遠是「電子白板」該時段的內容，**不會被功能鈕換掉**（2026-09-20 老師）。
        聯絡簿是個獨立元素：當它是主畫面內容時留在左邊，被當成功能打開時搬進右側欄。 */
-    /* 右側欄收起時（✕／R），被借去當功能的聯絡簿要**回到主畫面**——
-       原本它還留在收起來的欄位裡，等於整份聯絡簿憑空消失（2026-09-20 老師回報）。 */
+    /* 藏工具箱時**主畫面不能跟著變**（2026-09-20 老師）：被借去當功能的聯絡簿要跟著一起藏，
+       **只有「這個時段的主畫面本來就該是聯絡簿」（m==='notes'）才讓它回主畫面**——
+       那不是改變主畫面，那本來就是它該有的內容。 */
     var notesInAside = (fn === 'notes') && !!view.rules;
-    var mainNotes = !notesInAside && (m === 'notes' || fn === 'notes');
+    var mainNotes = !notesInAside && (m === 'notes');
     notes.hidden = !(mainNotes || notesInAside);
     dyn.hidden = mainNotes;
     if (!mainNotes) {
@@ -296,18 +297,22 @@
   function paintFnChips() {
     var box = $('fn-bar'); if (!box) return;
     box.innerHTML = '';
+    /* 這一欄叫「工具箱」（2026-09-20 老師命名）：標題常駐，投影時看得出這一欄是什麼。 */
+    var cap = document.createElement('span');
+    cap.className = 'fncap'; cap.textContent = '🧰 工具箱';
+    box.appendChild(cap);
     FN_LIST.forEach(function (it) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'mchip' + (fn === it[0] ? ' on' : '');
       b.textContent = it[1];
-      b.title = fn === it[0] ? '再按一次回到本時段常規' : ('在右側欄開啟' + it[1]);
+      b.title = fn === it[0] ? '再按一次回到本時段常規' : ('在工具箱開啟' + it[1]);
       b.addEventListener('click', function () { setFn(fn === it[0] ? '' : it[0]); });
       box.appendChild(b);
     });
     var hide = document.createElement('button');
     hide.type = 'button'; hide.className = 'mchip fn-hide';
-    hide.textContent = '✕'; hide.title = '收起整個右側欄（下方「▤ 右欄」或鍵盤 R 叫回來）';
+    hide.textContent = '✕'; hide.title = '隱藏工具箱（藏到右側，主畫面不變；右緣標籤、設定面板的「🧰 工具箱」或鍵盤 R 叫回來）';
     hide.addEventListener('click', function () { setViewFlag('rules', false); });
     box.appendChild(hide);
   }

@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-14" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-15" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -231,6 +231,7 @@ body.notes-aside #aside-body .notes{flex:1 1 auto;min-height:0;gap:.4vh;padding-
 .fnbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1vh;align-items:center}
 .fnbar .mchip{font-size:clamp(12px,1.5vh,16px);padding:.4vh .7vw}
 .fnbar .fn-hide{margin-left:auto;color:var(--chalk-3)}
+.fnbar .fncap{font-size:clamp(12px,1.5vh,15px);color:var(--chalk-3);letter-spacing:.1em;margin-right:.3vw}
 #slot-rules h2{margin:0 0 1vh;font-size:clamp(19px,2.6vh,30px);font-weight:800;color:var(--duty)}
 #slot-rules .rlabel{font-size:.62em;color:var(--chalk-3);font-weight:500;letter-spacing:.04em}
 .rsop{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:.5vh}
@@ -558,7 +559,7 @@ body.wall .dyn{overflow:hidden}
   <button type="button" id="btn-panel">設定</button>
 </div>
 
-<button type="button" class="aside-open" id="aside-open" title="展開右側功能欄（R）">‹ 右欄</button>
+<button type="button" class="aside-open" id="aside-open" title="叫回工具箱（R）">‹ 工具箱</button>
 <div class="scrim" id="scrim"></div>
 <aside class="panel" id="panel2" aria-label="班規紀錄">
   <div id="panel-body"></div>
@@ -570,7 +571,7 @@ body.wall .dyn{overflow:hidden}
   <div class="row quickrow">
     <button type="button" class="ghost" id="btn-quiet" title="一鍵關掉月相／節慶／午餐／值日生／課表（H）">精簡</button>
     <button type="button" class="ghost" id="btn-full" title="全螢幕（F）">全螢幕</button>
-    <button type="button" class="ghost" id="btn-aside" title="顯示／收起右側功能欄（R）">▤ 右欄</button>
+    <button type="button" class="ghost" id="btn-aside" title="顯示／隱藏右側工具箱（R）">🧰 工具箱</button>
     <a class="tip" href="index.html">← 工作台</a>
   </div>
   <h3>聯絡簿</h3>
@@ -686,11 +687,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-14"></script>
-<script src="assets/js/tool.js?v=20260920-14"></script>
-<script src="assets/js/events.js?v=20260920-14"></script>
-<script src="assets/js/wall.js?v=20260920-14"></script>
-<script src="assets/js/board.js?v=20260920-14"></script>
+<script src="assets/js/common.js?v=20260920-15"></script>
+<script src="assets/js/tool.js?v=20260920-15"></script>
+<script src="assets/js/events.js?v=20260920-15"></script>
+<script src="assets/js/wall.js?v=20260920-15"></script>
+<script src="assets/js/board.js?v=20260920-15"></script>
 <script>
 (function () {
   'use strict';
