@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-12" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-13" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -513,8 +513,7 @@ body.wall .dyn{overflow:hidden}
     <button type="button" class="pen hl tool" data-hl="#4da3ff" style="background:#4da3ff" title="藍螢光筆"></button>
     <button type="button" class="pen hl tool" data-hl="#ffd84d" style="background:#ffd84d" title="黃螢光筆"></button>
   </div>
-  <button type="button" class="tool" id="pen-erase">橡皮擦</button>
-  <button type="button" class="tool" id="pen-rect" title="拖出一個框，放開就清掉框裡的畫記">框選清除</button>
+  <button type="button" class="tool" id="pen-erase" title="框出一塊，放開就清掉框裡的畫記">橡皮擦</button>
   <button type="button" id="pen-clear">清空</button>
   <button type="button" class="off" id="pen-off">收起</button>
 </div>
@@ -682,11 +681,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-12"></script>
-<script src="assets/js/tool.js?v=20260920-12"></script>
-<script src="assets/js/events.js?v=20260920-12"></script>
-<script src="assets/js/wall.js?v=20260920-12"></script>
-<script src="assets/js/board.js?v=20260920-12"></script>
+<script src="assets/js/common.js?v=20260920-13"></script>
+<script src="assets/js/tool.js?v=20260920-13"></script>
+<script src="assets/js/events.js?v=20260920-13"></script>
+<script src="assets/js/wall.js?v=20260920-13"></script>
+<script src="assets/js/board.js?v=20260920-13"></script>
 <script>
 (function () {
   'use strict';
@@ -1293,8 +1292,9 @@ body.wall .dyn{overflow:hidden}
   Array.prototype.forEach.call(document.querySelectorAll('#drawbar .pen[data-hl]'), function (b) {
     b.addEventListener('click', function () { pickTool(b, 'hl', b.getAttribute('data-hl')); });
   });
-  $('pen-erase').addEventListener('click', function () { pickTool($('pen-erase'), 'erase'); });
-  $('pen-rect').addEventListener('click', function () { pickTool($('pen-rect'), 'rect'); });
+  /* 橡皮擦＝框選清除（2026-09-20 老師：塗擦與框選是同一種效果，不要兩顆鈕）。
+     塗擦模式（`erase`）的程式留著給 setPen(…, true) 的舊呼叫法，UI 不再提供入口。 */
+  $('pen-erase').addEventListener('click', function () { pickTool($('pen-erase'), 'rect'); });
   $('btn-focus').addEventListener('click', function () { openPanel(true); setTimeout(function () { $('focus-ta').focus(); }, 80); });
 
   function syncFocus() {
