@@ -37,21 +37,28 @@
   }
   /* 一次性遷移：舊資料的今天那筆 mode 還是 auto，補推到 wall（只做一次，之後尊重老師當天的選擇）。 */
   if (!st.wallDefault) { st.wallDefault = 1; st.mode = 'wall'; }
+  /* 2026-09-20 改版（老師：按功能鈕不該把整個白板換掉）——
+     **模式只剩兩個**：📢 電子公布欄／🖥️ 電子白板（跟著課表）。
+     原本那五個（聯絡簿／重點板／座位加分／小組計分／抽籤問答）降為**功能**，
+     只換右側欄的內容，主畫面（白板）不動。舊資料的 mode 若是那五個之一，遷移成 fn。 */
+  var FNS = ['notes', 'focus', 'seat', 'group', 'quiz'];
+  if (FNS.indexOf(st.mode) >= 0) { st.fn = st.mode; st.mode = 'auto'; }
   if (!st.seat) st.seat = {}; if (!st.quiz) st.quiz = {}; if (!st.focus) st.focus = {}; if (!st.log) st.log = [];
 
   /* 顯示開關（哪些資訊要出現在投影上）——分心來源可以一鍵關掉。 */
   var vdb = Tool.store('classManager.board.view.v1');
-  var view = vdb.get(null) || { moon: 1, fest: 1, lunch: 1, duty: 1, sched: 1, clock: 1, rules: 1, modebar: 1 };
-  /* modebar＝白板上那一列「模式切換」要不要顯示（2026-09-20 老師：投影時它占掉版面，
-     而學生要看的是白板內容）。舊資料沒有這個鍵，預設顯示。收起後整列不占高度，
-     白板內容改為垂直置中（body.barless），要叫回來按 HUD 的「☰ 模式」或鍵盤 M。 */
-  if (view.modebar == null) view.modebar = 1;
+  var view = vdb.get(null) || { moon: 1, fest: 1, lunch: 1, duty: 1, sched: 1, clock: 1, rules: 1 };
+  /* view.rules＝右側功能欄要不要顯示（2026-09-20 起沿用這個舊鍵，語意從「常規側欄」
+     擴大為「右側欄」）。收起後主畫面佔滿整個白板。 */
+  if (view.rules == null) view.rules = 1;
+  delete view.modebar;
 
   var seats = [], sched = null, hooks = {};
-  var mode = st.mode || 'wall';
+  var mode = (st.mode === 'wall' || st.mode === 'auto') ? st.mode : 'wall';
+  var fn = FNS.indexOf(st.fn) >= 0 ? st.fn : '';   /* ''＝右側欄顯示本時段常規 */
   var pressTimer = null, pressed = false;
 
-  function save() { st.mode = mode; sdb.set(st); }
+  function save() { st.mode = mode; st.fn = fn; sdb.set(st); }
   function saveView() { vdb.set(view); }
   function esc(s) { return String(s == null ? '' : s).replace(/[<>&]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; }); }
   function nowMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
@@ -145,42 +152,83 @@
   /* ── 主區描繪 ───────────────────────────────────────────── */
   function render() {
     var m = mode === 'auto' ? autoModule() : mode;
-    var dyn = $('slot-dyn'), notes = $('notes'), aside = $('slot-rules');
+    var dyn = $('slot-dyn'), notes = $('notes'), aside = $('slot-rules'), abody = $('aside-body');
     if (!dyn) return;
-    /* 公布欄模式：整頁只留一件事，其餘（課表 chips、模式列、常規側欄）都收起來。 */
+    /* 公布欄模式：整頁只留一件事，其餘（課表 chips、右側欄）都收起來。 */
     document.body.classList.toggle('wall', mode === 'wall');
+    if (hooks.onMode) hooks.onMode(mode);   /* HUD 那顆切換鈕的字要跟著換 */
     if (mode === 'wall') {
-      notes.hidden = true; aside.hidden = true; dyn.hidden = false;
+      mountNotes(false); notes.hidden = true; aside.hidden = true; dyn.hidden = false;
       dyn.className = 'dyn dyn-wall';
-      paintWall(dyn); paintModeChips('wall'); paintCaption();
+      paintWall(dyn); paintCaption();
       return;
     }
-    var showNotes = (m === 'notes');
-    notes.hidden = !showNotes;
-    dyn.hidden = showNotes;
-    if (showNotes && hooks.onNotes) hooks.onNotes();
-    aside.hidden = !(mode === 'auto' && view.rules);
-    if (!aside.hidden) paintRules();
 
-    paintModeChips(m);
-    if (showNotes) { paintCaption(); return; }
-    dyn.className = 'dyn dyn-' + m;
-    // 座位／小組／抽問都要座號才成立；沒設定就說清楚，不要自己假設人數（硬規則 2）。
-    if (!seats.length && (m === 'seat' || m === 'group' || m === 'quiz')) {
-      dyn.innerHTML = '<div class="lesson"><h2>還沒設定班級座號</h2>' +
-        '<p class="rnone">這三個功能要用座號指認學生。請先回 <a href="index.html">教師工作台</a> 設定人數，再回來。</p></div>';
-      paintCaption(); return;
+    /* 主畫面：永遠是「電子白板」該時段的內容，**不會被功能鈕換掉**（2026-09-20 老師）。
+       聯絡簿是個獨立元素：當它是主畫面內容時留在左邊，被當成功能打開時搬進右側欄。 */
+    var mainNotes = (m === 'notes') && fn !== 'notes';
+    notes.hidden = !(mainNotes || fn === 'notes');
+    dyn.hidden = mainNotes;
+    if (!mainNotes) {
+      dyn.className = 'dyn dyn-' + m;
+      if (m === 'lesson') paintLesson(dyn);
+      else if (m === 'ml') paintML(dyn);
+      else if (m === 'sop') paintSop(dyn);
+      else if (m === 'break') paintBreak(dyn);
+      else if (m === 'notes') paintSop(dyn);      /* 聯絡簿被借去右欄時，主畫面退回本時段常規 */
+      else dyn.innerHTML = '';
     }
-    if (m === 'lesson') paintLesson(dyn);
-    else if (m === 'ml') paintML(dyn);
-    else if (m === 'sop') paintSop(dyn);
-    else if (m === 'break') paintBreak(dyn);
-    else if (m === 'focus') paintFocus(dyn);
-    else if (m === 'seat') paintSeat(dyn);
-    else if (m === 'group') paintGroup(dyn);
-    else if (m === 'quiz') paintQuiz(dyn);
-    else dyn.innerHTML = '';
+
+    /* 右側欄：功能鈕列 ＋（功能內容｜本時段常規）。
+       **主畫面已經在講常規時（下課／午餐這些時段），右側欄不重複畫一次常規**——
+       同一份 SOP 在一個畫面出現兩次，看起來就只是版面被吃掉（2026-09-20 老師）。 */
+    /* 主畫面已經在講常規時（下課／午餐這些時段），右側欄**不再重複畫一次常規**，
+       只留功能鈕並縮到最窄——同一份 SOP 在一個畫面出現兩次只是把版面吃掉（2026-09-20 老師）。
+       ⚠️ 不可以因為重複就整欄藏起來：功能鈕在這一欄裡，藏了就沒有入口。 */
+    var dupRules = (fn === '' && (m === 'sop' || m === 'break' || m === 'notes'));
+    aside.hidden = !view.rules;
+    aside.classList.toggle('wide', fn === 'seat' || fn === 'group' || fn === 'quiz');
+    aside.classList.toggle('slim', dupRules);
+    /* ⚠️ 聯絡簿是搬進來的真元素，不是複製的 HTML：**動 abody 之前一定要先把它搬走**，
+       否則 `abody.innerHTML = ...` 會把它整個刪掉，而且錯誤只會在下一輪 render 才爆
+       （2026-09-20 實測踩到兩次：#notes 消失、render 在 notes.hidden 丟 null）。 */
+    if (fn !== 'notes') mountNotes(false);
+    if (!aside.hidden) {
+      paintFnChips();
+      if (fn === 'notes') { clearAside(true); mountNotes(true); }
+      else if (!seats.length && (fn === 'seat' || fn === 'group' || fn === 'quiz')) {
+        abody.innerHTML = '<p class="rnone">這個功能要用座號指認學生。<br>請先回 <a href="index.html">教師工作台</a> 設定人數。</p>';
+      }
+      else if (fn === 'focus') paintFocus(abody);
+      else if (fn === 'seat') paintSeat(abody);
+      else if (fn === 'group') paintGroup(abody);
+      else if (fn === 'quiz') paintQuiz(abody);
+      else if (dupRules) abody.innerHTML = '';         /* 主畫面已經是常規，不重複 */
+      else paintRules(abody);
+    }
+    if ((mainNotes || fn === 'notes') && hooks.onNotes) hooks.onNotes();
     paintCaption();
+  }
+
+  /* 清掉右側欄內容，但可以留下搬進來的聯絡簿元素（它是真元素，刪了就沒了）。 */
+  function clearAside(keepNotes) {
+    var abody = $('aside-body'); if (!abody) return;
+    Array.prototype.slice.call(abody.children).forEach(function (c) {
+      if (keepNotes && c.id === 'notes') return;
+      abody.removeChild(c);
+    });
+  }
+
+  /* 聯絡簿元素的搬家：true＝搬進右側欄（當功能用），false＝回主畫面原位。
+     只搬 DOM、不複製內容——複製就是第二份會漂掉的正本。 */
+  function mountNotes(toAside) {
+    var notes = $('notes'), left = $('slot-left'), abody = $('aside-body');
+    if (!notes || !left) return;
+    var target = toAside ? abody : left;
+    if (!target || notes.parentElement === target) return;
+    if (toAside) target.appendChild(notes);
+    else left.insertBefore(notes, left.firstChild);
+    document.body.classList.toggle('notes-aside', !!toAside);
   }
 
   /* ── 公布欄模式：整頁只講一件事（規則正本在 assets/js/wall.js）───────── */
@@ -227,63 +275,36 @@
     el.innerHTML = '<b>' + esc(main) + '</b><span>' + esc(extra) + '</span>';
   }
 
-  /* 模式選項：七顆 chip 一字排開會把版面右上角吃掉大半（2026-09-09 老師回報
-     「右邊的畫面占比過高」），改成一顆「☰ 目前模式」按鈕＋下拉。
-     下拉是絕對定位，展開不會把版面推開；點畫面別處自動收起。 */
-  var modePopOpen = false;
-  function paintModeChips(active) {
-    var box = $('mode-chips'); if (!box) return;
-    /* 名稱＝老師在教室裡會講的那個名字。'auto' 舊標「自動」看不出是什麼模式（2026-09-20 老師回報）。 */
-    var list = [['wall', '📢 電子公布欄'], ['auto', '🖥️ 電子白板（跟著課表）'], ['notes', '📒 聯絡簿'],
-      ['focus', '🎯 本節重點板'], ['seat', '🪑 座位加分板'], ['group', '👥 小組計分'], ['quiz', '🎲 抽籤問答']];
-    /* 按鈕上只放短名（2026-09-20 老師：那一列占畫面太多）；全名留在下拉裡。 */
-    var SHORT = { wall: '公布欄', auto: '電子白板', notes: '聯絡簿', focus: '重點板',
-      seat: '座位加分', group: '小組計分', quiz: '抽籤問答' };
-    var cur = SHORT[mode] || '';
+  /* 功能鈕列（右側欄頂端）。**這五顆是「功能」不是「模式」**——按下去只換右側欄，
+     主畫面的電子白板不動（2026-09-20 老師定調：切換整個畫面的那顆才叫模式鈕，在下方 HUD）。
+     再按同一顆＝關掉、右側欄回到本時段常規。 */
+  var FN_LIST = [['notes', '📒 聯絡簿'], ['focus', '🎯 本節重點板'], ['seat', '🪑 座位加分板'],
+    ['group', '👥 小組計分'], ['quiz', '🎲 抽籤問答']];
+  function paintFnChips() {
+    var box = $('fn-bar'); if (!box) return;
     box.innerHTML = '';
-
-    var tgl = document.createElement('button');
-    tgl.type = 'button'; tgl.className = 'mchip mode-toggle';
-    tgl.textContent = '☰ ' + (cur || '模式');
-    tgl.title = '切換白板模式（現在：' + (cur || '—') + '）';
-
-    var pop = document.createElement('div');
-    pop.className = 'mode-pop'; pop.hidden = !modePopOpen;
-    list.forEach(function (it) {
+    FN_LIST.forEach(function (it) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'mchip' + (mode === it[0] ? ' on' : '');
+      b.className = 'mchip' + (fn === it[0] ? ' on' : '');
       b.textContent = it[1];
-      b.addEventListener('click', function (e) {
-        e.stopPropagation(); modePopOpen = false; setMode(it[0]);
-      });
-      pop.appendChild(b);
+      b.title = fn === it[0] ? '再按一次回到本時段常規' : ('在右側欄開啟' + it[1]);
+      b.addEventListener('click', function () { setFn(fn === it[0] ? '' : it[0]); });
+      box.appendChild(b);
     });
-    tgl.addEventListener('click', function (e) {
-      e.stopPropagation(); modePopOpen = !modePopOpen; pop.hidden = !modePopOpen;
-    });
-    /* 收起整列：投影給學生看的時候，白板上不該有老師才會用的按鈕。 */
     var hide = document.createElement('button');
-    hide.type = 'button'; hide.className = 'mchip mode-hide';
-    hide.textContent = '✕'; hide.title = '收起這一列（要叫回來按下方「☰ 模式」或鍵盤 M）';
-    hide.addEventListener('click', function (e) { e.stopPropagation(); setModeBar(false); });
-
-    box.appendChild(tgl); box.appendChild(pop); box.appendChild(hide);
-
-    /* 聯絡簿的直式／橫式切換鈕只在聯絡簿模式露出（blackboard.html 掛的行為）。 */
-    var nl = $('notes-layout'); if (nl) nl.hidden = (mode !== 'notes');
-    /* HUD 那顆公布欄／白板切換鈕的字要跟著換（2026-09-20 老師：靠顏色分不出現在是哪一邊）。 */
-    if (hooks.onMode) hooks.onMode(mode);
+    hide.type = 'button'; hide.className = 'mchip fn-hide';
+    hide.textContent = '✕'; hide.title = '收起整個右側欄（下方「▤ 右欄」或鍵盤 R 叫回來）';
+    hide.addEventListener('click', function () { setViewFlag('rules', false); });
+    box.appendChild(hide);
+    /* 聯絡簿的直式／橫式鈕只在聯絡簿開著時露出。 */
+    var nl = $('notes-layout'); if (nl) nl.hidden = (fn !== 'notes');
   }
-  document.addEventListener('click', function () {
-    if (!modePopOpen) return;
-    modePopOpen = false;
-    var pop = document.querySelector('.mode-pop'); if (pop) pop.hidden = true;
-  });
 
   /* 常規側欄：文案全部取自 Notion（class-rules.json），不寫死在程式裡。 */
-  function paintRules() {
-    var seg = segNow(), box = $('slot-rules');
+  function paintRules(box) {
+    var seg = segNow();
+    box = box || $('aside-body');
     if (!seg) { box.innerHTML = '<h2>常規</h2><p class="rnone">這個時間沒有對應的常規時段。</p>'; return; }
     var html = '<h2>' + esc(seg.name) + '　<span class="rlabel">' + esc(seg.label) + '</span></h2><ol class="rsop">';
     steps(seg.sop).forEach(function (s) { html += '<li>' + esc(s) + '</li>'; });
@@ -698,7 +719,7 @@
   }
   function drawQuiz() {
     if (rolling || !seats.length) return;
-    if (mode !== 'quiz') setMode('quiz');
+    if (fn !== 'quiz') setFn('quiz');
     var q = quizState();
     rolling = true;
     function stat(n) { return q.stats[n] || (q.stats[n] = { c: 0, w: 0, d: 0 }); }
@@ -803,20 +824,17 @@
       var el = $(map[k]); if (!el) return;
       el.style.display = view[k] ? '' : 'none';
     });
-    var aside = $('slot-rules'); if (aside) aside.hidden = !(mode === 'auto' && view.rules);
-    var bar = document.querySelector('.boardbar');
-    if (bar) bar.hidden = !view.modebar;
-    document.body.classList.toggle('barless', !view.modebar);
-    var mb = $('btn-modebar'); if (mb) mb.classList.toggle('on', !view.modebar);
+
+    var ab = $('btn-aside'); if (ab) ab.classList.toggle('on', !view.rules);
     Object.keys(view).forEach(function (k) {
       var cb = $('vw-' + k); if (cb) cb.checked = !!view[k];
     });
     var b = $('btn-quiet'); if (b) b.classList.toggle('on', isQuiet());
   }
-  function isQuiet() { return !view.moon && !view.fest && !view.lunch && !view.duty && !view.sched && !view.modebar; }
+  function isQuiet() { return !view.moon && !view.fest && !view.lunch && !view.duty && !view.sched && !view.rules; }
   function toggleQuiet() {
     var quiet = isQuiet(), v = quiet ? 1 : 0;
-    view.moon = view.fest = view.lunch = view.duty = view.sched = view.modebar = v;
+    view.moon = view.fest = view.lunch = view.duty = view.sched = view.rules = v;
     saveView(); applyView(); render();
     hooks.onResize && hooks.onResize();
   }
@@ -862,12 +880,15 @@
   function clearDraw() { var c = canvasEl(); if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height); }
 
   /* ── 對外 ─────────────────────────────────────────────── */
-  function setMode(m) { mode = m; save(); render(); }
-  /* 模式列顯示／隱藏（true＝顯示）。收起時白板內容垂直置中，交給 CSS 的 body.barless。 */
-  function setModeBar(on) {
-    view.modebar = on ? 1 : 0; saveView(); applyView(); render();
+  function setMode(m) { mode = (m === 'wall' ? 'wall' : 'auto'); save(); render(); }
+  /* 功能：只換右側欄的內容。''＝回到本時段常規。 */
+  function setFn(f) {
+    fn = FNS.indexOf(f) >= 0 ? f : '';
+    if (fn && !view.rules) { view.rules = 1; saveView(); }   /* 收著右欄時按功能鈕＝把右欄叫回來 */
+    save(); applyView(); render();
     hooks.onResize && hooks.onResize();
   }
+
 
   function init(opts) {
     seats = opts.seats || [];
@@ -894,7 +915,9 @@
 
   global.Board = {
     init: init, setMode: setMode, mode: function () { return mode; }, render: render,
-    modeBar: function () { return !!view.modebar; }, setModeBar: setModeBar,
+    fn: function () { return fn; }, setFn: setFn,
+    aside: function () { return !!view.rules; },
+    setAside: function (on) { setViewFlag('rules', !!on); },
     setSchedule: function (d) { sched = d; render(); },
     focusText: function (v) {
       var k = periodKey();

@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20260920-4" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20260920-5" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -178,19 +178,26 @@ body.timing .notes{padding-bottom:20vh}
   box-shadow:0 16px 40px rgba(0,0,0,.5)}
 .mode-pop .mchip{text-align:center;white-space:nowrap}
 .mchip.mode-toggle{background:rgba(255,255,255,.10);color:var(--chalk);border-color:var(--line-2)}
-.mchip.mode-hide{padding:.45vh .7vw;color:var(--chalk-3)}
-/* 模式列收起（2026-09-20）：整列不占高度，白板內容改成垂直置中——
-   投影時學生要看的是內容，不是老師的按鈕。`safe center` 是為了內容比容器高時
-   仍從頂端開始（純 center 會把上緣切掉、而且捲不回去）。 */
-body.barless .boardbar{display:none!important}
-body.barless #slot-left .dyn{display:flex;flex-direction:column;justify-content:safe center}
+/* 聯絡簿被當成功能搬進右側欄時，字級上限要放小（主畫面版下限 40px 在窄欄會爆版）。 */
+body.notes-aside #aside-body .notes{--note-fs:clamp(16px,2.2vh,26px)}
+body.notes-aside #aside-body .note{font-size:var(--note-fs)}
 #notes-layout{display:flex;gap:.4vw;align-items:center;margin-right:.6vw}
 
 .main{flex:1 1 auto;display:flex;min-height:0;gap:1.6vw;position:relative}
 #slot-left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;min-height:0}
 .dyn{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
-#slot-rules{flex:0 0 min(28vw,430px);border-left:1px solid var(--line);padding-left:1.4vw;
+/* 右側功能欄（2026-09-20 老師：原本固定吃掉 28vw／430px，白板內容被擠窄）。
+   預設瘦一點；只有座位加分／小組計分／抽籤問答這種要排版的功能才加寬（.wide）。
+   整欄可收起（HUD「▤ 右欄」或鍵盤 R），收起後主畫面佔滿。 */
+#slot-rules{flex:0 0 min(21vw,320px);border-left:1px solid var(--line);padding-left:1.1vw;
   overflow-y:auto;min-height:0}
+#slot-rules.wide{flex-basis:min(33vw,500px)}
+/* 主畫面已經在講常規時，右側欄只剩功能鈕 → 縮到最窄，把寬度還給白板 */
+#slot-rules.slim{flex-basis:min(13vw,190px)}
+#slot-rules.slim .fnbar{flex-direction:column;align-items:stretch}
+.fnbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1vh;align-items:center}
+.fnbar .mchip{font-size:clamp(12px,1.5vh,16px);padding:.4vh .7vw}
+.fnbar .fn-hide{margin-left:auto;color:var(--chalk-3)}
 #slot-rules h2{margin:0 0 1vh;font-size:clamp(19px,2.6vh,30px);font-weight:800;color:var(--duty)}
 #slot-rules .rlabel{font-size:.62em;color:var(--chalk-3);font-weight:500;letter-spacing:.04em}
 .rsop{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:.5vh}
@@ -277,7 +284,7 @@ body.barless #slot-left .dyn{display:flex;flex-direction:column;justify-content:
 
 /* ── 公布欄模式：整頁只講一件事（2026-09-07 老師定位「班級電子公布欄」）──
    進這個模式時把課表 chips、模式列、常規側欄全收起來，只留頂一行與中間的大重點。 */
-body.wall .boardbar, body.wall #slot-rules{display:none!important}
+body.wall #slot-rules{display:none!important}
 /* 公布欄保留今日課表，但縮成一條細帶（現在這一節仍高亮）——老師要「一眼看得出今天有什麼課」 */
 body.wall .sched{gap:.45vw;padding-bottom:.5vh;margin-bottom:.8vh;justify-content:center}
 body.wall .chip{min-width:0;padding:.3vh .7vw;border-radius:10px}
@@ -411,21 +418,18 @@ body.wall .dyn{overflow:hidden}
 
   <div class="sched" id="sched"><span class="none">讀取今日課表…</span></div>
 
-  <div class="boardbar">
-    <span class="cap" id="board-cap"></span>
-    <span class="grow"></span>
-    <span id="notes-layout" hidden>
-      <button type="button" class="mchip" id="btn-notes-layout">↕ 直式</button>
-    </span>
-    <span id="mode-chips"></span>
-  </div>
-
   <div class="main" id="board-main">
     <div id="slot-left">
       <div class="notes" id="notes"></div>
       <div class="dyn" id="slot-dyn"></div>
     </div>
-    <aside id="slot-rules" hidden></aside>
+    <aside id="slot-rules" hidden>
+      <div class="fnbar" id="fn-bar"></div>
+      <span id="notes-layout" hidden>
+        <button type="button" class="mchip" id="btn-notes-layout">↕ 直式</button>
+      </span>
+      <div id="aside-body"></div>
+    </aside>
     <canvas id="doodle"></canvas>
   </div>
 </div>
@@ -484,7 +488,7 @@ body.wall .dyn{overflow:hidden}
   <button type="button" id="btn-focus" class="orange">寫重點</button>
   <button type="button" id="btn-say-menu" class="green">廣播</button>
   <span class="sep"></span>
-  <button type="button" id="btn-modebar" title="顯示／收起白板上的模式列（M）">☰ 模式</button>
+  <button type="button" id="btn-aside" title="顯示／收起右側功能欄（R）">▤ 右欄</button>
   <button type="button" id="btn-panel">設定</button>
   <button type="button" id="btn-timer">⏱ 計時</button>
   <button type="button" id="btn-full">全螢幕</button>
@@ -575,7 +579,7 @@ body.wall .dyn{overflow:hidden}
   <label class="toggle"><input type="checkbox" id="vw-duty" /> 值日生</label>
   <label class="toggle"><input type="checkbox" id="vw-sched" /> 今日課表</label>
   <label class="toggle"><input type="checkbox" id="vw-clock" /> 時鐘</label>
-  <label class="toggle"><input type="checkbox" id="vw-modebar" /> 白板上的模式列</label>
+  <label class="toggle"><input type="checkbox" id="vw-rules" /> 右側功能欄</label>
   <label class="toggle"><input type="checkbox" id="vw-rules" /> 自動模式的常規側欄</label>
 
   <h3>小組計分</h3>
@@ -611,11 +615,11 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20260920-4"></script>
-<script src="assets/js/tool.js?v=20260920-4"></script>
-<script src="assets/js/events.js?v=20260920-4"></script>
-<script src="assets/js/wall.js?v=20260920-4"></script>
-<script src="assets/js/board.js?v=20260920-4"></script>
+<script src="assets/js/common.js?v=20260920-5"></script>
+<script src="assets/js/tool.js?v=20260920-5"></script>
+<script src="assets/js/events.js?v=20260920-5"></script>
+<script src="assets/js/wall.js?v=20260920-5"></script>
+<script src="assets/js/board.js?v=20260920-5"></script>
 <script>
 (function () {
   'use strict';
@@ -1099,8 +1103,8 @@ body.wall .dyn{overflow:hidden}
   function applyNotes() { state.text = $('ta').value; state.source = 'local'; state.localEditDate = todayKey(); var ok = save(); var st = $('notes-status'); st.className = ok ? 'status ok' : 'status warn'; st.textContent = ok ? '已寫上看板。' : '瀏覽器不允許儲存（無痕模式？），畫面有，但關掉會不見。'; paintNotes(); }
   function applyDuty() { state.duty.mode = $('duty-mode').value; state.duty.per = Math.max(1, Math.min(10, parseInt($('duty-per').value, 10) || 1)); state.duty.base = $('duty-base').value; state.duty.start = parseInt($('duty-start').value, 10) || 1; state.duty.manual = $('duty-manual').value; save(); paintDuty(); var r = computeDuty(); var st = $('duty-status'); st.className = r.seats.length ? 'status ok' : 'status warn'; st.textContent = r.seats.length ? '今天輪到 ' + r.seats.join('、') + ' 號。' : (r.reason || '沒有算出值日生。'); }
 
-  /* 模式列的顯示開關（老師 2026-09-20：投影時那一列占畫面，收起後內容要置中）。 */
-  $('btn-modebar').addEventListener('click', function () { Board.setModeBar(!Board.modeBar()); });
+  /* 右側功能欄的顯示開關（老師 2026-09-20：它固定吃掉太多寬度，要能收起來）。 */
+  $('btn-aside').addEventListener('click', function () { Board.setAside(!Board.aside()); });
   $('btn-panel').addEventListener('click', function () { openPanel(true); });
   $('btn-close').addEventListener('click', function () { openPanel(false); });
   $('btn-apply').addEventListener('click', applyNotes);
@@ -1217,7 +1221,7 @@ body.wall .dyn{overflow:hidden}
   });
   $('btn-focus-clear').addEventListener('click', function () { $('focus-ta').value = ''; Board.focusText(''); $('focus-status').textContent = '已清空。'; });
 
-  ['moon', 'fest', 'lunch', 'duty', 'sched', 'clock', 'rules', 'modebar'].forEach(function (k) {
+  ['moon', 'fest', 'lunch', 'duty', 'sched', 'clock', 'rules'].forEach(function (k) {
     $('vw-' + k).addEventListener('change', function () { Board.setViewFlag(k, $('vw-' + k).checked); });
   });
 
@@ -1251,7 +1255,7 @@ body.wall .dyn{overflow:hidden}
     else if (k === 'q') { e.preventDefault(); Board.drawQuiz(); }
     else if (k === 'd') Board.setDraw(!Board.isDraw());
     else if (k === 'h') Board.toggleQuiet();
-    else if (k === 'm') Board.setModeBar(!Board.modeBar());
+    else if (k === 'r') Board.setAside(!Board.aside());
     else if (k === '0') stopTimer();
     else if (k === 'escape') openPanel(false);
   });
