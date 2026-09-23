@@ -73,7 +73,26 @@
   function list() { return read().pending; }
   function count() { return read().pending.length; }
 
-  function clearAll() { var db = read(); db.pending = []; return write(db); }
+  function clearAll() { var db = read(); db.pending = []; db.sent = []; return write(db); }
+
+  /* 已送成功的包（2026-09-23 老師回報收件匣同一包出現 3～4 次）：
+     分包逐包送、第 3 包失敗時整批留在本機，老師再按一次送出會把**已成功的**第 1、2 包也重送。
+     排程端雖靠事件 id 去重、沒有重複入帳，但收件匣會長出重複列、排程白跑。
+     所以每包送成功就記下指紋，重送時跳過；markSent（全部成功）時清空。
+     指紋用包的全文：待送內容一改（重新結算、多記一筆），包文就變、會照常重送——那也無妨，id 相同照樣去重。 */
+  function packHash(text) {
+    var h = 5381;
+    for (var i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+    return text.length + ':' + (h >>> 0).toString(36);
+  }
+  function isPackSent(text) { return (read().sent || []).indexOf(packHash(text)) >= 0; }
+  function markPackSent(text) {
+    var db = read();
+    db.sent = db.sent || [];
+    var h = packHash(text);
+    if (db.sent.indexOf(h) < 0) db.sent.push(h);
+    return write(db);
+  }
 
   /* 刪一筆逐筆原始紀錄（工作台面板的「移除」）。index 取自 list() 的順序。 */
   function removeAt(i) {
@@ -275,6 +294,7 @@
     db.pending.forEach(function (ev) { dates[ev.date] = true; });
     Object.keys(dates).forEach(function (d) { db.batch[d] = (db.batch[d] || 0) + 1; });
     db.pending = [];
+    db.sent = [];
     return write(db);
   }
 
@@ -317,7 +337,7 @@
     KEY: KEY, today: today, push: push, list: list, count: count, clearTool: clearTool,
     merged: merged, buildPayloads: buildPayloads,
     describePayloads: describePayloads, rawPayloads: rawPayloads,
-    markSent: markSent,
+    markSent: markSent, isPackSent: isPackSent, markPackSent: markPackSent,
     removeAt: removeAt, clearAll: clearAll
   };
 })(window);

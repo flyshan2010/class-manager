@@ -211,12 +211,15 @@
     $('btn-send').disabled = true;
 
     getProxy().then(function () {
-      // 逐包依序送出；任何一包失敗就整批留在本機（§3.2 失敗即保留）
+      // 逐包依序送出；任何一包失敗就整批留在本機（§3.2 失敗即保留）。
+      // 上次已送成功的包跳過（2026-09-23：重按送出會把成功過的包再送一次，收件匣長出重複列）。
       var done = 0;
       return packs.reduce(function (chain, text) {
         return chain.then(function () {
+          if (CMEvents.isPackSent(text)) { done++; return; }
           return post(text).then(function (res) {
             if (!res || !res.ok) throw new Error(res && res.error ? res.error : '代理回應失敗');
+            CMEvents.markPackSent(text);
             done++;
           });
         });
