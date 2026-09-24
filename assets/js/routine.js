@@ -81,7 +81,8 @@
   if (st && st.sv !== 8) st = null;
   if (!st || st.date !== Tool.todayKey()) {
     st = { date: Tool.todayKey(), sv: 8, arrive: {}, clean: {}, lunch: {}, teeth: {},
-           fluoride: {}, fluorideOn: false, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {} };
+           fluoride: {}, fluorideOn: false, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {},
+           weekArrive: (st && st.weekArrive) || {} };
   }
   /* 今天的浮動支援：{ 組別名: [座號…] }。
      ⚠️ 原本這裡會刪掉打掃狀態 4（sv4 以前的「＋支援」）；sv5 起 4＝🎫 免打掃券，
@@ -91,6 +92,7 @@
   if (!st.weekSup) st.weekSup = {};
   ['arrive', 'clean', 'lunch', 'teeth', 'fluoride'].forEach(function (k) { if (!st[k]) st[k] = {}; });
   if (!st.week) st.week = {};
+  if (!st.weekArrive) st.weekArrive = {};
   // v1 → v2：只搬「今天的打掃狀態」與週總覽，其餘讓它重來（跨版本硬搬容易搬出假資料）
   (function migrate() {
     if (Object.keys(st.clean).length || Object.keys(st.week).length) return;
@@ -128,7 +130,19 @@
      做法是包住 sdb／hdb 的 set，所以**所有**會改狀態的按鈕自動納入，不必逐顆記得加。 */
   var UNDO_MAX = 30, undoStack = [], undoBatch = false;
   var saved = { st: JSON.stringify(st), hw: JSON.stringify(hw) };
-  var rawSet = { st: sdb.set, hw: hdb.set };
+  /* 出缺席趨勢（2026-09-25）：每次存檔順手把今天的簽到快照進 weekArrive，供「本週總覽」的出缺席表。
+     三份日快照（week／weekSup／weekArrive）只留最近 10 天——總覽只看 5 天，留整學期只是讓 localStorage 越長越大。 */
+  var rawSt = sdb.set;
+  function keepDays(o) { Object.keys(o).sort().slice(0, -10).forEach(function (d) { delete o[d]; }); }
+  function snapSet(v) {
+    if (v && v.arrive) {
+      v.weekArrive = v.weekArrive || {};
+      v.weekArrive[v.date] = v.arrive;
+      [v.week, v.weekSup, v.weekArrive].forEach(function (o) { if (o) keepDays(o); });
+    }
+    return rawSt(v);
+  }
+  var rawSet = { st: snapSet, hw: hdb.set };
   function remember(which, v) {
     if (!undoBatch) {
       undoStack.push({ st: saved.st, hw: saved.hw });
@@ -1218,7 +1232,30 @@
   var pnl = Tool.panel($('panel'), $('scrim'));
   function openPanel(html) { $('panel-body').innerHTML = html; pnl.open(); }
 
+  /* 出缺席近 5 個上課日（2026-09-25 老師選定）：只顯示座號、只數次數，不排名（通用鐵則 6）。
+     空白＝那天沒點名（不是出席）；有點過名的日子才算進欄位。 */
+  function arriveOverview() {
+    var wa = Object.assign({}, st.weekArrive); wa[st.date] = st.arrive;   // 今天以現場為準，不等存檔快照
+    var days = Object.keys(wa).filter(function (d) { return Object.keys(wa[d] || {}).length; }).sort().slice(-5);
+    if (!days.length) { openPanel('<h2>本週總覽・出缺席</h2><p class="hint">還沒有任何簽到紀錄。</p>'); return; }
+    var html = '<h2>本週總覽・出缺席</h2><p class="hint">最近 ' + days.length + ' 個有點名的上課日。' +
+      '✓ 出席、⏰ 遲到、✗ 請假；空白＝那天沒點到這位。最後兩欄由系統數次數，只供留意，不排名。</p>' +
+      '<table class="week"><tr><th>座號</th>' +
+      days.map(function (d) { return '<th>' + d.slice(5) + '</th>'; }).join('') + '<th>⏰ 遲到</th><th>✗ 請假</th></tr>';
+    seats.forEach(function (s) {
+      var late = 0, off = 0;
+      var tds = days.map(function (d) {
+        var v = (wa[d] || {})[s] || 0;
+        if (v === 2) late++; else if (v === LEAVE_ARRIVE) off++;
+        return '<td>' + (v && ST.arrive[v] ? ST.arrive[v].m : '') + '</td>';
+      }).join('');
+      html += '<tr><td>' + s + '</td>' + tds + '<td>' + (late || '') + '</td><td>' + (off || '') + '</td></tr>';
+    });
+    openPanel(html + '</table>');
+  }
+
   function weekOverview() {
+    if (tab === 'arrive') { arriveOverview(); return; }
     var days = Object.keys(st.week).sort().slice(-5);
     if (!days.length) { openPanel('<h2>本週總覽</h2><p class="hint">這週還沒有任何打掃紀錄。</p>'); return; }
     /* 「△ 未達標」最後一欄是計數，不是裝飾：週結的規則是**同一週 1～2 次只補做、≥3 次才記班規③ −5**，
@@ -1312,7 +1349,7 @@
       $('view-' + k).hidden = k !== t;
     });
     $('zonetabs').style.display = t === 'clean' ? '' : 'none';
-    $('btn-week').hidden = t !== 'clean';
+    $('btn-week').hidden = t !== 'clean' && t !== 'arrive';
     $('subtitle').textContent = TAB_TITLE[t];
     paint(); paintPend();
   }

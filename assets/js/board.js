@@ -725,6 +725,13 @@
     return (st.quiz[k] = st.quiz[k] || { stats: {}, last: null, current: null });
   }
   var rolling = false;
+  /* 抽籤避開今天請假的人（2026-09-25）：請假名單沿用檢核台簽到的 ✗ 請假（狀態 3，與 3-6 請假連動同一來源），
+     不另開輸入。每次抽都現讀——檢核台可能開在另一個分頁剛點完。日期不是今天就當沒有人請假。 */
+  function leaveToday() {
+    var r = Tool.store('classManager.routine.v2').get(null);
+    if (!r || r.date !== Tool.todayKey() || !r.arrive) return [];
+    return seats.filter(function (n) { return r.arrive[n] === 3; });
+  }
   function paintQuiz(box) {
     var q = quizState();
     var arr = seats.map(function (n) { var s = q.stats[n] || { c: 0, w: 0 }; return { n: n, c: s.c, w: s.w }; })
@@ -735,7 +742,9 @@
       '<button type="button" class="yes" id="q-yes">答對 ✓</button>' +
       '<button type="button" class="no" id="q-no">答錯 ✗</button></div>' +
       /* 抽一位也做在面板裡：功能開在右欄時，HUD 那顆離得遠又會自動收起（2026-09-20 老師）。 */
-      '<button type="button" class="qdraw" id="q-draw">🎲 抽一位</button></div>' +
+      '<button type="button" class="qdraw" id="q-draw">🎲 抽一位</button>' +
+      (function () { var off = leaveToday(); return off.length ? '<p class="rnone">今天請假，不抽：' + off.join('、') + ' 號</p>' : ''; })() +
+      '</div>' +
       '<div class="qboard"><h3>本節記分（答對次數）</h3><div class="qrows">';
     if (!arr.length) html += '<p class="rnone">還沒有紀錄。抽一位、答對或答錯就會累積。<br>下課按「結束課程」才送進待送。</p>';
     else arr.forEach(function (x) {
@@ -752,17 +761,20 @@
     if (rolling || !seats.length) return;
     if (fn !== 'quiz') setFn('quiz');
     var q = quizState();
+    var off = leaveToday();
+    var avail = seats.filter(function (n) { return off.indexOf(n) < 0; });
+    if (!avail.length) { var e0 = $('qnum'); if (e0) { e0.textContent = '全班都請假？'; e0.className = 'qnum idle'; } return; }
     rolling = true;
     function stat(n) { return q.stats[n] || (q.stats[n] = { c: 0, w: 0, d: 0 }); }
-    var minD = Math.min.apply(null, seats.map(function (n) { return stat(n).d; }));
-    var pool = seats.filter(function (n) { return stat(n).d === minD; });
-    if (pool.length === 1 && seats.length > 1 && pool[0] === q.last) {
-      pool = seats.filter(function (n) { return stat(n).d <= minD + 1; });
+    var minD = Math.min.apply(null, avail.map(function (n) { return stat(n).d; }));
+    var pool = avail.filter(function (n) { return stat(n).d === minD; });
+    if (pool.length === 1 && avail.length > 1 && pool[0] === q.last) {
+      pool = avail.filter(function (n) { return stat(n).d <= minD + 1; });
     }
     var ticks = 0, max = 12 + Math.floor(Math.random() * 5);
     var el = $('qnum');
     var iv = setInterval(function () {
-      if (el) { el.textContent = seats[Math.floor(Math.random() * seats.length)]; el.className = 'qnum rolling'; }
+      if (el) { el.textContent = avail[Math.floor(Math.random() * avail.length)]; el.className = 'qnum rolling'; }
       Tool.beep(1, 900);
       if (++ticks >= max) {
         clearInterval(iv);
