@@ -28,14 +28,17 @@
       });
   }
 
-  function callProxy(action, params) {
+  function callProxy(action, params, signal) {
     return getProxy().then(function (url) {
       var body = { action: action, pw: pw() };
       Object.keys(params || {}).forEach(function (k) { body[k] = params[k]; });
       return fetch(url, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(body)
-      }).then(function (r) { return r.json(); });
+        body: JSON.stringify(body), signal: signal
+      }).then(function (r) {
+        if (!r.ok) throw new Error('代理回應 HTTP ' + r.status);
+        return r.json();
+      });
     });
   }
 
@@ -174,7 +177,7 @@
     refreshRemind();
   }
 
-  function post(text) { return callProxy('submit_task', { text: text }); }
+  function post(text, signal) { return callProxy('submit_task', { text: text }, signal); }
 
   /* 預覽＝老師看得懂的任務說明（2026-09-06 改；原本直接倒 #CM-EVENTS JSON，老師反映看不懂）。 */
   var rawOn = false;
@@ -202,39 +205,50 @@
     $('send-status').textContent = '待送事件已全部丟棄。';
   });
 
-  $('btn-send').addEventListener('click', function () {
+  /* 收班送出（2026-09-24 送出韌性 階段 1＋2）：重試／逾時／失敗紀錄在 sender.js。
+     auto＝網路恢復時自動補送：只在「老師按過送出、而且失敗」之後才會發生，
+     口令仍是 sessionStorage 那份（§3.4 不落地），不會替老師做第一次送出。 */
+  var sending = false, failedOnce = false;
+  var sender = CMSender.create({
+    post: post, store: CMEvents,
+    onProgress: function (x) {
+      var st = $('send-status');
+      st.className = 'status';
+      st.textContent = '送出中…第 ' + x.part + '/' + x.parts + ' 包' +
+        (x.wait ? '・剛才失敗（' + (x.error || '') + '），' + Math.round(x.wait / 1000) + ' 秒後重試第 ' + x.retry + ' 次'
+                : (x.retry ? '・重試第 ' + x.retry + ' 次' : ''));
+    }
+  });
+
+  function doSend(auto) {
     var st = $('send-status');
+    if (sending) return;
     var packs = CMEvents.buildPayloads();
-    if (!packs.length) { st.className = 'status'; st.textContent = '沒有待送事件。'; return; }
+    if (!packs.length) { if (!auto) { st.className = 'status'; st.textContent = '沒有待送事件。'; } return; }
     if (!pw()) { st.className = 'status warn'; st.textContent = '口令不見了（分頁被關過？）請重整本頁重新登入。'; return; }
-    st.className = 'status'; st.textContent = '送出中…';
+    sending = true;
+    st.className = 'status'; st.textContent = auto ? '網路恢復了，自動補送中…' : '送出中…';
     $('btn-send').disabled = true;
 
-    getProxy().then(function () {
-      // 逐包依序送出；任何一包失敗就整批留在本機（§3.2 失敗即保留）。
-      // 上次已送成功的包跳過（2026-09-23：重按送出會把成功過的包再送一次，收件匣長出重複列）。
-      var done = 0;
-      return packs.reduce(function (chain, text) {
-        return chain.then(function () {
-          if (CMEvents.isPackSent(text)) { done++; return; }
-          return post(text).then(function (res) {
-            if (!res || !res.ok) throw new Error(res && res.error ? res.error : '代理回應失敗');
-            CMEvents.markPackSent(text);
-            done++;
-          });
-        });
-      }, Promise.resolve()).then(function () { return done; });
-    }).then(function (done) {
+    // 逐包依序送出；單包失敗先自動重試 3 次，仍失敗才整批留在本機（§3.2 失敗即保留）。
+    // 上次已送成功的包跳過（2026-09-23：重按送出會把成功過的包再送一次，收件匣長出重複列）。
+    getProxy().then(function () { return sender.send(packs); }).then(function (done) {
       CMEvents.markSent();       // 成功才清、批次號才往前推
+      failedOnce = false;
       refreshSend();
       st.className = 'status ok';
-      st.textContent = '已送出 ' + done + ' 包，進了收件匣，排程 Agent 會入帳。';
+      st.textContent = (auto ? '網路恢復後已自動補送 ' : '已送出 ') + done + ' 包，進了收件匣，排程 Agent 會入帳。';
     }).catch(function (err) {
+      failedOnce = true;
       st.className = 'status warn';
       st.textContent = '沒送出去（' + (err && err.message ? err.message : '網路或口令有問題') +
-                       '）。待送 ' + CMEvents.merged().length + ' 筆仍留在這台電腦，稍後再按一次即可。';
-    }).then(function () { $('btn-send').disabled = false; });
-  });
+                       '，已自動重試 3 次）。待送 ' + CMEvents.merged().length + ' 筆仍留在這台電腦；' +
+                       '網路恢復時會自動補送，也可以稍後再按一次。';
+    }).then(function () { sending = false; $('btn-send').disabled = false; });
+  }
+
+  $('btn-send').addEventListener('click', function () { doSend(false); });
+  window.addEventListener('online', function () { if (failedOnce && CMEvents.count()) doSend(true); });
 
   /* 放學提醒：只提醒不代送——口令依 §3.4 永不落地，送出仍是老師按的那一下。 */
   function refreshRemind() {

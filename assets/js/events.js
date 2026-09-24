@@ -94,6 +94,41 @@
     return write(db);
   }
 
+  /* 送出失敗紀錄（送出韌性 階段 2，2026-09-24）：
+     9/23 失敗真因無法取證——錯誤只顯示在那台電腦畫面、沒留紀錄。
+     每次失敗記一筆 {t 時間, p 第幾包, e 錯誤}，最多留 6 筆；下一次有包送成功時由 CMSender
+     附在那包首行摘要尾端上雲，送成功才清。markSent／clearAll 都不清它（診斷用，與待送事件無關）。 */
+  var FAIL_MAX = 6;
+  function logFail(x) {
+    var db = read();
+    db.faillog = (db.faillog || []).concat([x]).slice(-FAIL_MAX);
+    return write(db);
+  }
+  function failLog() { return read().faillog || []; }
+  function clearFailLog(n) {            // 只清「已附上雲」的前 n 筆，之後新記的留著
+    var db = read();
+    db.faillog = (db.faillog || []).slice(n);
+    return write(db);
+  }
+
+  /* 把失敗紀錄併進包的**首行摘要尾端**：「⚠ 前次送出失敗 2 次：09/24 12:55:03 第2/3包 連線逾時…；…」。
+     JSON 一個字都不動——R18 取第一個 { 之後全部解析，首行只是給老師看的摘要（2026-09-07b 起就這樣用，排程照常命中）；
+     放末行會讓 JSON 解析失敗（E06），放進 JSON 當新欄位則可能被排程當成「手冊沒寫的情況」標失敗。
+     首行不得出現 {（錯誤訊息已在 CMSender 去掉大括號）；紀錄段最多 300 字、整包不超過代理 2000 字上限，
+     超過就從最舊的紀錄丟起，丟光就原包照送。 */
+  function withSendLog(text, log) {
+    var i = text.indexOf('\n');
+    if (i < 0) return text;
+    var lines = log.map(function (x) { return x.t + ' 第' + x.p + '包 ' + x.e; });
+    while (lines.length) {
+      var tail = ' · ⚠ 前次送出失敗 ' + lines.length + ' 次：' + lines.join('；');
+      var out = text.slice(0, i) + tail + text.slice(i);
+      if (tail.length <= 300 && out.length <= 1990) return out;
+      lines = lines.slice(1);
+    }
+    return text;
+  }
+
   /* 刪一筆逐筆原始紀錄（工作台面板的「移除」）。index 取自 list() 的順序。 */
   function removeAt(i) {
     var db = read();
@@ -338,6 +373,7 @@
     merged: merged, buildPayloads: buildPayloads,
     describePayloads: describePayloads, rawPayloads: rawPayloads,
     markSent: markSent, isPackSent: isPackSent, markPackSent: markPackSent,
+    logFail: logFail, failLog: failLog, clearFailLog: clearFailLog, withSendLog: withSendLog,
     removeAt: removeAt, clearAll: clearAll
   };
 })(window);
