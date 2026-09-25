@@ -89,6 +89,7 @@
 ```
 
 - **新增路由 R18「批次事件包」**：命中條件＝任務原文以 `#CM-EVENTS` 開頭。
+  > **2026-09-25 更新：入庫端已改為程式 f35**（class-website `scripts/classos/f35-cm-events.mjs`，GitHub Actions 每小時），雲端 routine 不再處理 R18；以下「排程 Agent／Sonnet」的敘述為當時設計，規則正本見 `ClassOS_v3.5_藍圖/SPEC_R18事件包入庫腳本.md` §3。
   執行層級 Sonnet、把關「直接完成（入庫）」——與 R01 同級，因為欄位已結構化、
   沒有語意判斷空間（模型無關性）。
 - **座號→名冊 relation** 由排程 Agent 查 Notion 解析；**payload 只帶座號**（硬規則 2）。
