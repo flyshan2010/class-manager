@@ -263,6 +263,7 @@
     var was = st[kind][seat] || 0;
     if (v === 0) delete st[kind][seat]; else st[kind][seat] = v;
     if (kind === 'arrive' && (was === LEAVE_ARRIVE) !== (v === LEAVE_ARRIVE)) syncLeave(seat, v === LEAVE_ARRIVE);
+    if (kind === 'lunch' && (was === LEAVE_OF.lunch) !== (v === LEAVE_OF.lunch)) syncLunchLeave(seat, v === LEAVE_OF.lunch);
     if (kind === 'clean') st.week[st.date] = st.clean;
     sdb.set(st);
   }
@@ -279,6 +280,23 @@
       else if (!on && cur === LEAVE_OF[k]) delete st[k][seat];
     });
     if (st.clean) st.week[st.date] = st.clean;
+  }
+  /* 午餐點請假 → 當天潔牙／含氟跟著請假（2026-09-27）：9/17 公假外出只在午餐／打掃點了請假、
+     簽到沒點，潔牙留在「沒做」→ 結算誤送常規未達成＋班規⑦ −5。午餐不在＝午餐後潔牙也不在。
+     只帶入還是 0（沒做）的格子；取消只收回仍是請假態的格子，且到校還是請假就不收（那份請假歸 syncLeave 管）。
+     打掃是晨掃，不跟午餐連動。 */
+  var LUNCH_LINKED = ['teeth', 'fluoride'];
+  function syncLunchLeave(seat, on) {
+    LUNCH_LINKED.forEach(function (k) {
+      if (k === 'fluoride' && !st.fluorideOn) return;
+      var cur = st[k][seat] || 0;
+      if (on && cur === 0) st[k][seat] = LEAVE_OF[k];
+      else if (!on && cur === LEAVE_OF[k] && !onLeave(seat)) delete st[k][seat];
+    });
+  }
+  /* 某站「重來／開含氟」時要保留的請假：到校請假各站都算；午餐請假只算潔牙／含氟。 */
+  function leaveFor(kind, seat) {
+    return onLeave(seat) || (LUNCH_LINKED.indexOf(kind) >= 0 && (st.lunch[seat] || 0) === LEAVE_OF.lunch);
   }
   /* 浮動支援：打掃存 st.cleanSup、午餐存 st.lunchSup，格式同為 { 組別／崗位名: [座號…] }。
      本週總覽（weekSup）只有打掃用。 */
@@ -320,7 +338,7 @@
     clr.textContent = '↺ 全部重來';
     clr.addEventListener('click', function () {
       if (!confirm('把這一站全部改回「還沒點」嗎？')) return;
-      list.forEach(function (s) { setState(kind, s, (kind !== 'arrive' && onLeave(s) && LEAVE_OF[kind]) || 0); });   // 請假不跟著重來
+      list.forEach(function (s) { setState(kind, s, (kind !== 'arrive' && leaveFor(kind, s) && LEAVE_OF[kind]) || 0); });   // 請假不跟著重來
       paint(); paintPend();
     });
     bar.appendChild(clr);
@@ -426,7 +444,7 @@
       if (v === 4) flashFix(who + '使用免打掃一次券', '這次沒有打掃薪水，不扣幣、不記班規（兌換紀錄已扣過就不重扣）');
       if (v === 5) flashFix(who + '無故沒去打掃', noShowFix());
     } else if (kind === 'lunch') {
-      if (v === 2) flashFix(who + '午餐工作請假（不是行為問題）', '週結午餐薪水少算一次，不扣幣、不記班規');
+      if (v === 2) flashFix(who + '午餐工作請假（不是行為問題）', '週結午餐薪水少算一次，不扣幣、不記班規；潔牙／含氟自動記請假');
       if (v === 3) flashFix(who + '無故沒做午餐工作', noShowFix());
     } else if (kind === 'fluoride' || kind === 'teeth') {
       // ✓ 就是做到（含補做），不必另外提示；✗ 請假（2026-09-16）結算時跳過
@@ -976,7 +994,7 @@
     clr.addEventListener('click', function () {
       if (!confirm('把「' + title + '」全部改回「沒做」嗎？')) return;
       st[kind] = {};
-      seats.forEach(function (x) { if (onLeave(x)) st[kind][x] = LEAVE_OF[kind]; });   // 請假不跟著重來
+      seats.forEach(function (x) { if (leaveFor(kind, x)) st[kind][x] = LEAVE_OF[kind]; });   // 請假不跟著重來
       sdb.set(st); paintTeeth(); paintPend();
     });
     head.appendChild(clr);
@@ -1021,7 +1039,7 @@
                  + '已經點好的潔牙那一列今天不會結算（留著，關掉含氟就會回來）。')) return;
       st.fluorideOn = !st.fluorideOn;
       if (!st.fluorideOn) st.fluoride = {};
-      else seats.forEach(function (s) { if (onLeave(s)) st.fluoride[s] = LEAVE_OF.fluoride; });
+      else seats.forEach(function (s) { if (leaveFor('fluoride', s)) st.fluoride[s] = LEAVE_OF.fluoride; });
       sdb.set(st); paintTeeth(); paintPend();
     });
     bar.appendChild(tog);
