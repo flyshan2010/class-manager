@@ -37,6 +37,51 @@
     try { localStorage.setItem(KEY, JSON.stringify(db)); return true; } catch (e) { return false; }
   }
 
+  /* 作業科目（**只供顯示**，2026-10-02 老師要求「送出前就要看得到科目，才能確認輸入沒問題」）。
+     真正寫進紀錄庫的是 R18：class-website/scripts/classos/lib/cm-events.mjs 的 HW_PREFIX／hwSubjectsOf，
+     這裡是同一張表的副本（三站互不改對方檔案，比照 bump-assets 兩份各改各的）。兩邊不一致時以 R18 為準。
+     ⚠️ 改縮寫兩邊都要改，改完跑 `node scripts/hw-subject-check.mjs`（逐題比對兩份，不一致就紅）。
+     不帶科目進事件：tally 的 sig 含 subj，帶了會改事件 id 與事件描述（f24 ⑥ 逐字撈「作業完成」）。 */
+  var HW_MANUAL = '需人工';
+  var HW_PREFIX = [
+    ['國語', /^考?(國習|國練|國作|國甲|國乙|國卷|甲本|乙本|預習國|國語)/],
+    ['數學', /^考?(數習|數練|數卷|數學|統整園地)/],
+    ['社會', /^考?(社習|社練|社卷|社會)/],
+    ['其他', /^考?(自然|英語|英文)/],
+    ['', /^(聯絡簿|【)/]   // 不屬任何科：聯絡簿、【定期評量】這類括號標記——不計、也不算判不出
+  ];
+  var HW_ORDER = ['國語', '數學', '社會', '其他', HW_MANUAL];
+
+  /* 單份作業名 → 科目；不屬任何科（聯絡簿）回 ''；判不出回 null。 */
+  function hwSubjectOfItem(name) {
+    var s = String(name == null ? '' : name).trim();
+    for (var i = 0; i < HW_PREFIX.length; i++) if (HW_PREFIX[i][1].test(s)) return HW_PREFIX[i][0];
+    return null;
+  }
+
+  /* 備註（多份以「、」串接）→ { subjects:[固定順序], unknown:[判不出的作業名] }。空備註＝需人工。 */
+  function hwSubjects(note) {
+    var items = String(note == null ? '' : note).split('、').map(function (x) { return x.trim(); }).filter(Boolean);
+    var set = {}, unknown = [];
+    if (!items.length) set[HW_MANUAL] = 1;
+    items.forEach(function (x) {
+      var s = hwSubjectOfItem(x);
+      if (s === null) { set[HW_MANUAL] = 1; unknown.push(x); } else if (s) set[s] = 1;
+    });
+    return { subjects: HW_ORDER.filter(function (s) { return set[s]; }), unknown: unknown };
+  }
+
+  /* 待送列／預覽共用的一段文字：「國語、數學」／「不分科」／「⚠ 科目判不出：…」。非作業清點回 ''。 */
+  function hwSubjectLabel(r) {
+    if (!r || r.tool !== 'homework') return '';
+    var h = hwSubjects(r.note);
+    var ok = h.subjects.filter(function (s) { return s !== HW_MANUAL; });
+    if (h.subjects.indexOf(HW_MANUAL) >= 0) {
+      return (ok.length ? ok.join('、') + '　' : '') + '⚠ 科目判不出：' + (h.unknown.length ? h.unknown.join('、') : '（沒有作業名）');
+    }
+    return ok.length ? ok.join('、') : '不分科';
+  }
+
   /* 合併特徵：同一學生×同一天×同一工具×同一類 合併成一列（§3.3）。 */
   function sig(ev) {
     // 「kind」必須進特徵：班規卡的 good 與 bad 各自從 0 編號，不分就會把
@@ -283,6 +328,8 @@
     // period 常常已經含科目（「第一節·數學」），再列一次科目會變「數學・第一節·數學」
     if (r.subj && String(r.period || '').indexOf(r.subj) < 0) tail.push(r.subj);
     if (r.period) tail.push(r.period);
+    var hs = hwSubjectLabel(r);
+    if (hs) tail.push(hs);
     if (r.count > 1) tail.push(r.count + ' 次');
     var c = parseFloat(String(r.coin === undefined ? '' : r.coin).replace('−', '-'));
     var coin = (isNaN(c) || c === 0) ? '只記次數，不動金幣' : (c > 0 ? '+' : '') + c + ' 幣';
@@ -371,6 +418,7 @@
     REMIND_AT: REMIND_AT, remindAtText: remindAtText, remindDue: remindDue, dismissRemind: dismissRemind,
     KEY: KEY, today: today, push: push, list: list, count: count, clearTool: clearTool,
     merged: merged, buildPayloads: buildPayloads,
+    hwSubjects: hwSubjects, hwSubjectLabel: hwSubjectLabel,
     describePayloads: describePayloads, rawPayloads: rawPayloads,
     markSent: markSent, isPackSent: isPackSent, markPackSent: markPackSent,
     logFail: logFail, failLog: failLog, clearFailLog: clearFailLog, withSendLog: withSendLog,
