@@ -113,6 +113,15 @@
   if (!Array.isArray(hw.items)) hw.items = [];
   if (!hw.status) hw.status = {};
   if (!hw.carry) hw.carry = {};
+  /* 補交紀錄（2026-10-03 老師裁定）：結轉列（⏳ 補交追蹤）被點成「完成」的那天記一筆
+     「作業補交完成」tally（0 幣、不扣分；名稱要含「作業」，R18 才判得出類別），學習報告才分得出「請假後有補完」。
+     鍵＝作業鍵＋座號，值＝{ d: 補交日, seat, note: 作業名（派出日）, out: 已結算過 }；結算時帶上當天的與還沒結算過的（id 一天一列，R18 去重），
+     改回非完成就刪；14 天前的自動清掉。 */
+  if (!hw.madeUp) hw.madeUp = {};
+  (function () {
+    var cut = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10);
+    Object.keys(hw.madeUp).forEach(function (k) { if (!hw.madeUp[k] || hw.madeUp[k].d < cut) delete hw.madeUp[k]; });
+  })();
   hw.date = Tool.todayKey();          // 跨日不清空狀態：沒交完的要結轉，清空就沒得追
   var HW_STATES = ['未交', '已交', '要訂正', '完成'];
   var HW_MARK = ['未交', '已交', '訂正', '完成'];
@@ -552,6 +561,14 @@
   var CARRY_WARN_DAYS = 14;     // 追蹤超過這麼多天就提醒老師處理；**不自動下架**（靜默丟掉欠交比殘留更糟）
   function hwState(key, seat) { return (hw.status[key] && hw.status[key][seat]) || 0; }
   function hwSet(key, seat, v) {
+    if (hw.carry[key]) {
+      var mk = key + '\t' + seat;
+      if (v === 3 && hwState(key, seat) !== 3) {
+        var it0 = hwItem(key);
+        hw.madeUp[mk] = { d: Tool.todayKey(), seat: Number(seat),
+                          note: it0 ? it0.name + (it0.due ? '（' + String(it0.due).slice(5) + ' 派）' : '') : '' };
+      } else if (v !== 3) delete hw.madeUp[mk];
+    }
     if (!hw.status[key]) hw.status[key] = {};
     if (v === 0) delete hw.status[key][seat]; else hw.status[key][seat] = v;
     hdb.set(hw);
@@ -1140,6 +1157,15 @@
                      kind: m[0], act_i: m[1], act: a.act, coin: a.coin, level: a.level, note: item });
         });
       });
+      /* 補交完成（結轉列被點完成）：不進上面的未交／完成結算，另記 0 幣 tally，日期＝補交那天。 */
+      Object.keys(hw.madeUp).forEach(function (k) {
+        var m = hw.madeUp[k];
+        if (!m || !m.note || !m.seat) return;
+        // 今天補交的（重新結算會被 clearTool 清掉，要再帶）＋以前補交但還沒結算過的；已帶過的舊日不再帶，免得待送重複計次
+        if (m.d !== st.date && m.out) return;
+        out.push({ tool: TOOL.hw, date: m.d, seat: m.seat, src: 'tally', dedupe: 'day',
+                   kind: 'good', act: '作業補交完成', note: m.note });
+      });
       return out;
     }
     return out;
@@ -1185,9 +1211,10 @@
     return '要把作業清點結果結算到「待送」嗎？\n\n' +
       '　未交（' + (c4.bad[0] || {}).coin + '）　　' + c((c4.bad[0] || {}).act) + ' 人次\n' +
       '　要訂正（' + (c4.bad[1] || {}).coin + '）　' + c((c4.bad[1] || {}).act) + ' 人次\n' +
-      '　完成（只記次數，不當場加幣）　' + c('作業完成') + ' 人次\n\n' +
+      '　完成（只記次數，不當場加幣）　' + c('作業完成') + ' 人次\n' +
+      '　⏳ 補交完成（0 幣，只留紀錄給學習報告）　' + c('作業補交完成') + ' 人次\n\n' +
       '同一人同一天多份會合併成一列並記次數（金幣算一次）。\n' +
-      '⏳ 標「還沒交完」的舊作業只留著提醒，不算進這次結算。\n' +
+      '⏳ 標「還沒交完」的舊作業不再扣分；有人補交、點成「完成」才記一筆「補交完成」。\n' +
       '「完成」由週結看全週表現一次給，平日不逐天發幣。\n再按一次會重新結算，不會疊加。';
   }
 
@@ -1225,6 +1252,7 @@
     if (!confirm(settleMsg(tab, evs))) return;
     CMEvents.clearTool(TOOL[tab], st.date);        // 重按＝重算，不疊加
     evs.forEach(function (e) { CMEvents.push(e); });
+    if (tab === 'hw') { Object.keys(hw.madeUp).forEach(function (k) { hw.madeUp[k].out = 1; }); hdb.set(hw); }
     Tool.beep(2, 720); paintPend();
   }
 
