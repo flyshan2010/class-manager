@@ -266,7 +266,7 @@
        明細與寫進紀錄庫的欄位裡，週結比對不受影響。 */
     /* 2026-09-17 改：原本「取第一個、之前」會把「衝突動口（罵人、挑釁）」切成「衝突動口（罵人」。
        改成作業清點依狀態對固定短名，其他工具保留原名（與班網 teacher.js cmAct 同口徑）。 */
-    var HW_ACT = { 0: '作業缺交', 1: '作業潦草／未訂正' };
+    var HW_ACT = { 0: '作業缺交', 1: '未訂正' };
     function shortAct(e, tool) {
       if (!e.act) return '';
       if (tool === 'homework' && e.src === 'rule' && e.rule_n === 4 && HW_ACT[e.act_i]) return HW_ACT[e.act_i];
