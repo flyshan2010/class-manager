@@ -123,6 +123,15 @@
     Object.keys(hw.madeUp).forEach(function (k) { if (!hw.madeUp[k] || hw.madeUp[k].d < cut) delete hw.madeUp[k]; });
   })();
   hw.date = Tool.todayKey();          // 跨日不清空狀態：沒交完的要結轉，清空就沒得追
+  /* 每週統計的每日摘要（stats.js）：五站任何一次存檔後 0.8 秒重算今天那一份，整天覆蓋＝留下當天最終狀態。
+     不靠「結算」按鈕——全班達標那天不會按結算（沒有事件可送），但那一天正是達成率 100% 的資料。 */
+  var statTimer = null;
+  function statTouch() { clearTimeout(statTimer); statTimer = setTimeout(statSnap, 800); }
+  [sdb, hdb].forEach(function (db) {
+    var raw = db.set;
+    db.set = function (v) { var r = raw(v); statTouch(); return r; };
+  });
+  window.addEventListener('pagehide', function () { if (statTimer) { clearTimeout(statTimer); statSnap(); } });
   var HW_STATES = ['未交', '已交', '要訂正', '完成'];
   var HW_MARK = ['未交', '已交', '訂正', '完成'];
   var HW_TONE = ['pink', 'blue', 'warn', 'ok'];   // 未交＝粉紅，投影時一眼看得出誰還沒交
@@ -1254,6 +1263,59 @@
     evs.forEach(function (e) { CMEvents.push(e); });
     if (tab === 'hw') { Object.keys(hw.madeUp).forEach(function (k) { hw.madeUp[k].out = 1; }); hdb.set(hw); }
     Tool.beep(2, 720); paintPend();
+  }
+
+  /* ── 每日摘要：例外的判準與 collect() 同一套（圖表才對得上紀錄庫）──────────── */
+  function statSnap() {
+    statTimer = null;
+    if (!window.CMStats) return;
+    function pick(kind, vals) {
+      return seats.filter(function (s) { return vals.indexOf(stateOf(kind, s)) >= 0; });
+    }
+    function supCount(kind) {
+      var o = {};
+      Object.keys(st[SUP[kind].key]).forEach(function (g) {
+        supportOf(kind, g).forEach(function (s) { o[s] = (o[s] || 0) + 1; });
+      });
+      return o;
+    }
+    function touched(kind) { return seats.some(function (s) { return stateOf(kind, s) !== 0; }); }
+    var day = {};
+    if (touched('arrive')) day.arrive = { x: pick('arrive', [2]), lv: pick('arrive', [LEAVE_ARRIVE]) };
+    var cs = supCount('clean'), ls = supCount('lunch');
+    if (touched('clean') || Object.keys(cs).length)
+      day.clean = { x: pick('clean', [2, NOSHOW.clean]), lv: pick('clean', [3, 4]), su: cs };
+    if (touched('lunch') || Object.keys(ls).length)
+      day.lunch = { x: pick('lunch', [NOSHOW.lunch]), lv: pick('lunch', [LEAVE_OF.lunch]), su: ls };
+    /* 潔牙：沒點＝沒做，所以「至少有一格 ✓」才算今天有檢核（整頁沒動過＝沒開這一站，不算應到）。 */
+    var ti = teethItem();
+    if (pick(ti.kind, [1]).length) day.teeth = { x: pick(ti.kind, [0]), lv: pick(ti.kind, [LEAVE_OF[ti.kind]]) };
+    /* 作業：只算今天清點過的非結轉項目；結轉列只看補交。 */
+    var hx = {}, hwRan = false, made = {}, unmade = [];
+    hw.items.forEach(function (it) {
+      var item = it.name + (it.due ? '（' + String(it.due).slice(5) + ' 派）' : '');
+      if (hw.carry[it.key]) {
+        seats.forEach(function (s) {
+          var m = hw.madeUp[it.key + '\t' + s];
+          if (m && m.note) made[s + '|' + m.note] = m.d; else unmade.push(s + '|' + item);
+        });
+        return;
+      }
+      if (!seats.some(function (s) { return hwState(it.key, s) !== 0; })) return;
+      hwRan = true;
+      seats.forEach(function (s) {
+        var v = hwState(it.key, s);
+        if ((v === 0 && !onLeave(s)) || v === 2) (hx[s] = hx[s] || []).push(item);
+      });
+    });
+    if (hwRan) day.hw = { x: hx, lv: seats.filter(onLeave) };
+    var term = '';
+    ((data.weeks && data.weeks.學期) || []).forEach(function (t) {
+      var ws = t.週 || [];
+      if (!ws.some(function (w) { return String(w.起) <= st.date && st.date <= String(w.迄); })) return;
+      ws.forEach(function (w) { if (Number(w.週次) === 1) term = String(w.起).slice(0, 10); });
+    });
+    CMStats.put(st.date, day, { term: term, made: made, unmade: unmade });
   }
 
   /* ── 共用 ─────────────────────────────────────────────── */

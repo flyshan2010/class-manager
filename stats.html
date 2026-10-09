@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>每週統計｜教師專區</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
+<style>
+:root{
+  --bg:#0b0f18; --surface:#161d2b; --surface-2:#1e2634;
+  --ink:#f4f6fb; --ink-2:#b6c1d4; --ink-3:#7c8699;
+  --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
+  --mark:#f0c85a; --radius:18px;
+  /* 圖表色：已用色盲可辨性檢查（深色底 #161d2b） */
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --prev:#7c8699;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);min-height:100vh;
+  font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px 80px}
+.top{padding:32px 0 18px;margin-bottom:8px;border-bottom:1px solid var(--line);
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px}
+.top h1{margin:0;font-size:28px;font-weight:800}
+.kicker{margin:0 0 4px;font-size:12px;letter-spacing:.2em;color:var(--mark);font-weight:700}
+.seg{margin-left:auto;display:inline-flex;border:1px solid var(--line-2);border-radius:999px;overflow:hidden}
+.seg button{appearance:none;border:0;background:transparent;color:var(--ink-2);font:inherit;font-weight:700;
+  padding:8px 22px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.notice{margin:14px 0 0;padding:10px 14px;border:1px dashed var(--line-2);border-radius:12px;
+  font-size:14px;color:var(--ink-2)}
+h2{font-size:20px;margin:34px 0 2px;font-weight:800}
+.hint{margin:0 0 14px;font-size:14px;color:var(--ink-3)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.multi{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.multi .card{padding:14px 14px 8px}
+.st-name{font-size:14px;color:var(--ink-2);font-weight:700}
+.st-val{font-size:30px;font-weight:800;line-height:1.2}
+.st-val small{font-size:14px;font-weight:600;color:var(--ink-3)}
+.st-delta{font-size:13px;color:var(--ink-2);margin-bottom:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.card h3{margin:0 0 2px;font-size:15px;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-2);margin:2px 0 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+svg{display:block;width:100%}
+svg text{font-family:inherit}
+.scroll{overflow-x:auto}
+.heat{display:grid;gap:2px;min-width:760px;font-size:12px;color:var(--ink-3)}
+.heat div{height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center}
+.heat .h{color:var(--ink-2);font-weight:700}
+.heat .lab{justify-content:flex-start;color:var(--ink-2)}
+.heat .cell{color:var(--ink);font-weight:700;cursor:default}
+.heat .flag{outline:2px solid var(--mark);outline-offset:-1px}
+.flags{margin:12px 0 0;padding:0;list-style:none;font-size:14px;color:var(--ink-2)}
+.flags li{padding:6px 10px;border-left:3px solid var(--mark);background:var(--surface-2);border-radius:0 8px 8px 0;margin-top:6px}
+details{margin-top:28px}
+summary{cursor:pointer;color:var(--ink-2);font-weight:700}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--ink-3);font-weight:600}
+#tip{position:absolute;z-index:9;pointer-events:none;background:#0f1521;border:1px solid var(--line-2);
+  border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.5;color:var(--ink);max-width:240px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45)}
+#tip b{font-weight:700}
+#tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.ov{display:grid;gap:3px 10px;min-width:900px;align-items:center;font-size:12px;color:var(--ink-3)}
+.ov .h{color:var(--ink-2);font-weight:700;font-size:13px;padding-bottom:4px}
+.ov .seat{color:var(--ink);font-weight:700;font-size:14px;cursor:pointer;border-radius:6px;padding:1px 6px;text-align:left;
+  background:transparent;border:1px solid transparent;font-family:inherit}
+.ov .seat:hover{border-color:var(--line-2)}
+.ov .seat[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.strip{display:flex;gap:2px;align-items:center}
+.strip span{flex:1;height:18px;border-radius:3px;min-width:4px}
+.strip em{flex:none;width:50px;white-space:nowrap;font-style:normal;font-size:11px;color:var(--ink-2);text-align:right}
+.lv{background:repeating-linear-gradient(135deg,#3a4354 0 3px,#1e2634 3px 6px)!important}
+.mk{box-shadow:inset 0 0 0 1.5px #86b6ef}
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:0 8px;margin-right:4px;line-height:1.7;color:var(--ink);border:1.5px solid var(--line-2)}
+.badge.r{border-color:#0ca30c}.badge.c{border-color:var(--mark)}
+.dt{display:grid;gap:3px;min-width:720px;margin-top:6px;font-size:12px}
+.dt .h{color:var(--ink-3);text-align:center}
+.dt .lab{color:var(--ink-2);font-weight:700;display:flex;align-items:center}
+.dt .c{height:46px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25;color:var(--ink)}
+.dt .c b{font-size:15px}.dt .c small{font-size:10.5px;color:var(--ink-2)}
+.dt .c.hi{color:#0b0f18}.dt .c.hi small{color:#0b0f18}
+.sub{margin:18px 0 4px;font-size:15px;font-weight:700}
+.rules{margin:10px 0 0;padding-left:1.2em;font-size:14px;color:var(--ink-2)}
+.rules b{color:var(--ink)}
+.ov .row{display:contents;cursor:pointer}
+.chip{border-radius:8px;padding:3px 10px;font-size:13px;white-space:nowrap;cursor:pointer;border:1.5px solid transparent}
+.chip.ok{color:var(--ink-3)}
+.chip.flat{color:var(--ink-2);background:var(--surface-2)}
+.chip.down{color:var(--ink);background:var(--surface-2);border-left:4px solid #0ca30c}
+.chip.up{color:var(--ink);font-weight:700;background:rgba(236,131,90,.16);border-color:#ec835a}
+.filt{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.filt button{appearance:none;font:inherit;font-size:13px;font-weight:700;color:var(--ink-2);background:transparent;
+  border:1px solid var(--line-2);border-radius:999px;padding:4px 14px;cursor:pointer}
+.filt button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.inl{grid-column:1/-1;background:#0f1521;border:1px solid var(--line-2);border-radius:12px;padding:10px 12px 12px;margin:4px 0 10px}
+.inl p{margin:0 0 4px;font-size:12px;color:var(--ink-3)}
+
+.top a{color:var(--ink-2);font-size:14px}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;font-size:14px;color:var(--ink-2)}
+.tools button{appearance:none;font:inherit;font-size:14px;font-weight:700;color:var(--ink);background:var(--surface-2);
+  border:1px solid var(--line-2);border-radius:10px;padding:6px 14px;cursor:pointer}
+.empty{margin:40px 0;padding:28px;border:1px dashed var(--line-2);border-radius:var(--radius);color:var(--ink-2)}
+.na{color:var(--ink-3);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <p class="kicker">教師專區・不投影</p>
+      <h1>每週統計</h1>
+      <a href="teacher.html">← 回教師專區</a>
+    </div>
+    <div class="seg" role="group" aria-label="統計單位" id="seg" hidden>
+      <button type="button" data-mode="week" aria-pressed="true">每週</button>
+      <button type="button" data-mode="month" aria-pressed="false">每月</button>
+    </div>
+  </div>
+
+  <div id="gate" class="empty" hidden>這一頁只給老師看。請先到 <a href="teacher.html">教師專區</a> 輸入口令，再從那裡點「📊 每週統計」進來。</div>
+  <div id="noseat" class="empty" hidden>還沒設定班級座號。請先到 <a href="teacher.html">教師專區</a> 設定人數。</div>
+
+  <div id="main" hidden>
+  <p class="notice" id="cover"></p>
+  <div class="tools">
+    <button type="button" id="btn-import">匯入回填檔</button>
+    <input type="file" id="file" accept=".json,application/json" hidden />
+    <span id="import-msg"></span>
+  </div>
+
+  <div id="nodata" class="empty" hidden>這台電腦還沒有統計資料。<br>用工作檢核台點名、清點一天之後就會開始累積；9 月起的舊資料請按上面的「匯入回填檔」。</div>
+
+  <div id="charts" hidden>
+  <h2>① 各站達成率趨勢</h2>
+  <p class="hint">達成率＝做到的人次 ÷ 應到人次（請假不算應到、補交算做到；那天沒檢核的站不計）。五張小圖同一把尺。滑鼠移到線上，會列出那一<span class="unit">週</span>沒做到的座號。</p>
+  <div class="multi" id="c1"></div>
+
+  <h2>② 例外次數：這<span class="unit">週</span>和上<span class="unit">週</span>比</h2>
+  <p class="hint">例外＝沒做到、也還沒補的人次。滑鼠移到柱子上，會列出是哪些座號（×2 表示 2 次）。</p>
+  <div class="card">
+    <div class="legend"><span><i style="background:var(--c1)"></i>本<span class="unit">週</span></span><span><i style="background:var(--prev)"></i>上<span class="unit">週</span></span></div>
+    <div id="c2a"></div>
+  </div>
+
+  <h2>③ 每位學生：五項趨勢（獎勵與輔導依據）</h2>
+  <p class="hint">一列一位學生，每一項只給一個結論：<span id="cmp"></span>。數字＝這段期間沒做到的次數（已補的不算）。<b>點任一列</b>展開各<span class="unit">週</span>明細。不排名。</p>
+  <div class="card">
+    <div class="filt" id="c3filt"></div>
+    <div class="scroll"><div class="ov" id="c3"></div></div>
+    <ul class="rules">
+      <li><b>請假</b>（含免打掃券）：不算沒做到，也不算應到；明細標「假 n」，整<span class="unit">週</span>請假畫斜線。</li>
+      <li><b>補交</b>：<b>算做到</b>（達成率、趨勢、提示都不計）；明細仍留「補 n」讓您知道他是事後補的。</li>
+      <li><b>支援</b>（幫忙別人的晨掃／午餐工作）：加分項；總表「支援」欄、明細「★ n」，列入獎勵參考。</li>
+      <li><b>提示</b>：「可獎勵」＝當月五項全做到；「可輔導」＝同一項連續 2 週、每週沒做到 3 次以上。只提示，不自動發獎或開個案。</li>
+    </ul>
+  </div>
+
+  <details>
+    <summary>看數字表</summary>
+    <div class="scroll"><table id="tbl"></table></div>
+  </details>
+  </div>
+  </div>
+</div>
+<div id="tip" hidden></div>
+
+<script src="assets/js/common.js?v=20261009-1"></script>
+<script src="assets/js/stats.js?v=20261009-1"></script>
+<script>
+(function(){
+'use strict';
+function $(id){return document.getElementById(id);}
+var pwOk=false;try{pwOk=!!sessionStorage.getItem('cm.teacherPw');}catch(e){}
+if(!pwOk){$('gate').hidden=false;return;}
+var seats=(window.ClassManager&&ClassManager.requireSeats())||null;
+if(!seats||!seats.length){$('noseat').hidden=false;return;}
+$('main').hidden=false;
+var ST=CMStats.NAMES,M=null;
+/* ── 小工具 ── */
+var NS='http://www.w3.org/2000/svg';
+function E(tag,attrs,parent,text){
+  var el=document.createElementNS(NS,tag);
+  for(var a in attrs){el.setAttribute(a,attrs[a]);}
+  if(text!=null){el.textContent=text;}
+  if(parent){parent.appendChild(el);}
+  return el;
+}
+function H(tag,cls,parent,text){
+  var el=document.createElement(tag);
+  if(cls){el.className=cls;}
+  if(text!=null){el.textContent=text;}
+  if(parent){parent.appendChild(el);}
+  return el;
+}
+var tipEl=document.getElementById('tip');
+function tip(ev,html){
+  tipEl.innerHTML=html;tipEl.hidden=false;
+  var x=ev.pageX+14,y=ev.pageY+14,w=tipEl.offsetWidth;
+  if(x+w>window.scrollX+document.documentElement.clientWidth-8){x=ev.pageX-w-14;}
+  tipEl.style.left=Math.max(8,x)+'px';tipEl.style.top=y+'px';
+}
+function untip(){tipEl.hidden=true;}
+function f1(v){return (Math.floor(v*10+.5)/10).toFixed(1);}
+var INK2='#b6c1d4',INK3='#7c8699',GRID='rgba(255,255,255,.10)',SURF='#161d2b';
+
+
+function sum(a){return a.reduce(function(x,y){return x+y;},0);}
+function cat(ps){var o=[];ps.forEach(function(p){o=o.concat(p.dates);});return o;}
+
+function build(mode){
+  var per=mode==='week'?M.weeks:M.months;
+  var P=per.map(function(p){
+    var a=ST.map(function(_,s){return M.stationAgg(p.dates,s);});
+    return {st:a.map(function(x){return x.exc;}),rate:a.map(function(x){return x.rate;}),who:a.map(function(x){return x.who;})};
+  });
+  return {mode:mode,unit:mode==='week'?'週':'月',per:per,labels:per.map(function(p){return p.label;}),P:P};
+}
+function seatsTxt(D,i,s){
+  var w=D.P[i].who[s],out=w.length?'座號 '+w.join('、'):'沒有例外';
+  if(s===2){
+    var mk=[];seats.forEach(function(q){var m=M.seatAgg(D.per[i].dates,s,q).made;if(m){mk.push(q+(m>1?'×'+m:''));}});
+    if(mk.length){out+='<br>　已補：'+mk.join('、');}
+  }
+  return out;
+}
+
+/* ① 小圖折線（沒資料的期＝斷線，不補 0） */
+function chart1(D){
+  var box=$('c1');box.innerHTML='';
+  var all=[];D.P.forEach(function(p){p.rate.forEach(function(v){if(v!=null){all.push(v);}});});
+  var lo=all.length?Math.min(90,Math.floor(Math.min.apply(null,all)/10)*10):0,hi=100,n=D.P.length;
+  var jobs=[];
+  ST.forEach(function(name,s){
+    var card=H('div','card',box);
+    H('div','st-name',card,name);
+    var idx=[];D.P.forEach(function(p,i){if(p.rate[s]!=null){idx.push(i);}});
+    if(!idx.length){H('div','st-val',card,'—');H('div','st-delta na',card,'這一站還沒有資料（自上線週起累積）');return;}
+    var ci=idx[idx.length-1],cur=D.P[ci].rate[s];
+    var v=H('div','st-val',card,f1(cur));H('small','',v,' %');
+    var dtxt=D.labels[ci];
+    if(idx.length>1){var dl=cur-D.P[idx[idx.length-2]].rate[s];
+      dtxt+='｜'+(Math.abs(dl)<.05?'→ 持平':(dl>0?'▲ 進步 ':'▼ 退步 ')+f1(Math.abs(dl))+' 個百分點')+'（比上'+D.unit+'）';}
+    H('div','st-delta',card,dtxt);
+    var holder=H('div','',card);
+    jobs.push(function(){draw(holder,name,s,idx);});
+  });
+  jobs.forEach(function(j){j();});
+  function draw(holder,name,s,idx){
+    var Wd=holder.clientWidth||200,Ht=118,L=30,R=10,T=8,B=20;
+    var svg=E('svg',{viewBox:'0 0 '+Wd+' '+Ht,height:Ht,role:'img','aria-label':name+'達成率趨勢'},holder);
+    function X(i){return L+(Wd-L-R)*(n===1?.5:i/(n-1));}
+    function Y(val){return T+(Ht-T-B)*(1-(val-lo)/(hi-lo));}
+    [lo,(lo+hi)/2,hi].forEach(function(g){
+      E('line',{x1:L,x2:Wd-R,y1:Y(g),y2:Y(g),stroke:GRID,'stroke-width':1},svg);
+      E('text',{x:L-6,y:Y(g)+4,'text-anchor':'end','font-size':11,fill:INK3},svg,g);
+    });
+    E('text',{x:X(0),y:Ht-4,'text-anchor':'start','font-size':11,fill:INK3},svg,D.labels[0]);
+    if(n>1){E('text',{x:X(n-1),y:Ht-4,'text-anchor':'end','font-size':11,fill:INK3},svg,D.labels[n-1]);}
+    var d='',pen=false;
+    D.P.forEach(function(p,i){
+      if(p.rate[s]==null){pen=false;return;}
+      d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(p.rate[s]).toFixed(1)+' ';pen=true;
+    });
+    E('path',{d:d,fill:'none',stroke:'#3987e5','stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'},svg);
+    idx.forEach(function(i,k){
+      E('circle',{cx:X(i),cy:Y(D.P[i].rate[s]),r:k===idx.length-1?4.5:2.5,fill:'#3987e5',stroke:SURF,'stroke-width':k===idx.length-1?2:0},svg);
+    });
+    var cross=E('line',{y1:T,y2:Ht-B,stroke:'rgba(255,255,255,.35)','stroke-width':1,visibility:'hidden'},svg);
+    var hit=E('rect',{x:0,y:0,width:Wd,height:Ht,fill:'transparent'},svg);
+    hit.addEventListener('mousemove',function(ev){
+      var r=svg.getBoundingClientRect(),px=(ev.clientX-r.left)*Wd/r.width;
+      var i=n===1?0:Math.max(0,Math.min(n-1,Math.round((px-L)/(Wd-L-R)*(n-1))));
+      cross.setAttribute('x1',X(i));cross.setAttribute('x2',X(i));cross.setAttribute('visibility','visible');
+      tip(ev,'<b>'+name+'</b>・'+D.labels[i]+'<br>'+(D.P[i].rate[s]==null?'這'+D.unit+'沒有檢核紀錄':
+        '達成率 <b>'+f1(D.P[i].rate[s])+'%</b><br>例外 '+D.P[i].st[s]+' 人次<br>'+seatsTxt(D,i,s)));
+    });
+    hit.addEventListener('mouseleave',function(){cross.setAttribute('visibility','hidden');untip();});
+  }
+}
+/* 圓頭長條（只圓上緣） */
+function bar(svg,x,y,w,h,fill){
+  var r=Math.min(4,w/2,h);
+  if(h<=0){return null;}
+  return E('path',{d:'M'+x+' '+(y+h)+'V'+(y+r)+'Q'+x+' '+y+' '+(x+r)+' '+y+'H'+(x+w-r)+'Q'+(x+w)+' '+y+' '+(x+w)+' '+(y+r)+'V'+(y+h)+'Z',fill:fill},svg);
+}
+function axisY(svg,max,L,R,T,B,Wd,Ht){
+  var step=max<=10?2:max<=30?5:max<=60?10:max<=150?25:50,top=Math.ceil(max/step)*step;
+  function Y(v){return T+(Ht-T-B)*(1-v/top);}
+  for(var g=0;g<=top;g+=step){
+    E('line',{x1:L,x2:Wd-R,y1:Y(g),y2:Y(g),stroke:g?GRID:'rgba(255,255,255,.25)','stroke-width':1},svg);
+    E('text',{x:L-6,y:Y(g)+4,'text-anchor':'end','font-size':11,fill:INK3},svg,g);
+  }
+  return Y;
+}
+
+
+/* ② 成對長條 */
+function chart2a(D){
+  var holder=$('c2a');holder.innerHTML='';
+  var n=D.P.length,cur=D.P[n-1],prev=n>1?D.P[n-2]:null;
+  var Wd=holder.clientWidth||480,Ht=250,L=34,R=8,T=18,B=30;
+  var svg=E('svg',{viewBox:'0 0 '+Wd+' '+Ht,height:Ht,role:'img','aria-label':'各站例外次數，本期與上期'},holder);
+  var Y=axisY(svg,Math.max.apply(null,[1].concat(cur.st,prev?prev.st:[])),L,R,T,B,Wd,Ht);
+  var gw=(Wd-L-R)/ST.length,bw=Math.min(24,gw*.3);
+  ST.forEach(function(name,s){
+    var cx=L+gw*(s+.5);
+    if(prev){
+      bar(svg,cx-bw-1,Y(prev.st[s]),bw,Y(0)-Y(prev.st[s]),'#7c8699');
+      E('text',{x:cx-bw/2-1,y:Y(prev.st[s])-5,'text-anchor':'middle','font-size':12,fill:INK3},svg,prev.rate[s]==null?'–':prev.st[s]);
+    }
+    bar(svg,cx+1,Y(cur.st[s]),bw,Y(0)-Y(cur.st[s]),'#3987e5');
+    E('text',{x:cx+bw/2+1,y:Y(cur.st[s])-5,'text-anchor':'middle','font-size':12,'font-weight':700,fill:'#f4f6fb'},svg,cur.rate[s]==null?'–':cur.st[s]);
+    E('text',{x:cx,y:Ht-9,'text-anchor':'middle','font-size':12,fill:INK2},svg,name);
+    var hit=E('rect',{x:L+gw*s,y:T,width:gw,height:Ht-T,fill:'transparent'},svg);
+    hit.addEventListener('mousemove',function(ev){
+      function line(i,color){return '<i style="background:'+color+'"></i>'+D.labels[i]+'：'+(D.P[i].rate[s]==null?'沒有檢核紀錄':D.P[i].st[s]+' 人次<br>　'+seatsTxt(D,i,s));}
+      var h='<b>'+name+'</b><br>'+line(n-1,'#3987e5');
+      if(prev){var dl=cur.st[s]-prev.st[s];h+='<br>'+line(n-2,'#7c8699')+'<br>'+(dl===0?'持平':(dl>0?'增加 ':'減少 ')+Math.abs(dl)+' 人次');}
+      tip(ev,h);
+    });
+    hit.addEventListener('mouseleave',untip);
+  });
+}
+
+/* ③ 每位學生 × 五項：只給趨勢結論，點列才展開明細 */
+var RAMP=['#1e2634','#104281','#1c5cab','#3987e5','#86b6ef'];
+var sel=null,filt='all';
+function chart3(D){
+  var wk=D.mode==='week',W=M.weeks,MO=M.months;
+  var rec=wk?cat(W.slice(-3)):cat(MO.slice(-1)),pri=wk?cat(W.slice(-6,-3)):cat(MO.slice(-2,-1)),th=wk?2:3;
+  var recN=wk?'近 '+Math.min(3,W.length)+' 週':'本月',priN=wk?'前 3 週':'上月',hasPri=pri.length>0;
+  $('cmp').textContent=hasPri?'拿'+recN+'和'+priN+'比，分成「✓ 做到」「↘ 改善」「→ 持平」「↗ 變多」'
+    :'目前只有'+recN+'的資料，還沒有前期可比（先分「✓ 做到」與「→ 有沒做到」）';
+  function un(ds,s,q){return M.seatAgg(ds,s,q).x;}
+  var allD=M.dates,lastM=cat(MO.slice(-1));
+  var rows=seats.map(function(q){
+    var cells=ST.map(function(_,s){
+      var r=un(rec,s,q),p=un(pri,s,q),d=r-p;
+      return {r:r,p:p,kind:hasPri&&d<=-th?'down':hasPri&&d>=th?'up':r===0?'ok':'flat'};
+    });
+    var coun=[];
+    ST.forEach(function(nm,s){
+      for(var w=1;w<W.length;w++){
+        var adj=(new Date(W[w].key)-new Date(W[w-1].key))===6048e5;
+        if(adj&&un(W[w].dates,s,q)>=3&&un(W[w-1].dates,s,q)>=3){coun.push(nm);break;}
+      }
+    });
+    return {q:q,cells:cells,coun:coun,
+      rew:ST.every(function(_,s){return un(lastM,s,q)===0;})&&ST.some(function(_,s){return M.seatAgg(lastM,s,q).ran>0;}),
+      up:cells.some(function(c){return c.kind==='up';}),
+      sup:sum(ST.map(function(_,s){return M.seatAgg(allD,s,q).su;}))};
+  });
+  var F=[['all','全部',function(){return true;}],['up','有變多的',function(r){return r.up;}],
+         ['rew','可獎勵',function(r){return r.rew;}],['coun','可輔導',function(r){return r.coun.length;}]];
+  var fb=$('c3filt');fb.innerHTML='';
+  var test=F[0][2];
+  F.forEach(function(f){
+    var b=H('button','',fb,f[1]+'（'+rows.filter(f[2]).length+'）');b.type='button';
+    b.setAttribute('aria-pressed',f[0]===filt?'true':'false');
+    if(f[0]===filt){test=f[2];}
+    b.addEventListener('click',function(){filt=f[0];chart3(D);});
+  });
+  var LAB={ok:'✓ 做到',down:'↘ 改善',flat:'→ 持平',up:'↗ 變多'};
+  var grid=$('c3');grid.innerHTML='';
+  grid.style.gridTemplateColumns='56px repeat(5,minmax(104px,1fr)) 56px minmax(150px,1.3fr)';
+  grid.style.gap='6px 10px';
+  ['座號'].concat(ST,['支援','提示']).forEach(function(x){H('div','h',grid,x);});
+  rows.filter(test).forEach(function(R){
+    var row=H('div','row',grid);
+    row.addEventListener('click',function(){sel=(sel===R.q?null:R.q);chart3(D);});
+    var btn=H('button','seat',row,String(R.q));btn.type='button';btn.setAttribute('aria-pressed',R.q===sel?'true':'false');
+    btn.setAttribute('aria-label','座號 '+R.q+' 明細');
+    R.cells.forEach(function(c,s){
+      var chip=H('div','chip '+c.kind,row,LAB[c.kind]+(c.kind==='ok'?'':'　'+c.r));
+      chip.addEventListener('mousemove',function(ev){tip(ev,'<b>座號 '+R.q+'</b>・'+ST[s]+'<br>'+recN+'沒做到 '+c.r+' 次'+(hasPri?'<br>'+priN+'沒做到 '+c.p+' 次':''));});
+      chip.addEventListener('mouseleave',untip);
+    });
+    H('div','',row,R.sup?'★ '+R.sup:'');
+    var tc=H('div','',row);
+    if(R.rew){H('span','badge r',tc,'可獎勵');}
+    if(R.coun.length){H('span','badge c',tc,'可輔導：'+R.coun.join('、'));}
+    if(R.q===sel){detail(D,R.q,H('div','inl',grid));}
+  });
+  if(!rows.filter(test).length){var e=H('div','',grid,'這個條件目前沒有學生。');e.style.gridColumn='1/-1';}
+}
+function detail(D,q,box){
+  H('p','',box,'座號 '+q+' 各'+D.unit+'明細｜數字＝沒做到次數（顏色越亮越多）　補 n＝事後已補、算做到　假 n＝請假天數　★ n＝支援次數　–＝那'+D.unit+'沒檢核');
+  var sc=H('div','scroll',box),dt=H('div','dt',sc),k=D.mode==='week'?1:3,edges=[1,2*k,3*k,4*k];
+  function bin(v){if(v<=0){return 0;}for(var i=edges.length-1;i>=0;i--){if(v>=edges[i]){return i+1;}}return 1;}
+  dt.style.gridTemplateColumns='84px repeat('+D.per.length+',minmax(46px,1fr))';
+  H('div','h',dt,'');D.per.forEach(function(p){H('div','h',dt,D.mode==='week'?p.short:p.label);});
+  ST.forEach(function(nm,s){
+    H('div','lab',dt,nm);
+    D.per.forEach(function(p){
+      var a=M.seatAgg(p.dates,s,q),b=bin(a.x);
+      var c=H('div','c'+(b===4?' hi':''),dt);c.style.background=RAMP[b];
+      if(a.ran&&a.lv>=a.ran){c.className='c lv';}
+      H('b','',c,!a.ran?'–':a.x?String(a.x):'✓');
+      var ex=[];if(a.made){ex.push('補'+a.made);}if(a.lv){ex.push('假'+a.lv);}if(a.su){ex.push('★'+a.su);}
+      if(ex.length){H('small','',c,ex.join(' '));}
+    });
+  });
+}
+
+/* 數字表 */
+function table(D){
+  var t=$('tbl');t.innerHTML='';
+  var tr=H('tr','',t);H('th','',tr,D.unit==='週'?'週次':'月份');
+  ST.forEach(function(nm){H('th','',tr,nm+' 達成率');});
+  ST.forEach(function(nm){H('th','',tr,nm+' 例外');});
+  D.P.forEach(function(p,i){
+    var r=H('tr','',t);H('td','',r,D.labels[i]);
+    p.rate.forEach(function(v){H('td','',r,v==null?'–':f1(v)+'%');});
+    p.st.forEach(function(v,s){H('td','',r,p.rate[s]==null?'–':String(v));});
+  });
+}
+
+var mode='week';
+function md(d){return Number(d.slice(5,7))+'/'+Number(d.slice(8));}
+function render(){
+  M=CMStats.model(CMStats.load(),seats);
+  var has=M.dates.length>0;
+  $('nodata').hidden=has;$('charts').hidden=!has;$('seg').hidden=!has;
+  if(!has){$('cover').textContent='只用座號、只數次數、不排名。資料只存在這台電腦，不會出現在投影頁與班網。';return;}
+  var c='資料範圍：'+md(M.dates[0])+'～'+md(M.dates[M.dates.length-1])+'，共 '+M.dates.length+' 個上課日。';
+  if(M.fill.length){c+='其中 '+md(M.fill[0])+'～'+md(M.fill[M.fill.length-1])+' 的 '+M.fill.length+' 天是從紀錄庫回填：只還原得到「有被記下來的例外」，到校請假與當天有沒有逐一檢核無法還原，達成率可能略偏高。';}
+  c+='只用座號、不排名；資料只存在這台電腦。';
+  $('cover').textContent=c;
+  var D=build(mode);
+  Array.prototype.forEach.call(document.querySelectorAll('.unit'),function(el){el.textContent=D.unit;});
+  chart1(D);chart2a(D);chart3(D);table(D);
+}
+Array.prototype.forEach.call(document.querySelectorAll('.seg button'),function(b){
+  b.addEventListener('click',function(){
+    mode=b.getAttribute('data-mode');
+    Array.prototype.forEach.call(document.querySelectorAll('.seg button'),function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+    render();
+  });
+});
+$('btn-import').addEventListener('click',function(){$('file').click();});
+$('file').addEventListener('change',function(){
+  var f=this.files&&this.files[0];if(!f){return;}
+  var rd=new FileReader();
+  rd.onload=function(){
+    var msg=$('import-msg');
+    try{
+      var o=JSON.parse(rd.result);
+      if(!o||o.v!==1||!o.days){throw new Error('格式不對');}
+      var r=CMStats.importFill(o);
+      msg.textContent=r.ok?'已匯入 '+r.added+' 天'+(r.kept?'（另有 '+r.kept+' 天這台已有即時紀錄，保留不蓋）':''):'寫入失敗（瀏覽器儲存空間不足？）';
+    }catch(e){msg.textContent='這不是每週統計的回填檔，沒有匯入任何資料。';}
+    $('file').value='';render();
+  };
+  rd.readAsText(f);
+});
+var rt;window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(render,150);});
+render();
+})();
+</script>
+</body>
+</html>
