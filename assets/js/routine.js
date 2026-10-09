@@ -779,6 +779,13 @@
       seats.forEach(function (s) { hwSet(it.key, s, 3); });
       Tool.beep(2, 760); paintHw(); paintPend();
     });
+    /* 全班訂正（2026-10-09 老師要求）：全班對完答案都要訂正時一鍵設成「要訂正」；追蹤列只看補交，不放。 */
+    var fix = document.createElement('button'); fix.className = 'reset'; fix.textContent = '✏️ 全班訂正';
+    fix.addEventListener('click', function () {
+      if (!confirm('把「' + it.name + '」全班設成要訂正？\n\n（訂正好的再一個一個點成完成）')) return;
+      seats.forEach(function (s) { hwSet(it.key, s, 2); });
+      Tool.beep(1, 520); paintHw(); paintPend();
+    });
     var reset = document.createElement('button'); reset.className = 'reset';
     reset.textContent = isCarry ? '✕ 不再追蹤' : '全設未交';
     reset.addEventListener('click', function () {
@@ -790,7 +797,7 @@
       }
       if (confirm('把「' + it.name + '」全班設回未交？')) { delete hw.status[it.key]; hdb.set(hw); paintHw(); }
     });
-    head.appendChild(done); head.appendChild(reset);
+    head.appendChild(done); if (!isCarry) head.appendChild(fix); head.appendChild(reset);
     return head;
   }
 
