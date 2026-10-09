@@ -1283,9 +1283,10 @@
     var day = {};
     if (touched('arrive')) day.arrive = { x: pick('arrive', [2]), lv: pick('arrive', [LEAVE_ARRIVE]) };
     var cs = supCount('clean'), ls = supCount('lunch');
-    if (touched('clean') || Object.keys(cs).length)
+    /* 晨掃／午餐：只有請假被簽到帶進來不算「有檢核」（那天老師沒開這一站，不能算全班達成）。 */
+    if (pick('clean', [1, 2, NOSHOW.clean]).length || Object.keys(cs).length)
       day.clean = { x: pick('clean', [2, NOSHOW.clean]), lv: pick('clean', [3, 4]), su: cs };
-    if (touched('lunch') || Object.keys(ls).length)
+    if (pick('lunch', [1, NOSHOW.lunch]).length || Object.keys(ls).length)
       day.lunch = { x: pick('lunch', [NOSHOW.lunch]), lv: pick('lunch', [LEAVE_OF.lunch]), su: ls };
     /* 潔牙：沒點＝沒做，所以「至少有一格 ✓」才算今天有檢核（整頁沒動過＝沒開這一站，不算應到）。 */
     var ti = teethItem();

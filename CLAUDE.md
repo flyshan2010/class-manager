@@ -66,6 +66,9 @@
 現行三頁：**`blackboard.html` 電子白板**（含抽籤問答／計時／小組計分／座位加分板）、
 **`routine.html` 工作檢核台**（到校簽到→打掃→作業清點→午餐→潔牙五站）、
 **`teacher.html` 教師專區**（待送送出／當節活動紀錄／座號設定）。
+另有 **`stats.html` 每週統計**（2026-10-09；教師專區進入、不投影）：`assets/js/stats.js` 管每日摘要 `classManager.stats.v1`
+（檢核台任何一次存檔後由 `statSnap()` 重算當天那份）。**「例外」判準必須和 `collect()` 同一套**——改任一站狀態表或結算規則時，
+`statSnap()` 要跟著改，並跑 `node scripts/stats-check.mjs`。回填檔含座號層級負向紀錄，只放 `private/`（已 gitignore），**不得進版控**。
 `draw/quiz/groups/timer/homework.html` 都已刪除，內容併進上面三頁。
 共用兩個同源資產，改它們＝改全部工具，改完把版本號往前推、逐頁回讀：
 - `assets/css/projection.css`：投影外殼（板面底色、HUD 底列、側邊面板、按鈕、空狀態）。
