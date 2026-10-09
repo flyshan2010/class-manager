@@ -332,8 +332,19 @@
 
   /* 進度＋一鍵列（到校、打掃用）：老師一眼看得出「還有幾個沒點」，
      「全部○○」只填**還沒點**的，已標遲到／未達標的不會被蓋掉（2026-09-07）。 */
+  /* 當天日期膠囊（2026-10-09 老師要求）：到校／晨掃／午餐／潔牙四站都標「這份是哪一天的」。
+     用的是資料自己的日期 st.date，不是時鐘——頁面開過夜時看得出畫面還停在昨天。作業清點已有派出日期，不加。 */
+  function dateChip() {
+    var p = String(st.date || '').split('-'), el = document.createElement('span');
+    el.className = 'sb-date';
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    el.textContent = '📅 ' + Number(p[1]) + '/' + Number(p[2]) + '（' + '日一二三四五六'.charAt(d.getDay()) + '）';
+    return el;
+  }
+
   function actionBar(kind, list, allLabel, allValue) {
     var bar = document.createElement('div'); bar.className = 'statbar';
+    bar.appendChild(dateChip());
     var done = list.filter(function (s) { return stateOf(kind, s) !== 0; }).length;
     var left = list.length - done;
     var info = document.createElement('span'); info.className = 'sb-n';
@@ -1055,6 +1066,7 @@
     var box = $('view-teeth'); box.innerHTML = '';
 
     var bar = document.createElement('div'); bar.className = 'statbar';
+    bar.appendChild(dateChip());
     var info = document.createElement('span'); info.className = 'sb-n';
     info.innerHTML = st.fluorideOn
       ? '💧 <b>今天做含氟漱口水</b>，<span class="sb-ok">做了就算今天的潔牙</span>，不必再點潔牙'
