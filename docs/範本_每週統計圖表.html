@@ -89,6 +89,18 @@ th{color:var(--ink-3);font-weight:600}
 .sub{margin:18px 0 4px;font-size:15px;font-weight:700}
 .rules{margin:10px 0 0;padding-left:1.2em;font-size:14px;color:var(--ink-2)}
 .rules b{color:var(--ink)}
+.ov .row{display:contents;cursor:pointer}
+.chip{border-radius:8px;padding:3px 10px;font-size:13px;white-space:nowrap;cursor:pointer;border:1.5px solid transparent}
+.chip.ok{color:var(--ink-3)}
+.chip.flat{color:var(--ink-2);background:var(--surface-2)}
+.chip.down{color:var(--ink);background:var(--surface-2);border-left:4px solid #0ca30c}
+.chip.up{color:var(--ink);font-weight:700;background:rgba(236,131,90,.16);border-color:#ec835a}
+.filt{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.filt button{appearance:none;font:inherit;font-size:13px;font-weight:700;color:var(--ink-2);background:transparent;
+  border:1px solid var(--line-2);border-radius:999px;padding:4px 14px;cursor:pointer}
+.filt button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.inl{grid-column:1/-1;background:#0f1521;border:1px solid var(--line-2);border-radius:12px;padding:10px 12px 12px;margin:4px 0 10px}
+.inl p{margin:0 0 4px;font-size:12px;color:var(--ink-3)}
 </style>
 </head>
 <body>
@@ -106,28 +118,26 @@ th{color:var(--ink-3);font-weight:600}
   <p class="notice">⚠️ 這是<b>版面範本</b>：數字全部是電腦亂數產生的示意資料（假設 26 人、12 週），不是班上真實情況。確認版面後才接真資料（9 月起回填）。</p>
 
   <h2>① 各站達成率趨勢</h2>
-  <p class="hint">達成率＝做到的人次 ÷ 應到人次（請假不算應到）。五張小圖同一把尺。滑鼠移到線上，會列出那一<span class="unit">週</span>沒做到的座號。</p>
+  <p class="hint">達成率＝做到的人次 ÷ 應到人次（請假不算應到、補交算做到）。五張小圖同一把尺。滑鼠移到線上，會列出那一<span class="unit">週</span>沒做到的座號。</p>
   <div class="multi" id="c1"></div>
 
   <h2>② 例外次數：這<span class="unit">週</span>和上<span class="unit">週</span>比</h2>
-  <p class="hint">例外＝當天沒做到的人次。滑鼠移到柱子上，會列出是哪些座號（×2 表示 2 次，「補」表示事後已補交／補做）。</p>
+  <p class="hint">例外＝沒做到、也還沒補的人次。滑鼠移到柱子上，會列出是哪些座號（×2 表示 2 次），已補的另外列。</p>
   <div class="card">
     <div class="legend"><span><i style="background:var(--c1)"></i>本<span class="unit">週</span></span><span><i style="background:var(--prev)"></i>上<span class="unit">週</span></span></div>
     <div id="c2a"></div>
   </div>
 
-  <h2>③ 每位學生：五項表現與趨勢（獎勵與輔導依據）</h2>
-  <p class="hint">一列一位學生、一欄一個項目，每個小格是一<span class="unit">週</span>（左舊右新）。顏色越亮＝還沒補的例外越多。點座號看下方明細。不排名。</p>
+  <h2>③ 每位學生：五項趨勢（獎勵與輔導依據）</h2>
+  <p class="hint">一列一位學生，每一項只給一個結論：<span id="cmp"></span>。數字＝這段期間沒做到的次數（已補的不算）。<b>點任一列</b>展開各<span class="unit">週</span>明細。不排名。</p>
   <div class="card">
-    <div class="legend" id="c3leg"></div>
+    <div class="filt" id="c3filt"></div>
     <div class="scroll"><div class="ov" id="c3"></div></div>
-    <p class="sub" id="dtTitle"></p>
-    <div class="scroll"><div class="dt" id="dt"></div></div>
     <ul class="rules">
-      <li><b>請假</b>：不算例外，也不算應到（不會拉低達成率）；格子畫斜線、明細標「假 n」。</li>
-      <li><b>補交／補做</b>：當天仍記 1 次例外（達成率照當天算），但另外標「補 n」；顏色只看<b>還沒補的</b>，全部補完的格子只留藍色外框。輔導提示也只看還沒補的。</li>
-      <li><b>支援</b>（幫忙別人的晨掃／午餐工作）：加分項，不影響達成率；明細標「★ n」，總表有「支援」欄，列入獎勵參考。</li>
-      <li><b>提示</b>：「可獎勵」＝近 4 週五項全做到；「可輔導」＝同一項連續 2 週、每週還沒補的例外 3 次以上。只提示，不自動發獎或開個案。</li>
+      <li><b>請假</b>：不算沒做到，也不算應到；明細標「假 n」，整<span class="unit">週</span>請假畫斜線。</li>
+      <li><b>補交／補做</b>：<b>算做到</b>（達成率、趨勢、提示都不計）；明細仍留「補 n」讓您知道他是事後補的。</li>
+      <li><b>支援</b>（幫忙別人的晨掃／午餐工作）：加分項；總表「支援」欄、明細「★ n」，列入獎勵參考。</li>
+      <li><b>提示</b>：「可獎勵」＝當月五項全做到；「可輔導」＝同一項連續 2 週、每週沒做到 3 次以上。只提示，不自動發獎或開個案。</li>
     </ul>
   </div>
 
@@ -183,20 +193,21 @@ function build(mode){
   if(mode==='week'){for(var w=0;w<W;w++){groups.push([w]);labels.push('第 '+(w+1)+' 週');shorts.push(String(w+1));}}
   else{for(var m=0;m<3;m++){groups.push([m*4,m*4+1,m*4+2,m*4+3]);labels.push(MONTHS[m]);shorts.push(MONTHS[m]);}}
   var P=groups.map(function(g){
-    var st=ST.map(function(_,s){return sum(g.map(function(w){return sum(exc[w][s]);}));});
+    var st=ST.map(function(_,s){return sum(g.map(function(w){return sum(exc[w][s])-sum(made[w][s]);}));});
     var denom=sum(g.map(function(w){return N*DAYS-sum(lv[w]);}));
     return {st:st,rate:st.map(function(e){return 100*(1-e/denom);})};
   });
   return {mode:mode,unit:mode==='week'?'週':'月',labels:labels,shorts:shorts,P:P,groups:groups};
 }
-/* 例外座號清單：「3、7×2（補1）、12」 */
+/* 例外座號清單：「座號 3、7×2」；已補的另列 */
 function seats(g,s){
-  var out=[];
+  var out=[],mk=[];
   for(var k=0;k<N;k++){
-    var e=agg(exc,g,s,k),m=agg(made,g,s,k);
-    if(e>0){out.push((k+1)+(e>1?'×'+e:'')+(m?'（補'+m+'）':''));}
+    var m=agg(made,g,s,k),u=agg(exc,g,s,k)-m;
+    if(u>0){out.push((k+1)+(u>1?'×'+u:''));}
+    if(m>0){mk.push((k+1)+(m>1?'×'+m:''));}
   }
-  return out.length?'座號 '+out.join('、'):'沒有例外';
+  return (out.length?'座號 '+out.join('、'):'沒有例外')+(mk.length?'<br>　已補：'+mk.join('、'):'');
 }
 
 /* ── 小工具 ── */
@@ -310,72 +321,77 @@ function chart2a(D){
   });
 }
 
-/* ③ 每位學生 × 五項 × 各期 */
+/* ③ 每位學生 × 五項：只給趨勢結論，點列才展開明細 */
 var RAMP=['#1e2634','#104281','#1c5cab','#3987e5','#86b6ef'];
-var sel=null;
+var sel=null,filt='all';
 function chart3(D){
-  var k=D.mode==='week'?1:3,edges=[1,2*k,3*k,4*k];     // 還沒補的例外：0｜1｜2｜3｜4+（每月×3）
-  function bin(v){if(v<=0){return 0;}for(var i=edges.length-1;i>=0;i--){if(v>=edges[i]){return i+1;}}return 1;}
-  function rng(i){return i<3?(edges[i+1]-edges[i]>1?edges[i]+'–'+(edges[i+1]-1):String(edges[i])):edges[3]+' 以上';}
-  var leg=document.getElementById('c3leg');leg.innerHTML='';
-  function L(txt,bg,cls){var sp=H('span','',leg);var sw=H('i',cls||'',sp);if(bg){sw.style.background=bg;}sw.style.outline='1px solid rgba(255,255,255,.18)';sp.appendChild(document.createTextNode(txt));}
-  L('全做到',RAMP[0]);for(var b=0;b<4;b++){L('未補 '+rng(b)+' 次',RAMP[b+1]);}
-  L('有例外但都補完',RAMP[0],'mk');L('整'+D.unit+'請假',null,'lv');
-
-  /* 提示（一律用週資料判定） */
-  var coun={},rew={};
+  var wk=D.mode==='week';
+  var rec=wk?[W-3,W-2,W-1]:[8,9,10,11],pri=wk?[W-6,W-5,W-4]:[4,5,6,7],th=wk?2:3;
+  var recN=wk?'近 3 週':'本月',priN=wk?'前 3 週':'上月';
+  document.getElementById('cmp').textContent='拿'+recN+'和'+priN+'比，分成「✓ 做到」「↘ 改善」「→ 持平」「↗ 變多」';
+  function un(g,s,q){return agg(exc,g,s,q)-agg(made,g,s,q);}
+  var ALLW=Array.apply(null,Array(W)).map(function(_,w){return w;}),LASTM=[8,9,10,11];
+  var rows=[];
   for(var q=0;q<N;q++){
-    var clean=true;
-    for(var s=0;s<ST.length;s++){
-      for(var w=W-4;w<W;w++){if(exc[w][s][q]>0){clean=false;}}
-      for(var w2=1;w2<W;w2++){
-        if(exc[w2][s][q]-made[w2][s][q]>=3&&exc[w2-1][s][q]-made[w2-1][s][q]>=3){(coun[q]=coun[q]||{})[ST[s]]=1;}
-      }
-    }
-    if(clean){rew[q]=1;}
-  }
-  if(sel===null){var ks=Object.keys(coun);sel=ks.length?+ks[0]:0;}
-
-  var grid=document.getElementById('c3');grid.innerHTML='';
-  grid.style.gridTemplateColumns='52px repeat(5,minmax(130px,1fr)) 44px 150px';
-  ['座號'].concat(ST,['支援','提示']).forEach(function(x){H('div','h',grid,x);});
-  var half=D.mode==='week'?[[W-6,W-5,W-4],[W-3,W-2,W-1]]:[[4,5,6,7],[8,9,10,11]],th=D.mode==='week'?2:3;
-  for(var q2=0;q2<N;q2++){(function(q){
-    var btn=H('button','seat',grid,String(q+1));btn.type='button';btn.setAttribute('aria-pressed',q===sel?'true':'false');
-    btn.addEventListener('click',function(){sel=q;chart3(D);});
-    ST.forEach(function(nm,s){
-      var strip=H('div','strip',grid);
-      D.groups.forEach(function(g,i){
-        var e=agg(exc,g,s,q),m=agg(made,g,s,q),lvd=sum(g.map(function(w){return lv[w][q];})),su=agg(sup,g,s,q);
-        var c=H('span','',strip);c.style.background=RAMP[bin(e-m)];
-        if(lvd>=DAYS*g.length){c.className='lv';}else if(e>0&&e===m){c.className='mk';}
-        c.addEventListener('mousemove',function(ev){
-          tip(ev,'<b>座號 '+(q+1)+'</b>・'+nm+'・'+D.labels[i]+'<br>例外 '+e+' 次'+(m?'（已補 '+m+'）':'')+(lvd?'<br>請假 '+lvd+' 天':'')+(su?'<br>支援 ★'+su:''));
-        });
-        c.addEventListener('mouseleave',untip);
-      });
-      var d=agg(exc,half[1],s,q)-agg(exc,half[0],s,q);
-      H('em','',strip,d<=-th?'↘ 改善':d>=th?'↗ 增加':'→ 持平');
+    var cells=ST.map(function(_,s){
+      var r=un(rec,s,q),p=un(pri,s,q),d=r-p;
+      return {r:r,p:p,kind:d<=-th?'down':d>=th?'up':r===0?'ok':'flat'};
     });
-    var st=sum(ST.map(function(_,s){return agg(sup,Array.apply(null,Array(W)).map(function(_,w){return w;}),s,q);}));
-    H('div','',grid,st?'★ '+st:'');
-    var tipc=H('div','',grid);
-    if(rew[q]){H('span','badge r',tipc,'可獎勵');}
-    if(coun[q]){H('span','badge c',tipc,'可輔導：'+Object.keys(coun[q]).join('、'));}
-  })(q2);}
-
-  /* 明細 */
-  document.getElementById('dtTitle').textContent='座號 '+(sel+1)+' 明細（點上方座號切換）';
-  var dt=document.getElementById('dt');dt.innerHTML='';
+    var coun=[];
+    ST.forEach(function(nm,s){
+      for(var w=1;w<W;w++){if(un([w],s,q)>=3&&un([w-1],s,q)>=3){coun.push(nm);break;}}
+    });
+    rows.push({q:q,cells:cells,coun:coun,
+      rew:ST.every(function(_,s){return un(LASTM,s,q)===0;}),
+      up:cells.some(function(c){return c.kind==='up';}),
+      sup:sum(ST.map(function(_,s){return agg(sup,ALLW,s,q);}))});
+  }
+  var F=[['all','全部',function(){return true;}],['up','有變多的',function(r){return r.up;}],
+         ['rew','可獎勵',function(r){return r.rew;}],['coun','可輔導',function(r){return r.coun.length;}]];
+  var fb=document.getElementById('c3filt');fb.innerHTML='';
+  var test=F[0][2];
+  F.forEach(function(f){
+    var b=H('button','',fb,f[1]+'（'+rows.filter(f[2]).length+'）');b.type='button';
+    b.setAttribute('aria-pressed',f[0]===filt?'true':'false');
+    if(f[0]===filt){test=f[2];}
+    b.addEventListener('click',function(){filt=f[0];chart3(D);});
+  });
+  var LAB={ok:'✓ 做到',down:'↘ 改善',flat:'→ 持平',up:'↗ 變多'};
+  var grid=document.getElementById('c3');grid.innerHTML='';
+  grid.style.gridTemplateColumns='56px repeat(5,minmax(104px,1fr)) 56px minmax(150px,1.3fr)';
+  grid.style.gap='6px 10px';
+  ['座號'].concat(ST,['支援','提示']).forEach(function(x){H('div','h',grid,x);});
+  rows.filter(test).forEach(function(R){
+    var row=H('div','row',grid);
+    row.addEventListener('click',function(){sel=(sel===R.q?null:R.q);chart3(D);});
+    var btn=H('button','seat',row,String(R.q+1));btn.type='button';btn.setAttribute('aria-pressed',R.q===sel?'true':'false');
+    btn.setAttribute('aria-label','座號 '+(R.q+1)+' 明細');
+    R.cells.forEach(function(c,s){
+      var chip=H('div','chip '+c.kind,row,LAB[c.kind]+(c.kind==='ok'?'':'　'+c.r));
+      chip.addEventListener('mousemove',function(ev){tip(ev,'<b>座號 '+(R.q+1)+'</b>・'+ST[s]+'<br>'+recN+'沒做到 '+c.r+' 次<br>'+priN+'沒做到 '+c.p+' 次');});
+      chip.addEventListener('mouseleave',untip);
+    });
+    H('div','',row,R.sup?'★ '+R.sup:'');
+    var tc=H('div','',row);
+    if(R.rew){H('span','badge r',tc,'可獎勵');}
+    if(R.coun.length){H('span','badge c',tc,'可輔導：'+R.coun.join('、'));}
+    if(R.q===sel){detail(D,R.q,H('div','inl',grid));}
+  });
+  if(!rows.filter(test).length){var e=H('div','',grid,'這個條件目前沒有學生。');e.style.gridColumn='1/-1';}
+}
+function detail(D,q,box){
+  H('p','',box,'座號 '+(q+1)+' 各'+D.unit+'明細｜數字＝沒做到次數（顏色越亮越多）　補 n＝事後已補、算做到　假 n＝請假天數　★ n＝支援次數');
+  var sc=H('div','scroll',box),dt=H('div','dt',sc),k=D.mode==='week'?1:3,edges=[1,2*k,3*k,4*k];
+  function bin(v){if(v<=0){return 0;}for(var i=edges.length-1;i>=0;i--){if(v>=edges[i]){return i+1;}}return 1;}
   dt.style.gridTemplateColumns='84px repeat('+D.groups.length+',minmax(46px,1fr))';
   H('div','h',dt,'');D.labels.forEach(function(l,i){H('div','h',dt,D.mode==='week'?D.shorts[i]:l);});
   ST.forEach(function(nm,s){
     H('div','lab',dt,nm);
     D.groups.forEach(function(g){
-      var e=agg(exc,g,s,sel),m=agg(made,g,s,sel),lvd=sum(g.map(function(w){return lv[w][sel];})),su=agg(sup,g,s,sel),b=bin(e-m);
+      var m=agg(made,g,s,q),u=agg(exc,g,s,q)-m,lvd=sum(g.map(function(w){return lv[w][q];})),su=agg(sup,g,s,q),b=bin(u);
       var c=H('div','c'+(b===4?' hi':''),dt);c.style.background=RAMP[b];
-      if(lvd>=DAYS*g.length){c.className='c lv';}else if(e>0&&e===m){c.className+=' mk';}
-      H('b','',c,e?String(e):'✓');
+      if(lvd>=DAYS*g.length){c.className='c lv';}
+      H('b','',c,u?String(u):'✓');
       var ex=[];if(m){ex.push('補'+m);}if(lvd){ex.push('假'+lvd);}if(su){ex.push('★'+su);}
       if(ex.length){H('small','',c,ex.join(' '));}
     });
