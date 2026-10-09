@@ -224,7 +224,7 @@
   }
 
   /* 工具中文名（任務標題與預覽共用，宣告在 buildPacks 之前才拿得到）。 */
-  var TOOL_NAMES = { board: '電子白板', arrive: '到校簽到', cleanup: '打掃工作',
+  var TOOL_NAMES = { board: '電子白板', arrive: '到校簽到', cleanup: '晨掃工作',
                      homework: '作業清點', lunch: '午餐工作', teeth: '潔牙',
                      routine: '常規檢核（舊）' };
 

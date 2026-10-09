@@ -135,8 +135,8 @@
   refresh();
 
   /* ── 今日待送（T0 管線・設計書 §3）───────────────────────── */
-  var TOOL_LABEL = { board: '電子白板', arrive: '到校簽到', cleanup: '打掃檢核',
-                     homework: '作業清點', lunch: '午餐檢核', teeth: '潔牙檢核',
+  var TOOL_LABEL = { board: '電子白板', arrive: '到校簽到', cleanup: '晨掃工作',
+                     homework: '作業清點', lunch: '午餐工作', teeth: '潔牙檢核',
                      routine: '常規檢核（舊）' };
 
   function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
