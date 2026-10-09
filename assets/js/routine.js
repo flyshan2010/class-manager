@@ -704,7 +704,7 @@
     allb.textContent = '✅ 全班全部交齊';
     allb.addEventListener('click', function () {
       if (!confirm('把全班所有作業都設成「完成」嗎？\n\n（含 ⏳ 過去未完成的追蹤項，設完那些列會自動消失）')) return;
-      hw.items.forEach(function (it) { seats.forEach(function (s) { hwSet(it.key, s, 3); }); });
+      hw.items.forEach(function (it) { seats.forEach(function (s) { if (!onLeave(s)) hwSet(it.key, s, 3); }); });
       Tool.beep(2, 760); paintHw(); paintPend();
     });
     bar.appendChild(allb);
@@ -776,14 +776,14 @@
     var done = document.createElement('button'); done.className = 'reset'; done.textContent = '✅ 全班完成';
     done.addEventListener('click', function () {
       if (!confirm('把「' + it.name + '」全班設成完成？')) return;
-      seats.forEach(function (s) { hwSet(it.key, s, 3); });
+      seats.forEach(function (s) { if (!onLeave(s)) hwSet(it.key, s, 3); });   // 請假的不動（2026-10-09）
       Tool.beep(2, 760); paintHw(); paintPend();
     });
     /* 全班訂正（2026-10-09 老師要求）：全班對完答案都要訂正時一鍵設成「要訂正」；追蹤列只看補交，不放。 */
     var fix = document.createElement('button'); fix.className = 'reset'; fix.textContent = '✏️ 全班訂正';
     fix.addEventListener('click', function () {
-      if (!confirm('把「' + it.name + '」全班設成要訂正？\n\n（訂正好的再一個一個點成完成）')) return;
-      seats.forEach(function (s) { hwSet(it.key, s, 2); });
+      if (!confirm('把「' + it.name + '」全班設成要訂正？\n\n（已完成、請假的不動；訂正好的再一個一個點成完成）')) return;
+      seats.forEach(function (s) { if (!onLeave(s) && hwState(it.key, s) !== 3) hwSet(it.key, s, 2); });   // 已完成、請假的不動
       Tool.beep(1, 520); paintHw(); paintPend();
     });
     var reset = document.createElement('button'); reset.className = 'reset';
