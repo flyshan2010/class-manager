@@ -1292,7 +1292,7 @@
     var ti = teethItem();
     if (pick(ti.kind, [1]).length) day.teeth = { x: pick(ti.kind, [0]), lv: pick(ti.kind, [LEAVE_OF[ti.kind]]) };
     /* 作業：只算今天清點過的非結轉項目；結轉列只看補交。 */
-    var hx = {}, hwRan = false, made = {}, unmade = [];
+    var hx = {}, hwRan = false, made = {}, unmade = [], hwOpen = {};
     hw.items.forEach(function (it) {
       var item = it.name + (it.due ? '（' + String(it.due).slice(5) + ' 派）' : '');
       if (hw.carry[it.key]) {
@@ -1306,10 +1306,13 @@
       hwRan = true;
       seats.forEach(function (s) {
         var v = hwState(it.key, s);
-        if ((v === 0 && !onLeave(s)) || v === 2) (hx[s] = hx[s] || []).push(item);
+        if (v === 1 || v === 3) return;
+        if (onLeave(s)) hwOpen[s] = 1;          // 請假：當天不算未交（與結算同一套），也不算應到
+        else (hx[s] = hx[s] || []).push(item);
       });
     });
-    if (hwRan) day.hw = { x: hx, lv: seats.filter(onLeave) };
+    /* 請假但今天的作業都提前交齊 → 算做到（計入應到），不列請假。 */
+    if (hwRan) day.hw = { x: hx, lv: seats.filter(function (s) { return hwOpen[s]; }) };
     var term = '';
     ((data.weeks && data.weeks.學期) || []).forEach(function (t) {
       var ws = t.週 || [];
