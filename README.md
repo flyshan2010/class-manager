@@ -30,7 +30,7 @@
 這個 public repo、任何截圖與任何投影畫面都不可能外洩個資。
 
 老師在工作台填一次班級人數（或 `1-12,14-28` 這種帶空號的寫法），
-存在瀏覽器 localStorage，只留在老師這台電腦。`data/roster.sample.json` 是格式範例。
+存在瀏覽器 localStorage；在教師專區開啟跨電腦同步後，另存一份在老師自己的 Apps Script 後台（只有座號與狀態，`assets/js/sync.js`）。`data/roster.sample.json` 是格式範例。
 
 ## 開發
 

@@ -69,6 +69,9 @@
 另有 **`stats.html` 每週統計**（2026-10-09；教師專區進入、不投影）：`assets/js/stats.js` 管每日摘要 `classManager.stats.v1`
 （檢核台任何一次存檔後由 `statSnap()` 重算當天那份）。**「例外」判準必須和 `collect()` 同一套**——改任一站狀態表或結算規則時，
 `statSnap()` 要跟著改，並跑 `node scripts/stats-check.mjs`。回填檔含座號層級負向紀錄，只放 `private/`（已 gitignore），**不得進版控**。
+**跨電腦同步**（2026-10-09）：`assets/js/sync.js`（五頁**第一支**載入，要先攔到其他腳本的 localStorage 寫入）把 `KEYS` 七個鍵存一份到代理的指令碼屬性（代理 v2.11 `sync_pair／state_get／state_put`，白名單 `SYNC_KEYS` 與 `KEYS` 要一致）。
+localStorage 仍是正本；**只有老師動手之後的寫入才算「這台改過」**（開頁換日那次不算，否則第二台天天跳衝突）；版次不合一律問老師、不自動覆蓋。
+新增要跟著走的 localStorage 鍵＝兩邊清單都加＋老師重新部署代理；改同步邏輯後跑 `node scripts/sim-sync.mjs`（16 項，載入正式代理檔，只讀不改）。
 `draw/quiz/groups/timer/homework.html` 都已刪除，內容併進上面三頁。
 共用兩個同源資產，改它們＝改全部工具，改完把版本號往前推、逐頁回讀：
 - `assets/css/projection.css`：投影外殼（板面底色、HUD 底列、側邊面板、按鈕、空狀態）。
