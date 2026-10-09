@@ -79,9 +79,12 @@
      v7（2026-09-11）：潔牙／含氟第 2 態由「✗ 沒做」改為「↻ 補做完成」（沒點才是沒做）。
      v8（2026-09-12）：潔牙／含氟只剩兩態（沒做／✓），補做算已潔牙。 */
   if (st && st.sv !== 8) st = null;
+  /* 含氟漱口水固定星期（2026-10-09 老師：週四改週二）：那天開新的一天時預設打開，其他天預設沒有；
+     當天仍可用潔牙站的按鈕手動開關（學校臨時改日、停一次時用）。改星期只改這個數字（0 日～6 六）。 */
+  var FLUORIDE_DAY = 2;
   if (!st || st.date !== Tool.todayKey()) {
     st = { date: Tool.todayKey(), sv: 8, arrive: {}, clean: {}, lunch: {}, teeth: {},
-           fluoride: {}, fluorideOn: false, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {},
+           fluoride: {}, fluorideOn: new Date().getDay() === FLUORIDE_DAY, week: (st && st.week) || {}, weekSup: (st && st.weekSup) || {},
            weekArrive: (st && st.weekArrive) || {} };
   }
   /* 今天的浮動支援：{ 組別名: [座號…] }。
@@ -1070,7 +1073,7 @@
     var info = document.createElement('span'); info.className = 'sb-n';
     info.innerHTML = st.fluorideOn
       ? '💧 <b>今天做含氟漱口水</b>，<span class="sb-ok">做了就算今天的潔牙</span>，不必再點潔牙'
-      : '🦷 午餐後潔牙每天做；💧 <b>含氟漱口水一週一次</b>，<span class="sb-left">今天沒有</span>';
+      : '🦷 午餐後潔牙每天做；💧 <b>含氟漱口水每週' + '日一二三四五六'.charAt(FLUORIDE_DAY) + '</b>，<span class="sb-left">今天沒有</span>';
     bar.appendChild(info);
     var tog = document.createElement('button');
     tog.className = st.fluorideOn ? 'sb-clear' : 'sb-all';
