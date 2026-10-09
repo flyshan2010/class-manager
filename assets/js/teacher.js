@@ -53,7 +53,7 @@
       if (i.fails >= 3) { i.until = Date.now() + 10 * 60 * 1000; i.fails = 0; }
       try { localStorage.setItem(LOCK_KEY, JSON.stringify(i)); } catch (e) {}
     }
-    function unlock() { box.hidden = true; main.hidden = false; }
+    function unlock(verified) { box.hidden = true; main.hidden = false; syncPair(!!verified, false); }
     function tryLogin() {
       if (locked()) {
         msg.textContent = '嘗試次數過多，請 ' + Math.ceil((lockInfo().until - Date.now()) / 60000) + ' 分鐘後再試。';
@@ -65,7 +65,7 @@
       try { sessionStorage.setItem(PW_KEY, v); } catch (e) {}
       callProxy('list_tasks', { limit: 1 })
         .then(function (res) {
-          if (res && res.ok) { try { localStorage.removeItem(LOCK_KEY); } catch (e) {} unlock(); return; }
+          if (res && res.ok) { try { localStorage.removeItem(LOCK_KEY); } catch (e) {} unlock(true); return; }
           try { sessionStorage.removeItem(PW_KEY); } catch (e) {}
           if (((res && res.error) || '').indexOf('口令') >= 0) recordFail();
           msg.textContent = (res && res.error) || '口令不對，請再試一次。';
@@ -73,17 +73,48 @@
         .catch(function () {
           /* 連不到代理（教室斷網）時不要把老師鎖在外面：口令留著，之後送出仍會被代理端驗。 */
           msg.textContent = '連不到後台（可能斷網），已先讓你進入；送出時才會真正驗證口令。';
-          setTimeout(unlock, 900);
+          setTimeout(function () { unlock(false); }, 900);
         });
     }
     $('gate-btn').addEventListener('click', tryLogin);
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
-    if (pw()) unlock(); else inp.focus();      /* 同一分頁內重整不必再打 */
+    if (pw()) unlock(true); else inp.focus();      /* 同一分頁內重整不必再打 */
     $('btn-lock').addEventListener('click', function () {
       try { sessionStorage.removeItem(PW_KEY); } catch (e) {}
       location.href = 'index.html';
     });
   })();
+
+  /* ── 跨電腦同步（sync.js）：口令通過後自動配對一次；憑證只能讀寫檢核台狀態 ─────── */
+  function paintSync(note) {
+    var S = window.CMSync;
+    if (!S || !$('sync-summary')) return;
+    var on = S.paired();
+    var say = { ok: '已是最新', pending: '同步中…', offline: '目前連不到後台，恢復後會自動補傳',
+                newer: '另一台有較新的紀錄（看畫面左上角提示）', unpaired: '' }[S.state] || '';
+    $('sync-summary').textContent = on ? '☁ 這台電腦已開啟同步' : '這台電腦沒有同步';
+    $('sync-detail').textContent = note || (on ? say : (S.stopped() ? '已在這台停止同步；紀錄只留在這台電腦。' : '輸入口令進入本頁時會自動開啟。'));
+    $('btn-sync-on').hidden = on;
+    $('btn-sync-off').hidden = !on;
+  }
+  function syncPair(verified, manual) {
+    var S = window.CMSync;
+    if (!S) return;
+    S.onStatus = function () { paintSync(); };
+    paintSync();
+    if (S.paired() || !verified || !pw() || (S.stopped() && !manual)) return;
+    callProxy('sync_pair', {}).then(function (res) {
+      if (res && res.ok && res.secret) { S.pair(proxyUrl, res.secret).then(function () { paintSync(); }); paintSync('配對完成，正在比對兩邊的紀錄…'); return; }
+      var err = (res && res.error) || '';
+      paintSync(err.indexOf('未知的動作') >= 0 ? '後台還是舊版（要 v2.11 才有同步），重新部署代理後再按「開始同步」。' : '沒有配對成功（' + err + '）。');
+    }).catch(function () { paintSync('連不到後台，沒有配對；網路恢復後按「開始同步」。'); });
+  }
+  $('btn-sync-on').addEventListener('click', function () { syncPair(true, true); });
+  $('btn-sync-off').addEventListener('click', function () {
+    if (!confirm('這台電腦要停止同步嗎？之後這台的紀錄不會上傳，也接不到另一台的。')) return;
+    window.CMSync.stop(); paintSync();
+  });
+
   var input = $('seat-input');
   var status = $('seat-status');
   var summary = $('seat-summary');

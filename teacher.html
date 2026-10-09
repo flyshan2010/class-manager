@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>教師專區｜班級管理系統</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261009-5" />
+<link rel="stylesheet" href="assets/css/style.css?v=20261009-7" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔑</text></svg>" />
 <style>
 /* 口令閘（比照班網教師專區）：驗證通過前，整頁內容不顯示 */
@@ -62,7 +62,7 @@
     <a href="index.html">← 回工作台</a></p>
 
   <h2>今日待送 <span id="send-badge" class="badge">0 筆</span></h2>
-  <p class="hint">課堂工具記下的加減分只留在這台電腦，下課按「收班送出」才一次進 Notion 收件匣，
+  <p class="hint">課堂工具記下的加減分先留在這台電腦（開啟跨電腦同步後，換一台電腦也接得到），下課按「收班送出」才一次進 Notion 收件匣，
     由排程 Agent 入帳。<b>只有這裡能送出</b>，用的就是剛才進來時打的那組口令。</p>
 
   <div id="send-remind" class="remind" hidden>
@@ -87,12 +87,12 @@
   </div>
 
   <h2>當節活動紀錄</h2>
-  <p class="hint">電子白板每按一次「結束課程」（或換節自動結算）就留一列，只在這台電腦，最多 60 筆。</p>
+  <p class="hint">電子白板每按一次「結束課程」（或換節自動結算）就留一列，最多 60 筆（開啟跨電腦同步後會跟著走）。</p>
   <div class="panel"><div id="loglist" class="loglist"></div></div>
 
   <h2>📊 每週統計</h2>
   <p class="hint">五站（到校簽到／晨掃工作／作業／午餐工作／潔牙）的達成率趨勢、本期與上期例外次數、每位學生五項趨勢，
-    可切每週／每月。只用座號、不排名，<b>不會出現在投影頁</b>；資料只存在這台電腦。</p>
+    可切每週／每月。只用座號、不排名，<b>不會出現在投影頁</b>；資料存在這台電腦，開啟跨電腦同步後另存一份在老師自己的後台。</p>
   <div class="panel"><div class="row"><button id="btn-stats" type="button" onclick="location.href='stats.html'">打開每週統計</button></div></div>
 
   <h2>班級座號</h2>
@@ -109,10 +109,22 @@
     <p id="seat-preview" class="hint" style="margin:14px 0 0"></p>
   </div>
 
+  <h2>☁ 跨電腦同步</h2>
+  <p class="hint">換一台電腦，只要進這一頁輸入口令一次，待送事件、作業欠交、當天檢核、座號設定、每週統計都會跟過來。
+    資料只存在老師自己的後台（Apps Script），只有座號與狀態、沒有姓名。斷網時照常使用，恢復後自動補傳。</p>
+  <div class="panel">
+    <div><b id="sync-summary">檢查中…</b></div>
+    <p id="sync-detail" class="hint" style="margin:8px 0 0"></p>
+    <div class="row">
+      <button id="btn-sync-on" type="button" hidden>開始同步</button>
+      <button id="btn-sync-off" class="ghost" type="button" hidden>這台停止同步</button>
+    </div>
+  </div>
+
   <div class="notice">
     <b>這裡不存學生姓名。</b>投影在教室前方時座號就足以指認，少了姓名，
     這個網站的畫面、截圖與程式碼都不可能外洩個資。
-    座號設定只存在這台電腦的瀏覽器裡，換電腦要重設一次。
+    座號設定存在這台電腦的瀏覽器裡；開啟上面的跨電腦同步後，換電腦不必重設。
   </div>
 
   <footer>
@@ -120,9 +132,10 @@
   </footer>
 
 </div>
-<script src="assets/js/common.js?v=20261009-5"></script>
-<script src="assets/js/events.js?v=20261009-5"></script>
-<script src="assets/js/sender.js?v=20261009-5"></script>
-<script src="assets/js/teacher.js?v=20261009-5"></script>
+<script src="assets/js/sync.js?v=20261009-7"></script>
+<script src="assets/js/common.js?v=20261009-7"></script>
+<script src="assets/js/events.js?v=20261009-7"></script>
+<script src="assets/js/sender.js?v=20261009-7"></script>
+<script src="assets/js/teacher.js?v=20261009-7"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20261009-5" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20261009-7" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -683,15 +683,16 @@ body.wall .dyn{overflow:hidden}
   <p class="hint" style="margin:6px 0 0">右上角的「<b>午餐值週生</b>」讀班網公開的午餐輪值表（正本在 Notion「🧹 班級工作分配」），<b>每週自動換一班</b>，跟班網「關於我們 → 工作分配」看到的是同一份。姓名已去識別化；這份名單<b>只在畫面上顯示，不存進這台電腦</b>，所以斷網時會暫時不顯示。</p>
   <p class="hint" style="margin:6px 0 0">左上角的「節慶倒數」讀班網公開的行事曆（正本在 Notion），<b>只顯示今天之後最近的一個</b>；要改日期請到 Notion 改。右下角的「計時」是上課用的分鐘計時器，兩者不同。</p>
 
-  <div class="note-box"><b>資料只留在這台電腦。</b>聯絡簿與設定存在瀏覽器，不上傳、不進版控、不出現在班網，也不存學生姓名。</div>
+  <div class="note-box"><b>資料存在這台電腦的瀏覽器。</b>不進版控、不出現在班網，也不存學生姓名；在教師專區開啟跨電腦同步後，當節紀錄與小組計分會另存一份在老師自己的後台。</div>
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/common.js?v=20261009-5"></script>
-<script src="assets/js/tool.js?v=20261009-5"></script>
-<script src="assets/js/events.js?v=20261009-5"></script>
-<script src="assets/js/wall.js?v=20261009-5"></script>
-<script src="assets/js/board.js?v=20261009-5"></script>
+<script src="assets/js/sync.js?v=20261009-7"></script>
+<script src="assets/js/common.js?v=20261009-7"></script>
+<script src="assets/js/tool.js?v=20261009-7"></script>
+<script src="assets/js/events.js?v=20261009-7"></script>
+<script src="assets/js/wall.js?v=20261009-7"></script>
+<script src="assets/js/board.js?v=20261009-7"></script>
 <script>
 (function () {
   'use strict';

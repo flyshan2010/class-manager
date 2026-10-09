@@ -172,8 +172,9 @@ th{color:var(--ink-3);font-weight:600}
 </div>
 <div id="tip" hidden></div>
 
-<script src="assets/js/common.js?v=20261009-5"></script>
-<script src="assets/js/stats.js?v=20261009-5"></script>
+<script src="assets/js/sync.js?v=20261009-7"></script>
+<script src="assets/js/common.js?v=20261009-7"></script>
+<script src="assets/js/stats.js?v=20261009-7"></script>
 <script>
 (function(){
 'use strict';
@@ -429,10 +430,10 @@ function render(){
   M=CMStats.model(CMStats.load(),seats);
   var has=M.dates.length>0;
   $('nodata').hidden=has;$('charts').hidden=!has;$('seg').hidden=!has;
-  if(!has){$('cover').textContent='只用座號、只數次數、不排名。資料只存在這台電腦，不會出現在投影頁與班網。';return;}
+  if(!has){$('cover').textContent='只用座號、只數次數、不排名。資料存在這台電腦（開啟跨電腦同步後另存一份在老師自己的後台），不會出現在投影頁與班網。';return;}
   var c='資料範圍：'+md(M.dates[0])+'～'+md(M.dates[M.dates.length-1])+'，共 '+M.dates.length+' 個上課日。';
   if(M.fill.length){c+='其中 '+md(M.fill[0])+'～'+md(M.fill[M.fill.length-1])+' 的 '+M.fill.length+' 天是從紀錄庫回填：只還原得到「有被記下來的例外」，到校請假與當天有沒有逐一檢核無法還原，達成率可能略偏高。';}
-  c+='只用座號、不排名；資料只存在這台電腦。';
+  c+='只用座號、不排名；資料存在這台電腦與老師自己的後台（有開同步時）。';
   $('cover').textContent=c;
   var D=build(mode);
   Array.prototype.forEach.call(document.querySelectorAll('.unit'),function(el){el.textContent=D.unit;});
