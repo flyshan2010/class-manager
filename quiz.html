@@ -286,7 +286,7 @@ function paintReport() {
       qs.forEach(function (q) { if (q.tag === t) { full += q.pts; lost += ded(q.id, s); } });
       return { t: t, full: full, lost: lost, r: full ? 1 - lost / full : 1 };
     }).filter(function (w) { return w.full && w.lost >= 2 && w.r < 0.8; })
-      .sort(function (a, b) { return a.r - b.r || b.lost - a.lost; }).slice(0, 2);
+      .sort(function (a, b) { return a.r - b.r || b.lost - a.lost; }).slice(0, 5);   // 老師 2026-10-18：最多 5 類
     h += '<tr><td><b>' + s + '</b></td><td class="num">' + score(s) + '</td><td>' +
       (weak.length ? weak.map(function (w) { return '<span class="tag">' + esc(ex.tags[w.t][0]) + '・扣' + w.lost + '分</span>'; }).join(' ') : '<span class="lv-ok">各知識點都穩定</span>') +
       '</td><td>' + (weak.length ? weak.map(function (w) { return esc(ex.tags[w.t][1]); }).join('<br>') : '維持好習慣，訂正錯的題目即可。') + '</td></tr>';
