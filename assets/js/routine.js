@@ -932,7 +932,7 @@
 
   /* 考試不算作業（2026-10-18 老師裁定）：聯絡簿「考數L1-5」這類考試預告、「【定期評量】」這類括號標記
      不進作業清點，也不結轉。「社練 期中成果評量」是習作本、不是考試，照常清點（只看開頭字）。 */
-  function notHomework(name) { return /^\s*(考|【)/.test(String(name || '')); }
+  function notHomework(name) { return /^\s*(考|【)|回條/.test(String(name || '')); }   // 回條不算作業（老師 2026-10-18）
 
   function loadHw() {
     return fetch(BASE + 'contactbook.json?t=' + Date.now(), { cache: 'no-store' })
