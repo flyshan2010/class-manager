@@ -121,9 +121,19 @@
      鍵＝作業鍵＋座號，值＝{ d: 補交日, seat, note: 作業名（派出日）, out: 已結算過 }；結算時帶上當天的與還沒結算過的（id 一天一列，R18 去重），
      改回非完成就刪；14 天前的自動清掉。 */
   if (!hw.madeUp) hw.madeUp = {};
+  /* 批改結果（2026-10-18 BX 線）：結算當下「已交」、之後才批改成「完成」或「要訂正」的作業，
+     記一筆「作業批改完成」（good）／「作業批改要訂正」（neutral），都是 0 幣 tally、不扣分——
+     學期作業換分（最後有完成 100／仍要訂正 80／仍未交 0）才分得出準時交、批改後的結果；以前會被記成「補交完成」或完全沒紀錄。
+     hw.settled＝每份作業最後一次結算時各座號的狀態（判斷「結算當下是不是已交」）；
+     hw.graded 鍵＝作業鍵＋座號，值＝{ d: 批改日, seat, res: 3 完成｜2 要訂正, note, out }，帶法與 14 天清除同 madeUp。
+     真正的未交／要訂正之後才完成，照舊記「作業補交完成」。 */
+  if (!hw.settled) hw.settled = {};
+  if (!hw.graded) hw.graded = {};
   (function () {
     var cut = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10);
-    Object.keys(hw.madeUp).forEach(function (k) { if (!hw.madeUp[k] || hw.madeUp[k].d < cut) delete hw.madeUp[k]; });
+    [hw.madeUp, hw.graded].forEach(function (mp) {
+      Object.keys(mp).forEach(function (k) { if (!mp[k] || mp[k].d < cut) delete mp[k]; });
+    });
   })();
   hw.date = Tool.todayKey();          // 跨日不清空狀態：沒交完的要結轉，清空就沒得追
   /* 每週統計的每日摘要（stats.js）：五站任何一次存檔後 0.8 秒重算今天那一份，整天覆蓋＝留下當天最終狀態。
@@ -583,14 +593,23 @@
      結轉列（前幾天派、還沒交完）只提醒，不進 collect()——同一份作業天天結算就會天天扣一次 −5。 */
   var CARRY_WARN_DAYS = 14;     // 追蹤超過這麼多天就提醒老師處理；**不自動下架**（靜默丟掉欠交比殘留更糟）
   function hwState(key, seat) { return (hw.status[key] && hw.status[key][seat]) || 0; }
+  function hwNote(key) {
+    var it0 = hwItem(key);
+    return it0 ? it0.name + (it0.due ? '（' + String(it0.due).slice(5) + ' 派）' : '') : '';
+  }
   function hwSet(key, seat, v) {
-    if (hw.carry[key]) {
-      var mk = key + '\t' + seat;
-      if (v === 3 && hwState(key, seat) !== 3) {
-        var it0 = hwItem(key);
-        hw.madeUp[mk] = { d: Tool.todayKey(), seat: Number(seat),
-                          note: it0 ? it0.name + (it0.due ? '（' + String(it0.due).slice(5) + ' 派）' : '') : '' };
-      } else if (v !== 3) delete hw.madeUp[mk];
+    var mk = key + '\t' + seat;
+    var base = hw.settled[key] ? hw.settled[key][seat] : undefined;   // 最後一次結算時的狀態；沒結算過＝undefined
+    if (base === 1) {
+      /* 結算時已交 → 之後點成完成／要訂正是「批改結果」，不是補交 */
+      var g = hw.graded[mk];
+      if (v === 3 || v === 2) { if (!g || g.res !== v) hw.graded[mk] = { d: Tool.todayKey(), seat: Number(seat), res: v, note: hwNote(key) }; }
+      else delete hw.graded[mk];
+      delete hw.madeUp[mk];
+    } else if (hw.carry[key] || base !== undefined) {
+      /* 結轉列，或今天結算過之後才改：未交／要訂正／請假 → 完成＝補交完成 */
+      if (v === 3 && hwState(key, seat) !== 3) hw.madeUp[mk] = { d: Tool.todayKey(), seat: Number(seat), note: hwNote(key) };
+      else if (v !== 3) delete hw.madeUp[mk];
     }
     if (!hw.status[key]) hw.status[key] = {};
     if (v === 0) delete hw.status[key][seat]; else hw.status[key][seat] = v;
@@ -939,8 +958,12 @@
           if (!hwUndone(o.key).length) return;      // 全班都完成 → 自然消失
           carry[o.key] = 1; keep.push(o);
         });
-        var ns = {}; keep.forEach(function (it) { if (hw.status[it.key]) ns[it.key] = hw.status[it.key]; });
-        hw.items = keep; hw.status = ns; hw.carry = carry; hw.srcDate = src;
+        var ns = {}, nset = {};
+        keep.forEach(function (it) {
+          if (hw.status[it.key]) ns[it.key] = hw.status[it.key];
+          if (hw.settled[it.key]) nset[it.key] = hw.settled[it.key];
+        });
+        hw.items = keep; hw.status = ns; hw.carry = carry; hw.srcDate = src; hw.settled = nset;
         quietSet('hw', hw);
       })
       .catch(function () {
@@ -1194,14 +1217,23 @@
                      kind: m[0], act_i: m[1], act: a.act, coin: a.coin, level: a.level, note: item });
         });
       });
-      /* 補交完成（結轉列被點完成）：不進上面的未交／完成結算，另記 0 幣 tally，日期＝補交那天。 */
-      Object.keys(hw.madeUp).forEach(function (k) {
-        var m = hw.madeUp[k];
-        if (!m || !m.note || !m.seat) return;
-        // 今天補交的（重新結算會被 clearTool 清掉，要再帶）＋以前補交但還沒結算過的；已帶過的舊日不再帶，免得待送重複計次
-        if (m.d !== st.date && m.out) return;
-        out.push({ tool: TOOL.hw, date: m.d, seat: m.seat, src: 'tally', dedupe: 'day',
-                   kind: 'good', act: '作業補交完成', note: m.note });
+      /* 補交完成（結轉列被點完成）與批改結果（結算時已交、之後才批改）：不進上面的未交／完成結算，
+         另記 0 幣 tally，日期＝補交／批改那天。今天正在清點的作業（非結轉列）上面已照現況重算，不另記。 */
+      var now = {};
+      hw.items.forEach(function (it) { if (!hw.carry[it.key]) now[it.key] = 1; });
+      function later(mp, ev) {
+        Object.keys(mp).forEach(function (k) {
+          var m = mp[k];
+          if (!m || !m.note || !m.seat) return;
+          if (now[k.split('\t')[0]]) return;
+          // 今天的（重新結算會被 clearTool 清掉，要再帶）＋以前的但還沒結算過的；已帶過的舊日不再帶，免得待送重複計次
+          if (m.d !== st.date && m.out) return;
+          out.push(Object.assign({ tool: TOOL.hw, date: m.d, seat: m.seat, src: 'tally', dedupe: 'day', note: m.note }, ev(m)));
+        });
+      }
+      later(hw.madeUp, function () { return { kind: 'good', act: '作業補交完成' }; });
+      later(hw.graded, function (m) {
+        return m.res === 3 ? { kind: 'good', act: '作業批改完成' } : { kind: 'neutral', act: '作業批改要訂正' };
       });
       return out;
     }
@@ -1249,9 +1281,11 @@
       '　未交（' + (c4.bad[0] || {}).coin + '）　　' + c((c4.bad[0] || {}).act) + ' 人次\n' +
       '　要訂正（' + (c4.bad[1] || {}).coin + '）　' + c((c4.bad[1] || {}).act) + ' 人次\n' +
       '　完成（只記次數，不當場加幣）　' + c('作業完成') + ' 人次\n' +
-      '　⏳ 補交完成（0 幣，只留紀錄給學習報告）　' + c('作業補交完成') + ' 人次\n\n' +
+      '　⏳ 補交完成（0 幣，只留紀錄給學習報告）　' + c('作業補交完成') + ' 人次\n' +
+      '　✎ 已交後批改：完成 ' + c('作業批改完成') + '／要訂正 ' + c('作業批改要訂正') + ' 人次（0 幣，學期作業換分用）\n\n' +
       '同一人同一天多份會合併成一列並記次數（金幣算一次）。\n' +
-      '⏳ 標「還沒交完」的舊作業不再扣分；有人補交、點成「完成」才記一筆「補交完成」。\n' +
+      '⏳ 標「還沒交完」的舊作業不再扣分；有人補交、點成「完成」才記一筆「補交完成」；\n' +
+      '　結算時「已交」、之後批改成完成／要訂正的，記一筆「批改結果」（不扣分）。\n' +
       '「完成」由週結看全週表現一次給，平日不逐天發幣。\n再按一次會重新結算，不會疊加。';
   }
 
@@ -1289,7 +1323,20 @@
     if (!confirm(settleMsg(tab, evs))) return;
     CMEvents.clearTool(TOOL[tab], st.date);        // 重按＝重算，不疊加
     evs.forEach(function (e) { CMEvents.push(e); });
-    if (tab === 'hw') { Object.keys(hw.madeUp).forEach(function (k) { hw.madeUp[k].out = 1; }); hdb.set(hw); }
+    if (tab === 'hw') {
+      /* 記下這次結算時各座號的狀態（之後的改動才分得出批改結果／補交）；今天清點中的作業已照現況重算，舊的補交／批改記錄作廢 */
+      hw.items.forEach(function (it) {
+        if (hw.carry[it.key]) return;
+        var snap = {};
+        seats.forEach(function (s) {
+          snap[s] = hwState(it.key, s);
+          delete hw.madeUp[it.key + '\t' + s]; delete hw.graded[it.key + '\t' + s];
+        });
+        hw.settled[it.key] = snap;
+      });
+      [hw.madeUp, hw.graded].forEach(function (mp) { Object.keys(mp).forEach(function (k) { mp[k].out = 1; }); });
+      hdb.set(hw);
+    }
     Tool.beep(2, 720); paintPend();
   }
 
