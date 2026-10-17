@@ -911,6 +911,10 @@
     else paintHwOne(box, hwItem(hwView));
   }
 
+  /* 考試不算作業（2026-10-18 老師裁定）：聯絡簿「考數L1-5」這類考試預告、「【定期評量】」這類括號標記
+     不進作業清點，也不結轉。「社練 期中成果評量」是習作本、不是考試，照常清點（只看開頭字）。 */
+  function notHomework(name) { return /^\s*(考|【)/.test(String(name || '')); }
+
   function loadHw() {
     return fetch(BASE + 'contactbook.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw 0; return r.json(); })
@@ -922,7 +926,8 @@
         var row = past[0], src = row ? row.date.slice(0, 10) : '';
         var items = [];
         if (row) String(row.homework).split(/\n+/).map(function (s) { return s.trim(); })
-          .filter(Boolean).forEach(function (l) { items.push({ key: src + '|' + l, name: l, due: src }); });
+          .filter(function (l) { return l && !notHomework(l); })
+          .forEach(function (l) { items.push({ key: src + '|' + l, name: l, due: src }); });
         /* 聯絡簿每天都要收，收的是「今天這一輪」——鍵掛今天的日期，隔天自動長出全新一列。 */
         items.push({ key: today + '|聯絡簿', name: '聯絡簿', due: today });
         var isToday = {}; items.forEach(function (it) { isToday[it.key] = 1; });
@@ -930,6 +935,7 @@
         var carry = {}, keep = items.slice();
         hw.items.forEach(function (o) {
           if (!o || !o.key || isToday[o.key]) return;
+          if (notHomework(o.name)) return;          // 舊版留下的考試項目一併清掉
           if (!hwUndone(o.key).length) return;      // 全班都完成 → 自然消失
           carry[o.key] = 1; keep.push(o);
         });
