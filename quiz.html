@@ -93,7 +93,7 @@ textarea{width:100%;min-height:150px;background:var(--surface-2);color:var(--ink
 <div class="wrap" id="noseat" hidden><div class="card">還沒設定班級座號。請先回 <a href="teacher.html" style="color:var(--accent)">教師專區</a> 設定座號。</div></div>
 <div class="toast" id="toast"></div>
 
-<script src="assets/js/common.js?v=20261018-2"></script>
+<script src="assets/js/common.js?v=20261018-4"></script>
 <script>
 /* ── 考卷資料：不放在網頁裡（班網與本站是公開 repo，學年統一開放日前試卷與答案都不能公開）──
    考卷檔（.json）放在雲端硬碟 class-manager/private/exams/（已 gitignore），用上方「📂 匯入考卷」讀進這台電腦。
@@ -125,9 +125,19 @@ function D() {                        // 該卷的登記：{ ded: {題id: {座�
 function items() {
   var out = [];
   exam().sections.forEach(function (sec, si) {
-    sec.items.forEach(function (it) { out.push({ id: si + ':' + it[0], sec: sec.name, no: it[0], pts: it[1], ans: it[2], tag: it[3] }); });
+    sec.items.forEach(function (it) { out.push({ id: si + ':' + it[0], code: itemCode(si, it[0]), sec: sec.name, no: it[0], pts: it[1], ans: it[2], tag: it[3] }); });
   });
   return out;
+}
+// 錯題碼（BY 線 2026-10-18）：大題中文序＋題號去空白，例「三2」「四填6」「二8彷」。
+// 與班網 scripts/classos/lib/quiz-errors.mjs 的 itemCode 同一套寫法，兩邊改要一起改。
+var SECNO = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+function itemCode(si, no) { return (SECNO[si] || (si + 1) + '.') + String(no).replace(/\s+/g, ''); }
+function errCode(s) {                 // 「錯:三2,一5,四填6(-1)」；部分扣分帶 (-n)；全對「錯:無」
+  var w = items().filter(function (q) { return ded(q.id, s) > 0; }).map(function (q) {
+    var d = ded(q.id, s); return d === q.pts ? q.code : q.code + '(-' + d + ')';
+  });
+  return '錯:' + (w.length ? w.join(',') : '無');
 }
 function seats() { return SEATS; }
 function nextSeat(s) { var i = SEATS.indexOf(s); return SEATS[(i + 1) % SEATS.length]; }
@@ -297,11 +307,11 @@ function paintReport() {
   var lines = seats().map(function (s) {
     if (isAbs(s)) return '座號' + s + ' ' + ex.subj + ' ' + ex.name + ' 缺考';
     if (!touched(s)) return null;
-    return '座號' + s + ' ' + ex.subj + ' ' + ex.name + ' ' + score(s) + '分';
+    return '座號' + s + ' ' + ex.subj + ' ' + ex.name + ' ' + score(s) + '分 ' + errCode(s);
   }).filter(Boolean);
   h += '<h2>④ 成績（複製後貼給 AI「記錄：」即入紀錄庫平時考）</h2><div class="card"><textarea id="out" readonly>' + esc(lines.join('\n')) + '</textarea>' +
        '<div class="row" style="margin-top:8px"><button id="copy" class="on">複製成績</button><button id="json">下載完整登記（JSON）</button>' +
-       '<span class="hint">分數＝100 − 錯題扣分；請和考卷上的分數對一次。</span></div></div>';
+       '<span class="hint">分數＝100 − 錯題扣分；請和考卷上的分數對一次。「錯:」後面是錯題碼（大題序＋題號），學生加密報告用它算知識點得分率。</span></div></div>';
   main.innerHTML = h;
   document.getElementById('copy').onclick = function () {
     var t = document.getElementById('out'); t.select();
