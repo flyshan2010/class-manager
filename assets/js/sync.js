@@ -21,11 +21,13 @@
 
   /* 與代理 SYNC_KEYS 一致；改這裡兩邊都要改 */
   var KEYS = ['classManager.events.v1', 'classManager.homework.v3', 'classManager.routine.v2',
-              'classManager.seats.v2', 'classManager.groups.v1', 'classManager.board.v1', 'classManager.stats.v1'];
+              'classManager.seats.v2', 'classManager.groups.v1', 'classManager.board.v1', 'classManager.stats.v1',
+              'quizErrors.draft.v1'];   // 班網錯題紀錄表（同源，2026-10-18 BY 線；代理 v2.13 起）
   var LABEL = {
     'classManager.events.v1': '待送事件', 'classManager.homework.v3': '作業清點',
     'classManager.routine.v2': '當天五站檢核', 'classManager.seats.v2': '座號設定',
-    'classManager.groups.v1': '小組計分', 'classManager.board.v1': '白板紀錄', 'classManager.stats.v1': '每週統計'
+    'classManager.groups.v1': '小組計分', 'classManager.board.v1': '白板紀錄', 'classManager.stats.v1': '每週統計',
+    'quizErrors.draft.v1': '錯題登記'
   };
   var META = 'classManager.sync.v1';   // { secret, url, dev, off, k:{ 鍵:{ rev 上次看到的版次, dirty, at 本機改動時間 } } }
   var DELAY = 3000;
