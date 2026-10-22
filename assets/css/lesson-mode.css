@@ -1,0 +1,222 @@
+/* 電子白板「上課模式」（CG 線 P2b，2026-10-22）
+ * 畫面正本＝教學簡報/_工具/改版提案_單節課簡報/電子白板範本_上課模式.html（九輪定版），本檔照範本移植、不重新設計；
+ * 規格＝同資料夾 SPEC_單節課簡報v4.md §4.1、§7。只有 blackboard.html 載入；行為在 assets/js/lesson-mode.js。
+ * 施工鐵則（範本第六輪）：浮動工具的「已收起」一律記在 body class（cm-min--<id>），不寫在會被原程式重繪的元件上。
+ */
+/* ── 範本：電子白板「▶ 開本節簡報」＋同步鏡像作答面板（示意，不寫入任何資料） ── */
+.od-wrap { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.od-btn { font: inherit; font-size: 30px; font-weight: 700; padding: 14px 34px; border-radius: 999px; border: 0; cursor: pointer;
+  background: linear-gradient(135deg, #f0c85a, #ff9f5a); color: #1b1f2e; box-shadow: 0 6px 24px rgba(240,200,90,.35); }
+.od-sub { font-size: 18px; color: rgba(244,246,251,.65); }
+#deck-wrap { position: fixed; z-index: 900; display: none; gap: 12px; }
+#deck-wrap.on { display: flex; }
+#deck-wrap.full { inset: 0 !important; width: auto !important; height: auto !important; gap: 0; }
+#deck-frame-box { position: relative; flex: 1; min-width: 0; border-radius: 18px; overflow: hidden; background: #f7f3ea; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+#deck-wrap.full #deck-frame-box { border-radius: 0; }
+#deck-frame { width: 100%; height: 100%; border: 0; display: block; }
+.deck-caps { position: absolute; top: 10px; right: 12px; display: flex; gap: 8px; z-index: 5; }
+.deck-caps button, .deck-caps .cap { font: inherit; font-size: 16px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25);
+  background: rgba(20,24,40,.82); color: #f4f6fb; cursor: pointer; backdrop-filter: blur(6px); }
+.deck-caps .cap.warn { background: rgba(160,60,30,.9); }
+#cp-panel { width: 470px; flex: none; display: none; flex-direction: column; gap: 12px; padding: 18px 20px; border-radius: 18px;
+  background: rgba(24,28,46,.96); border: 1px solid rgba(255,255,255,.18); color: #f4f6fb; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+#deck-wrap.rec #cp-panel { display: flex; }
+#cp-panel h3 { margin: 0; font-size: 24px; }
+#cp-panel .hint { font-size: 15px; color: rgba(244,246,251,.7); line-height: 1.45; }
+#cp-panel .seats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+#cp-panel .seat { position: relative; height: 54px; border-radius: 12px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06);
+  color: #f4f6fb; font: inherit; font-size: 22px; font-weight: 700; cursor: pointer; }
+/* 鏡像投影全班看得到：不用紅綠大色塊，只用小記號 */
+#cp-panel .seat .mk { position: absolute; right: 6px; top: 0; font-size: 26px; font-weight: 900; line-height: 1.1; color: #fff; }
+#cp-panel .seat.ng, #cp-panel .seat.na { border: 3px solid #fff; background: rgba(255,255,255,.16); }
+#cp-panel .seat.absent { opacity: .3; cursor: not-allowed; }
+#cp-panel .stat { font-size: 18px; font-weight: 700; }
+#cp-panel .msg { font-size: 15px; min-height: 20px; color: #ffcf8a; }
+#cp-panel .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+#cp-panel .btns button { font: inherit; font-size: 17px; padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.08); color: #f4f6fb; cursor: pointer; }
+#cp-panel .btns .go { background: #f0c85a; color: #1b1f2e; border: 0; font-weight: 700; }
+.od-toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); z-index: 9999; background: rgba(24,28,46,.95); color: #f4f6fb;
+  border: 1px solid rgba(255,255,255,.2); padding: 12px 22px; border-radius: 14px; font-size: 18px; display: none; }
+
+/* ── 範例：上課模式（上課節次自動精簡；body.cm-focus 開啟） ── */
+body.cm-focus .top, body.cm-focus #sched, body.cm-focus #hud, body.cm-focus #aside-open,
+body.cm-focus .wkick, body.cm-focus .wall-foot, body.cm-focus .od-sub, body.cm-focus #drawbar { display: none !important; }
+body.cm-focus .stage { padding-top: 64px !important; }
+#cm-strip { position: fixed; left: 0; right: 0; top: 0; height: 56px; z-index: 1050; display: none; align-items: center; gap: 22px;
+  padding: 0 28px; background: rgba(12,15,30,.78); border-bottom: 1px solid rgba(255,255,255,.12); color: #f4f6fb; backdrop-filter: blur(8px); }
+body.cm-focus #cm-strip { display: flex; }
+#cm-strip .now { font-size: 24px; font-weight: 700; }
+#cm-strip .now .subj { color: #f0c85a; margin-right: 10px; }
+#cm-strip .next { font-size: 18px; color: rgba(244,246,251,.7); }
+#cm-strip .grow { flex: 1; }
+#cm-strip .clk { font-size: 34px; font-weight: 300; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+/* 本節重點收成一顆小膠囊，要講時再展開 */
+body.cm-focus .wlist { display: none; }
+body.cm-focus .wlist.cm-open { display: block; }
+.cm-pts { display: none; margin: 8px auto 0; font: inherit; font-size: 18px; padding: 6px 16px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.06); color: #f4f6fb; cursor: pointer; }
+body.cm-focus .cm-pts { display: inline-block; }
+body.cm-focus .lpoints { display: none; }
+body.cm-focus .lpoints.cm-open { display: block; }
+/* 底部工具列：四顆 */
+#cm-dock { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 1100; display: none; gap: 6px; padding: 6px;
+  border-radius: 999px; background: rgba(24,28,46,.9); border: 1px solid rgba(255,255,255,.18); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+body.cm-focus #cm-dock { display: flex; }
+body.cm-deck #cm-dock { left: 20px; transform: none; }
+#cm-dock button { font: inherit; font-size: 18px; padding: 8px 18px; border-radius: 999px; border: 0; cursor: pointer; background: transparent; color: #f4f6fb; }
+#cm-dock button:hover, #cm-dock button.on { background: rgba(255,255,255,.14); }
+#cm-dock .end { color: #ff9fb5; }
+#cm-more { position: fixed; z-index: 1100; display: none; flex-direction: column; gap: 4px; padding: 8px; border-radius: 16px;
+  background: rgba(24,28,46,.96); border: 1px solid rgba(255,255,255,.18); }
+#cm-more.show { display: flex; }
+#cm-more button { font: inherit; font-size: 17px; text-align: left; padding: 8px 16px; border-radius: 10px; border: 0; background: transparent; color: #f4f6fb; cursor: pointer; }
+#cm-more button:hover { background: rgba(255,255,255,.12); }
+/* 畫記：精簡浮動工具列（比照 ↖ ✏ ✕ 的樣式） */
+#cm-canvas { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+#cm-canvas.live { pointer-events: auto; cursor: crosshair; }
+#cm-draw { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 1200; display: none; align-items: center; gap: 4px;
+  padding: 6px 8px; border-radius: 16px; background: #fbfbfd; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+#cm-draw.show { display: flex; }
+#cm-draw button { width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent; cursor: pointer; font-size: 22px; color: #222;
+  display: grid; place-items: center; }
+#cm-draw button.on { background: #e6e8ef; }
+#cm-draw .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(0,0,0,.25); }
+#cm-draw .sep { width: 1px; height: 28px; background: #ddd; margin: 0 4px; }
+/* 對照開關 */
+
+body.cm-deckfull #cm-strip { display: none; }
+/* 加分板（範例；正式版直接沿用白板既有的座位加分板） */
+#cm-seat { position: fixed; right: 16px; top: 16px; bottom: 16px; width: 470px; z-index: 1150; display: none; flex-direction: column; gap: 12px;
+  padding: 18px 20px; border-radius: 18px; background: rgba(24,28,46,.97); border: 1px solid rgba(255,255,255,.18); color: #f4f6fb; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+body.cm-seat #cm-seat { display: flex; }
+body.cm-seat #deck-wrap.full { right: 502px !important; }
+#cm-seat h3 { margin: 0; font-size: 24px; display: flex; align-items: center; gap: 10px; }
+#cm-seat h3 .x { margin-left: auto; font: inherit; font-size: 18px; background: transparent; border: 1px solid rgba(255,255,255,.3); color: #f4f6fb; border-radius: 999px; padding: 2px 12px; cursor: pointer; }
+#cm-seat .hint { font-size: 15px; color: rgba(244,246,251,.72); line-height: 1.45; }
+#cm-seat .podium { align-self: center; font-size: 15px; padding: 4px 30px; border: 1px dashed rgba(255,255,255,.35); border-radius: 8px; color: rgba(244,246,251,.7); }
+#cm-seat .grid { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+#cm-seat .row { display: flex; gap: 8px; }
+#cm-seat .sc { position: relative; width: 62px; height: 54px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.06);
+  color: #f4f6fb; font: inherit; font-size: 22px; font-weight: 700; cursor: pointer; user-select: none; }
+#cm-seat .sc.gap { visibility: hidden; }
+#cm-seat .sc.hit { border: 3px solid #f0c85a; color: #f0c85a; background: rgba(240,200,90,.12); }
+#cm-seat .sc .n { position: absolute; right: 4px; top: -2px; font-size: 18px; font-weight: 900; color: #f0c85a; }
+#cm-seat .sc:active { transform: scale(.93); }
+#cm-seat .tot { font-size: 18px; font-weight: 700; }
+#cm-seat .btns { display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+#cm-seat .btns button { font: inherit; font-size: 17px; padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #f4f6fb; cursor: pointer; }
+#cm-seat .menu { display: none; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.08); font-size: 16px; line-height: 1.5; }
+#cm-seat .menu.show { display: block; }
+.cm-toast { position: fixed; left: 50%; top: 70px; transform: translateX(-50%); z-index: 1400; background: rgba(240,200,90,.95); color: #1b1f2e;
+  font-size: 22px; font-weight: 700; padding: 10px 24px; border-radius: 999px; display: none; }
+
+/* 10/21 第二輪：面板縮到約 1/5 寬、拿掉說明文字、作答用顏色區分、畫記改註解工具列樣式 */
+#cp-panel, #cm-seat { width: clamp(250px, 21vw, 340px); padding: 14px; gap: 10px; }
+#cp-panel h3, #cm-seat h3 { font-size: 20px; }
+#cm-seat h3 .x { font-size: 16px; padding: 2px 10px; }
+#cp-panel .seats { gap: 6px; }
+#cp-panel .seat, #cm-seat .sc { height: auto; aspect-ratio: 1.1; font-size: clamp(14px, 1.25vw, 21px); border-radius: 10px; }
+#cm-seat .row { gap: 6px; width: 100%; }
+#cm-seat .grid { gap: 6px; }
+#cm-seat .sc { width: auto; flex: 1; min-width: 0; }
+#cm-seat .sc .n { font-size: 13px; right: 3px; top: 0; }
+#cm-seat .podium { font-size: 13px; padding: 2px 20px; }
+#cp-panel .seat .mk { font-size: 13px; font-weight: 700; right: 4px; top: 1px; }
+#cp-panel .seat.ok { border: 2px solid #4cc38a; background: rgba(76,195,138,.18); }
+#cp-panel .seat.ng { border: 2px solid #ff6b6b; background: rgba(255,107,107,.38); }
+#cp-panel .seat.na { border: 2px solid rgba(255,255,255,.4); background: rgba(255,255,255,.24); color: rgba(244,246,251,.8); }
+#cp-panel .stat, #cm-seat .tot { font-size: 15px; }
+#cp-panel .btns button, #cm-seat .btns button { font-size: 15px; padding: 7px 10px; }
+body.cm-seat #deck-wrap.full { right: calc(clamp(250px, 21vw, 340px) + 32px) !important; }
+#cm-draw { background: #232427; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 6px 8px; gap: 2px; box-shadow: 0 8px 28px rgba(0,0,0,.45); }
+#cm-draw button { width: 42px; height: 42px; color: #e8e9ee; border-radius: 10px; }
+#cm-draw button:hover { background: rgba(255,255,255,.08); }
+#cm-draw button.on { background: rgba(255,255,255,.16); color: #fff; }
+#cm-draw .sep { background: rgba(255,255,255,.18); height: 26px; }
+#cm-draw .dot { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.7); }
+.cm-text-in { position: fixed; z-index: 1250; font: 700 34px system-ui, sans-serif; background: rgba(0,0,0,.25); border: 1px dashed rgba(255,255,255,.6);
+  outline: none; padding: 0 4px; min-width: 120px; }
+
+/* 10/21 第三輪：工具全部浮動可拖曳、可收起；加分板座號與次數分兩行 */
+.cm-float .grip, #cm-seat h3, #cp-panel h3 { user-select: none; }
+#cm-dock .grip, #cm-draw .grip { display: grid; place-items: center; width: 26px; color: rgba(255,255,255,.55); font-size: 20px; cursor: grab; }
+#cm-seat h3::before, #cp-panel h3::before { content: '⠿'; color: rgba(255,255,255,.45); font-size: 18px; margin-right: 4px; }
+#cm-seat h3, #cp-panel h3 { cursor: grab; }
+#cm-dock #cm-b-min { padding: 8px 12px; color: rgba(244,246,251,.7); }
+body.cm-deck #cm-dock { left: 50%; transform: translateX(-50%); }
+/* 加分板改成浮動小卡（不再擠壓簡報） */
+#cm-seat { top: 70px; bottom: auto; right: 16px; max-height: calc(100vh - 90px); overflow: auto; }
+body.cm-seat #deck-wrap.full { right: 0 !important; }
+#cm-seat .sc { aspect-ratio: .95; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; line-height: 1; }
+#cm-seat .sc .num { font-size: clamp(14px, 1.2vw, 20px); font-weight: 700; }
+#cm-seat .sc .n { position: static; min-height: 1em; font-size: clamp(11px, .9vw, 14px); font-weight: 800; color: #1b1f2e; background: #f0c85a;
+  border-radius: 999px; padding: 1px 7px; }
+#cm-seat .sc .n:empty { background: transparent; }
+#cm-seat .sc.hit .num { color: #f0c85a; }
+/* 作答面板也改浮動小卡 */
+#cp-panel { position: fixed; top: 70px; right: 16px; max-height: calc(100vh - 90px); overflow: auto; z-index: 1150; }
+#deck-wrap.rec #deck-frame-box { flex: 1; }
+/* 範本標示與對照鈕不擋簡報 */
+
+/* 10/21 第四輪：貼齊四邊、直排、每個浮動視窗可收成小圓鈕 */
+.snapping { transition: left .18s ease-out, top .18s ease-out; }
+body.cm-min--cm-dock #cm-dock, body.cm-min--cm-draw #cm-draw, body.cm-min--cm-seat #cm-seat,
+body.cm-min--cp-panel #cp-panel, body.cm-min--timer #timer { display: none !important; }
+.cm-bub { position: fixed; z-index: 1160; display: none; place-items: center; width: 52px; height: 52px; border-radius: 50%; padding: 0;
+  border: 1px solid rgba(255,255,255,.28); background: rgba(24,28,46,.94); font-size: 24px; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+body.cm-focus .cm-bub.show { display: grid; }
+.cm-bub .badge { position: absolute; right: -4px; top: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px;
+  background: #f0c85a; color: #1b1f2e; font-size: 12px; font-weight: 800; line-height: 20px; }
+.cm-bub .badge:empty { display: none; }
+.cm-minbtn { font: inherit; font-size: 18px; line-height: 1; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.3);
+  background: transparent; color: #f4f6fb; cursor: pointer; }
+#cm-seat h3 .cm-minbtn { margin-left: auto; }
+#cm-seat h3 .x { margin-left: 6px; }
+#cp-panel { position: fixed; }
+#cp-min { position: absolute; right: 12px; top: 12px; }
+#cm-draw #cm-draw-min { width: 42px; height: 42px; border: 0; border-radius: 10px; color: #e8e9ee; font-size: 22px; }
+/* 貼左右側時直排 */
+#cm-dock.v { flex-direction: column; border-radius: 22px; align-items: stretch; }
+#cm-dock.v .grip { width: auto; height: 22px; }
+#cm-dock.v button { text-align: left; }
+#cm-draw.v { flex-direction: column; }
+#cm-draw.v .grip { width: auto; height: 22px; }
+#cm-draw.v .sep { width: 26px; height: 1px; margin: 4px 0; }
+
+/* 10/21 第五輪：計時改浮動小卡（原本全螢幕大字會蓋住簡報，且層級在簡報下面） */
+body.cm-focus .timer-pop { z-index: 1250; flex-direction: row; flex-wrap: wrap; max-width: 92vw; }
+body.cm-focus .timer { inset: auto; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1170; width: auto; height: auto; pointer-events: auto; }
+body.cm-focus .timer.idle { display: none; }
+body.cm-focus .timer .tcard { padding: 10px 18px 12px; border-radius: 18px; background: rgba(24,28,46,.94); border: 1px solid rgba(255,255,255,.2);
+  box-shadow: 0 8px 28px rgba(0,0,0,.45); cursor: grab; }
+body.cm-focus .timer .t { font-size: clamp(48px, 7vw, 96px); }
+body.cm-focus .timer .cap { font-size: 15px; }
+body.cm-focus .timer .tbtns button { font-size: 15px; }
+#timer-bub .badge { font-variant-numeric: tabular-nums; right: -10px; }
+
+/* 10/21 第七輪：作答格只用顏色；統計行用色塊當圖例 */
+#cp-panel .stat { font-size: 15px; font-weight: 700; line-height: 1.7; }
+#cp-panel .lg { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+#cp-panel .lg.ok { background: #4cc38a; } #cp-panel .lg.ng { background: #ff6b6b; }
+#cp-panel .lg.na { background: rgba(255,255,255,.55); } #cp-panel .lg.un { border: 1px solid rgba(255,255,255,.5); }
+#cp-panel .seat.absent { opacity: .25; border-style: dashed; }
+
+/* ── 正式版補充（範本沒有的部分） ── */
+/* 簡報開著時，原本的設定面板、班規面板、字幕、修復列要疊在簡報上面（簡報 z-index 900） */
+body.cm-focus .scrim, body.cm-deck .scrim { z-index: 1480; }
+body.cm-focus .panel, body.cm-deck .panel { z-index: 1490; }
+body.cm-focus .toast, body.cm-deck .toast, body.cm-focus .fixbar, body.cm-deck .fixbar { z-index: 1460; }
+body.cm-focus .timer-pop { z-index: 1250; }
+/* 作答面板：沒有晨間報到資料的提示、本節已送出的鎖 */
+#cp-panel .arrive-hint { font-size: 14px; line-height: 1.45; padding: 6px 10px; border-radius: 10px; background: rgba(240,200,90,.16); color: #ffcf8a; }
+#cp-panel.locked .seats { opacity: .35; pointer-events: none; }
+/* 導師課但老師切回原版面時，留一顆回上課模式的小鈕 */
+#cm-toggle { position: fixed; left: 50%; top: 6px; transform: translateX(-50%); z-index: 1300; display: none; font: inherit; font-size: 15px;
+  padding: 6px 14px; border-radius: 999px; border: 0; background: #f0c85a; color: #1b1f2e; font-weight: 700; cursor: pointer; }
+body.cm-lesson:not(.cm-focus) #cm-toggle { display: block; }
+@media (max-width: 900px) {
+  #cm-dock { flex-wrap: wrap; justify-content: center; max-width: 96vw; }
+  #cm-strip { gap: 12px; padding: 0 12px; }
+  #cm-strip .next { display: none; }
+}

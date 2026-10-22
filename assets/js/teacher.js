@@ -168,7 +168,7 @@
   /* ── 今日待送（T0 管線・設計書 §3）───────────────────────── */
   var TOOL_LABEL = { board: '電子白板', arrive: '到校簽到', cleanup: '晨掃工作',
                      homework: '作業清點', lunch: '午餐工作', teeth: '潔牙檢核',
-                     routine: '常規檢核（舊）' };
+                     assess: '課堂作答', routine: '常規檢核（舊）' };
 
   function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -177,6 +177,7 @@
     // 補了會變「++5 幣」（"+5" > 0 在 JS 是 true）。2-1 線上實測抓到。
     var coin = r.coin === undefined || r.coin === '' ? '' : String(r.coin) + ' 幣';
     var bits = ['座號 ' + r.seat, r.act || '(未填行為)'];
+    if (r.lesson) bits.push(escHtml(r.lesson));                 // 課堂作答：哪一節（CG 線）
     if (r.subj && String(r.period || '').indexOf(r.subj) < 0) bits.push(r.subj);
     if (r.period) bits.push(r.period);
     // 作業清點：送出前就看得到科目（2026-10-02）；判不出會列出是哪份作業名，送出前先去改聯絡簿寫法

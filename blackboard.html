@@ -6,7 +6,8 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20261018-4" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20261022-1" />
+<link rel="stylesheet" href="assets/css/lesson-mode.css?v=20261022-1" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -687,12 +688,88 @@ body.wall .dyn{overflow:hidden}
   <div class="row"><button type="button" class="ghost" id="btn-close">關閉</button></div>
 </aside>
 
-<script src="assets/js/sync.js?v=20261018-5"></script>
-<script src="assets/js/common.js?v=20261018-4"></script>
-<script src="assets/js/tool.js?v=20261018-4"></script>
-<script src="assets/js/events.js?v=20261018-4"></script>
-<script src="assets/js/wall.js?v=20261018-4"></script>
-<script src="assets/js/board.js?v=20261018-4"></script>
+<!-- ── 上課模式（CG 線 P2b，2026-10-22；畫面照「電子白板範本_上課模式.html」，行為在 assets/js/lesson-mode.js）── -->
+<div id="deck-wrap">
+  <div id="deck-frame-box">
+    <iframe id="deck-frame" title="本節簡報"></iframe>
+    <div class="deck-caps">
+      <span class="cap" id="cap-count">📋 已記 0 題</span>
+      <button type="button" id="cap-full">⛶ 簡報滿版</button>
+      <button type="button" id="cap-close">✕ 收起簡報</button>
+    </div>
+  </div>
+  <aside id="cp-panel" aria-label="全班作答">
+    <h3 id="cp-title">記錄本題</h3>
+    <button type="button" class="cm-minbtn" id="cp-min" title="收成小圓鈕">–</button>
+    <div class="arrive-hint" id="cp-arrive" hidden>今天沒有報到資料，缺席請長按標記</div>
+    <div class="seats" id="cp-seats"></div>
+    <div class="stat" id="cp-stat"></div>
+    <div class="msg" id="cp-msg"></div>
+    <div class="btns">
+      <button type="button" id="cp-rest">其餘全對</button>
+      <button type="button" id="cp-cancel">✕</button>
+      <button type="button" class="go" id="cp-save">確認本題</button>
+    </div>
+  </aside>
+</div>
+<div id="cm-strip">
+  <span class="now"><span class="subj" id="cm-subj"></span><span id="cm-period"></span></span>
+  <span class="next" id="cm-next"></span>
+  <span class="grow"></span>
+  <span class="clk" id="cm-clk">--:--</span>
+</div>
+<div id="cm-dock" class="cm-float">
+  <span class="grip" title="拖曳移動">⠿</span>
+  <button type="button" id="cm-b-timer">⏱ 計時</button>
+  <button type="button" id="cm-b-seat">🪑 加分</button>
+  <button type="button" id="cm-b-draw">✏ 畫記</button>
+  <button type="button" id="cm-b-end" class="end">結束課程</button>
+  <button type="button" id="cm-b-more">⋯</button>
+  <button type="button" id="cm-b-min" title="收起工具列">–</button>
+</div>
+<div id="cm-more">
+  <button type="button" data-click="btn-wall">📢 電子公布欄</button>
+  <button type="button" data-click="btn-say-menu">🔈 廣播</button>
+  <button type="button" data-click="btn-panel">⚙ 設定（聯絡簿等）</button>
+  <button type="button" id="cm-off">🔁 這一節改用原版面</button>
+  <button type="button" id="cm-reset-pos">↺ 工具放回原位</button>
+</div>
+<canvas id="cm-canvas"></canvas>
+<div id="cm-draw" class="cm-float" role="toolbar" aria-label="畫記">
+  <span class="grip" title="拖曳移動">⠿</span>
+  <button type="button" data-t="off" title="游標（停止畫記）"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l6 17 2.5-7L20 10.5z"/></svg></button>
+  <button type="button" data-t="pen" title="畫筆"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 4.5l4 4L8 20H4v-4z"/><path d="M13.5 6.5l4 4"/></svg></button>
+  <button type="button" data-t="hl" title="螢光筆"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l-3 5h6l1-2"/><path d="M9 15l8.5-8.5a2.1 2.1 0 013 3L12 18z"/></svg></button>
+  <button type="button" data-t="line" title="直線"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/></svg></button>
+  <button type="button" data-t="arrow" title="箭頭"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/><path d="M10 5h9v9"/></svg></button>
+  <button type="button" data-t="rect" title="方框"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="15" height="15" rx="1.5"/></svg></button>
+  <button type="button" data-t="ellipse" title="圓圈"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg></button>
+  <button type="button" data-t="text" title="文字"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4.5h14V6"/><path d="M12 4.5V20"/><path d="M9 20h6"/></svg></button>
+  <span class="sep"></span>
+  <button type="button" data-t="color" title="換顏色"><span class="dot" id="cm-color-dot"></span></button>
+  <button type="button" data-t="undo" title="復原"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
+  <button type="button" data-t="clear" title="全部擦掉"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6.5 7l1 13h9l1-13"/></svg></button>
+  <span class="sep"></span>
+  <button type="button" class="cm-minbtn" id="cm-draw-min" title="收成小圓鈕">–</button>
+  <button type="button" data-t="close" title="收起畫記"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+<aside id="cm-seat" class="cm-float" aria-label="加分板">
+  <h3>🪑 加分<button type="button" class="cm-minbtn" id="cm-seat-min" title="收成小圓鈕">–</button><button type="button" class="x" id="cm-seat-x" title="收起">✕</button></h3>
+  <div class="podium">講　台</div>
+  <div class="grid" id="cm-seat-grid"></div>
+  <div class="tot" id="cm-seat-tot">本節 0 次</div>
+  <div class="btns"><button type="button" id="cm-seat-undo">↶ 復原</button></div>
+</aside>
+<div class="cm-toast" id="cm-toast"></div>
+<button type="button" id="cm-toggle">🎓 回上課模式</button>
+
+<script src="assets/js/sync.js?v=20261022-1"></script>
+<script src="assets/js/common.js?v=20261022-1"></script>
+<script src="assets/js/tool.js?v=20261022-1"></script>
+<script src="assets/js/events.js?v=20261022-1"></script>
+<script src="assets/js/assess.js?v=20261022-1"></script>
+<script src="assets/js/wall.js?v=20261022-1"></script>
+<script src="assets/js/board.js?v=20261022-1"></script>
 <script>
 (function () {
   'use strict';
@@ -1140,14 +1217,21 @@ body.wall .dyn{overflow:hidden}
   function startTimer(min) { timer.total = min * 60000; timer.endAt = Date.now() + timer.total; timer.running = true; rang = false; Tool.beep(2, 660); paintTimer(); }
   function toggleTimer() { if (!timer.total) return; if (timer.running) { timer.left = timer.endAt - Date.now(); timer.running = false; } else { timer.endAt = Date.now() + timer.left; timer.running = true; } paintTimer(); }
   function stopTimer() { timer = { endAt: 0, left: 0, running: false, total: 0 }; rang = false; paintTimer(); }
+  /* 只換計時的狀態 class（idle／paused／over／warn），其他 class 不碰（2026-10-22 CG 線）：
+     原本整個 className 重設，上課模式把計時卡拖曳貼齊時加的 class 每秒被洗掉。 */
+  function timerCls(el, cls) {
+    var on = String(cls).split(/\s+/);
+    ['idle', 'paused', 'over', 'warn'].forEach(function (c) { el.classList.toggle(c, on.indexOf(c) >= 0); });
+    el.classList.add('timer');
+  }
   function paintTimer() {
     var el = $('timer'), timing = !!timer.total;
     if (document.body.classList.contains('timing') !== timing) { document.body.classList.toggle('timing', timing); fitNotes(); }
-    if (!timing) { el.className = 'timer idle'; $('timer-t').textContent = '00:00'; return; }
+    if (!timing) { timerCls(el, 'idle'); $('timer-t').textContent = '00:00'; return; }
     var left = timer.running ? timer.endAt - Date.now() : timer.left, cls = 'timer';
     if (!timer.running) cls += ' paused';
     if (left <= 0) { cls += ' over'; if (!rang) { rang = true; Tool.beep(3, 880); } } else if (left <= 60000) cls += ' warn';
-    el.className = cls; $('timer-t').textContent = fmt(left); $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '計時中' : '已暫停');
+    timerCls(el, cls); $('timer-t').textContent = fmt(left); $('timer-cap').textContent = left <= 0 ? '時間到' : (timer.running ? '計時中' : '已暫停');
     var tg = $('timer-toggle'); if (tg) tg.textContent = timer.running ? '⏸ 暫停' : '▶ 繼續';
   }
 
@@ -1382,5 +1466,6 @@ body.wall .dyn{overflow:hidden}
   setInterval(tick, 60000);
 })();
 </script>
+<script src="assets/js/lesson-mode.js?v=20261022-1"></script>
 </body>
 </html>

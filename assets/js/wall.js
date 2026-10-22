@@ -77,7 +77,8 @@
     var n = 0; for (var i = 0; i < pi; i++) if (subjAt(i) === subj) n++;
     var e = entries[Math.min(n, entries.length - 1)], L = null;
     if (e.unit) (d.lessons || []).forEach(function (x) { if (!L && x && String(x.title || '').split(/\s/)[0] === e.unit) L = x; });
-    return { subject: subj, text: e.text, unit: e.unit || '', title: L ? L.title : '', points: L ? (L.points || []) : [] };
+    return { subject: subj, text: e.text, unit: e.unit || '', title: L ? L.title : '', points: L ? (L.points || []) : [],
+             site: (L && L.links && L.links.site) || '' };   /* 教學網站（1.teach.html）：電子白板「▶ 開本節簡報」用 */
   }
   function todayKey() { var x = new Date(); return x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2); }
 

@@ -9,12 +9,15 @@
  *   期望：收件匣可能多列（藍圖已記為殘餘），但紀錄庫仍 0 重複入帳（R18 事件 id 去重兜底）。
  * 情境 C（對照組）：同 A 但關掉自動重試（delays=[]），證明 A 的「一次按送出就送完」是重試帶來的。
  * 階段 2：有失敗過的輪次，必須有一列收件匣首行帶「⚠ 前次送出失敗」，且該列 R18 解析正常、首行不含 {、JSON 沒多欄位。
+ * 情境 E（CG 線 P2b，2026-10-22・課堂作答只讀演練）：一節 7 題（Q1–Q5、C1、C2），含請假、中途到校、中途離開、全未答、
+ *   答錯與未答混合的學生；flush → 打包 → 用假 R18 拆包，逐生比對「手算答案表」（r 字串、正負向），**不送出**。
+ *   另驗：重按 flush 不疊加、改題後重 flush 反映新結果、送出後該節鎖住（saveItem 拒收、flush 0 筆）、預覽一行白話。
  */
 import fs from 'node:fs';
 import vm from 'node:vm';
 
 const js = f => fs.readFileSync(new URL('../assets/js/' + f, import.meta.url), 'utf8');
-const SRC = js('events.js') + '\n' + js('sender.js');
+const SRC = js('events.js') + '\n' + js('sender.js') + '\n' + js('assess.js');
 
 function world() {
   const mem = {};
@@ -117,6 +120,74 @@ async function wrongPw() {
 const D = await wrongPw();
 console.log(JSON.stringify(D));
 
+/* 情境 E：課堂作答（只讀演練，不送出）。手算答案表＝依 SPEC §4.3／§4.4 人工逐生算好、寫死在這裡，不用程式產生。 */
+function assessDrill() {
+  const w = world(), E = w.CMEvents, AS = w.CMAssess, D = '2026-10-22', L = '國L7-2';
+  const SEATS = Array.from({ length: 26 }, (_, i) => i + 1);
+  // 每題：kp、缺席（8 號全天請假；3 號第三題才到校；20 號第五題起離校）、答錯、未答；其餘在場者＝答對
+  const Q = [
+    ['Q1', '小考', '字形', [8, 3], [12], [26]],
+    ['Q2', '小考', '字形', [8, 3], [12], [26]],
+    ['Q3', '小考', '推論', [8], [5, 12], [26]],
+    ['Q4', '小考', '成語', [8], [12], [26]],
+    ['Q5', '小考', '大意', [8, 20], [], [26]],
+    ['C1', '課中', '提取', [8, 20], [], [26]],
+    ['C2', '課中', '推論', [8, 20], [], [5, 26]],
+  ];
+  const save = ([cp, kind, kp, abs, ng, na], over = {}) => {
+    const marks = {};
+    SEATS.forEach((s) => { if (!abs.includes(s)) marks[s] = ng.includes(s) ? 'ng' : na.includes(s) ? 'na' : 'ok'; });
+    Object.assign(marks, over);
+    return AS.saveItem({ date: D, lesson: L, cp, kind, type: '選擇', src: kind === '小考' ? '國L7-1' : L, kp, marks, seats: SEATS, absent: abs });
+  };
+  // fail-closed：還有未標就不收
+  const unmarked = AS.saveItem({ date: D, lesson: L, cp: 'Q1', kp: '字形', marks: { 1: 'ok' }, seats: SEATS, absent: [8] });
+  Q.forEach((q) => save(q));
+  const ALL = 'Q1:字形:O,Q2:字形:O,Q3:推論:O,Q4:成語:O,Q5:大意:O,C1:提取:O,C2:推論:O';
+  const EXPECT = {};
+  SEATS.forEach((s) => { EXPECT[s] = ['good', ALL]; });
+  delete EXPECT[8];                                                                   // 全天請假：不產事件
+  EXPECT[3] = ['good', 'Q3:推論:O,Q4:成語:O,Q5:大意:O,C1:提取:O,C2:推論:O'];          // 5/5
+  EXPECT[5] = ['neutral', 'Q1:字形:O,Q2:字形:O,Q3:推論:X,Q4:成語:O,Q5:大意:O,C1:提取:O,C2:推論:N']; // 5/7：50<56、10>7
+  EXPECT[12] = ['bad', 'Q1:字形:X,Q2:字形:X,Q3:推論:X,Q4:成語:X,Q5:大意:O,C1:提取:O,C2:推論:O'];   // 3/7：6≤7
+  EXPECT[20] = ['good', 'Q1:字形:O,Q2:字形:O,Q3:推論:O,Q4:成語:O'];                   // 4/4
+  EXPECT[26] = ['bad', 'Q1:字形:N,Q2:字形:N,Q3:推論:N,Q4:成語:N,Q5:大意:N,C1:提取:N,C2:推論:N']; // 0/7（未答算分母）
+
+  const f1 = AS.flush(E, D);
+  const unpack = () => {                                                              // 假 R18：拆每一包
+    const evs = [];
+    for (const t of E.buildPayloads()) { const { body } = r18(t, new Set()); body.events.forEach((e) => evs.push({ ...e, _tool: body.tool })); }
+    return evs;
+  };
+  const evs = unpack();
+  let wrong = [];
+  for (const e of evs) {
+    const x = EXPECT[e.seat];
+    if (!x || e.kind !== x[0] || e.r !== x[1]) wrong.push(`座號${e.seat}：得 ${e.kind} ${e.r}／手算 ${x ? x.join(' ') : '不該有'}`);
+    if (e.id !== `assess-20261022-s${e.seat}-a${L}`) wrong.push(`座號${e.seat} id 不對：${e.id}`);
+    if (e.src !== 'assess' || e._tool !== 'assess' || e.subj !== '國語' || e.lesson !== L || e.act !== '課堂作答' || 'coin' in e) wrong.push(`座號${e.seat} 欄位不對：${JSON.stringify(e)}`);
+  }
+  const missing = Object.keys(EXPECT).filter((s) => !evs.some((e) => e.seat === Number(s)));
+  const packs = E.buildPayloads();
+  const preview = E.describePayloads().split('\n').find((l) => l.startsWith('📋 課堂作答')) || '';
+
+  const f2 = AS.flush(E, D);                                                         // 再按一次「結束課程」：不疊加
+  const again = E.merged().length;
+  save(Q[2], { 5: 'ok' });                                                           // 改題：Q3 改成 5 號答對 → 6/7 good
+  AS.flush(E, D);
+  const s5 = E.merged().find((r) => r.seat === 5);
+  E.markSent();                                                                      // 模擬送出成功
+  const locked = AS.isSent(D, L), resave = save(Q[0]), f3 = AS.flush(E, D);
+  return { unmarked, f1, evs: evs.length, wrong, missing, packs: packs.length, maxLen: Math.max(...packs.map((t) => t.length)),
+    sample: packs[0], preview, again, f2, s5, locked, resave, f3, left: E.count() };
+}
+const EA = assessDrill();
+console.log('── 情境 E：課堂作答只讀演練（不送出）');
+console.log('第 1 包原文：\n' + EA.sample);
+console.log('預覽：' + EA.preview);
+console.log(JSON.stringify({ events: EA.evs, packs: EA.packs, maxLen: EA.maxLen, wrong: EA.wrong, missing: EA.missing,
+  again: EA.again, s5: EA.s5 && [EA.s5.kind, EA.s5.r], locked: EA.locked, resave: EA.resave, f3: EA.f3.pushed, left: EA.left }));
+
 const A = await run('A', 20), B = await run('B', 20), C = await run('C', 20);
 for (const r of [A, B, C]) console.log(JSON.stringify(r));
 
@@ -129,6 +200,13 @@ const ok = [
   ['B 全部送完且 0 重複入帳（收件匣重複＝已知殘餘）', B.allDone && B.missingIds === 0],
   ['D 口令錯誤只打 1 次、不重試、事件留在本機', D.calls === 1 && D.msg === '口令錯誤' && D.pending === 1],
   ['C 對照組：無重試時需要按更多次', C.maxPresses > A.maxPresses || C.onePress < A.onePress],
+  ['E 未標完不收（fail-closed）', EA.unmarked.ok === false],
+  ['E 25 生（26 人扣全天請假 1 人）事件與手算逐生一致', EA.evs === 25 && EA.wrong.length === 0 && EA.missing.length === 0],
+  ['E 每包都過 R18 解析且不超過 2000 字', EA.packs >= 2 && EA.maxLen <= 2000],
+  ['E 預覽一行白話（整節人數）', EA.preview === '📋 課堂作答 國L7-2 · 25 人：正向 22、中性 1、負向 2'],
+  ['E 重按 flush 不疊加', EA.again === 25 && EA.f2.pushed === 25],
+  ['E 改題後重 flush 反映新結果（5 號 6/7→正向）', EA.s5 && EA.s5.kind === 'good' && EA.s5.r.includes('Q3:推論:O')],
+  ['E 送出後該節鎖住（拒收、flush 0 筆、待送清空）', EA.locked && EA.resave.ok === false && EA.f3.pushed === 0 && EA.left === 0],
 ];
 let bad = 0;
 for (const [name, pass] of ok) { console.log((pass ? '✅ ' : '❌ ') + name); if (!pass) bad++; }

@@ -87,6 +87,8 @@
     // 「kind」必須進特徵：班規卡的 good 與 bad 各自從 0 編號，不分就會把
     // 「作業未交(bad0,−5)」和「訂正完成(good0,+5)」合併成同一列（2-1 實作時抓到）。
     if (ev.src === 'rule') return 'r' + ev.rule_n + (ev.kind === 'good' ? 'g' : 'b') + '.' + (ev.act_i == null ? 0 : ev.act_i);
+    // assess（全班作答，CG 線 SPEC §4.3）：每生每節 1 筆，節次就是特徵（狀態式 dedupe:'day'，id 不帶批次號）
+    if (ev.src === 'assess') return 'a' + (ev.lesson || '');
     // tally：同科目同行為才合併（「座號N 在○○課舉手回答」）
     return 't' + (ev.subj || '') + '.' + (ev.act || '');
   }
@@ -100,7 +102,7 @@
       tool: ev.tool, date: ev.date || today(), seat: Number(ev.seat), src: ev.src,
       kind: ev.kind || 'good', act: ev.act || '', at: ev.at || new Date().toTimeString().slice(0, 5)
     };
-    ['rule_n', 'act_i', 'coin', 'level', 'period', 'subj', 'note', 'fix', 'dedupe'].forEach(function (k) {
+    ['rule_n', 'act_i', 'coin', 'level', 'period', 'subj', 'note', 'fix', 'dedupe', 'lesson', 'r'].forEach(function (k) {
       if (ev[k] !== undefined && ev[k] !== '') rec[k] = ev[k];
     });
     db.pending.push(rec);
@@ -214,7 +216,7 @@
         tool: ev.tool, date: ev.date, seat: ev.seat, src: ev.src, kind: ev.kind,
         act: ev.act, count: 1, rawIdx: [i]
       };
-      ['rule_n', 'act_i', 'coin', 'level', 'period', 'subj', 'note', 'at'].forEach(function (k) {
+      ['rule_n', 'act_i', 'coin', 'level', 'period', 'subj', 'note', 'lesson', 'r', 'at'].forEach(function (k) {
         if (ev[k] !== undefined) m[k] = ev[k];
       });
       byKey[key] = m;
@@ -226,7 +228,7 @@
   /* 工具中文名（任務標題與預覽共用，宣告在 buildPacks 之前才拿得到）。 */
   var TOOL_NAMES = { board: '電子白板', arrive: '到校簽到', cleanup: '晨掃工作',
                      homework: '作業清點', lunch: '午餐工作', teeth: '潔牙',
-                     routine: '常規檢核（舊）' };
+                     assess: '課堂作答', routine: '常規檢核（舊）' };
 
   /* 產生要 POST 的任務原文；超過長度就切成多包（part i/n），每包都是完整可解析的 JSON。 */
   function buildPacks() {
@@ -319,8 +321,18 @@
 
   var CIRCLED = ['⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
 
+  var KIND_ZH = { good: '正向', neutral: '中性', bad: '負向' };
   function describeRow(r, i) {
     var head = ' ' + (i + 1) + '. 座號 ' + r.seat;
+    if (r.tool === 'assess') {
+      // 課堂作答：「國L7-2 課堂作答（正向・小考 4/5・課中 1/2）」；分段算法同 R18 事件描述
+      var segs = String(r.r || '').split(','), part = function (p, label) {
+        var xs = segs.filter(function (x) { return x.charAt(0) === p; });
+        return xs.length ? label + ' ' + xs.filter(function (x) { return /:O$/.test(x); }).length + '/' + xs.length : '';
+      };
+      var bits = [KIND_ZH[r.kind] || r.kind, part('Q', '小考'), part('C', '課中')].filter(Boolean);
+      return head + '　' + (r.lesson || '') + ' ' + (r.act || '') + '（' + bits.join('・') + '）　只記次數，不動金幣';
+    }
     var what = r.src === 'rule'
       ? '班規' + (CIRCLED[r.rule_n] || ('第' + r.rule_n + '條')) + '「' + (r.act || '') + '」'
       : (r.act || '');
@@ -342,6 +354,11 @@
     var total = packs.reduce(function (a, p) { return a + p.rows.length; }, 0);
     var out = ['這次會送出 ' + packs.length + ' 個任務包，共 ' + total + ' 筆紀錄。',
                '送出後進「📥 任務收件匣」，排程每小時整點處理；處理完下方「任務狀態」會變成「已完成」。'];
+    /* 課堂作答一節一行白話（分好幾包也只寫一行，人數是整節）：「📋 課堂作答 國L7-2 · 25 人：正向 14、中性 8、負向 3」 */
+    if (global.CMAssess) {
+      var al = CMAssess.previewLines(merged());
+      if (al.length) { out.push(''); al.forEach(function (x) { out.push(x); }); }
+    }
     packs.forEach(function (p, pi) {
       var sum = 0, tally = 0;
       p.rows.forEach(function (r) {
@@ -374,10 +391,24 @@
     var db = read();
     var dates = {};
     db.pending.forEach(function (ev) { dates[ev.date] = true; });
+    markAssessSent(db.pending);
     Object.keys(dates).forEach(function (d) { db.batch[d] = (db.batch[d] || 0) + 1; });
     db.pending = [];
     db.sent = [];
     return write(db);
+  }
+
+  /* 課堂作答送出後該節鎖住（CG 線 SPEC §4.3）：assess 的 id 是狀態式，送出後同節再補記會被 f35 當重複略過，
+     所以送成功就在 classManager.assess.v1 標 sent:true，面板顯示「本節已送出」不再收。
+     直接寫那個鍵（不依賴 assess.js 有沒有載入：送出在教師專區，那頁不一定載作答程式）。 */
+  function markAssessSent(pending) {
+    var pairs = pending.filter(function (ev) { return ev.tool === 'assess' && ev.lesson; });
+    if (!pairs.length) return;
+    try {
+      var k = 'classManager.assess.v1', a = JSON.parse(localStorage.getItem(k) || '{}') || {};
+      pairs.forEach(function (ev) { var L = a[ev.date] && a[ev.date][ev.lesson]; if (L) L.sent = true; });
+      localStorage.setItem(k, JSON.stringify(a));
+    } catch (e) {}
   }
 
   /* ── 四點提醒（2026-09-06）─────────────────────────────

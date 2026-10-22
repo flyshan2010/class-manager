@@ -474,10 +474,19 @@
   function chunk(arr, n) { var out = []; for (var i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
 
   function tapSeat(seat) {
-    if (!isHomeroom()) { hooks.subtitle && hooks.subtitle('科任課不計次', 'say', '這一節不是導師課，只有長按記班規才會留紀錄'); return; }
+    if (!isHomeroom()) { hooks.subtitle && hooks.subtitle('科任課不計次', 'say', '這一節不是導師課，只有長按記班規才會留紀錄'); return false; }
     var cnt = seatCounts();
     cnt[seat] = (cnt[seat] || 0) + 1;
     save(); Tool.beep(1, 760); render();
+    return true;
+  }
+  /* 上課模式加分板的「↶ 復原」：把最後一次輕點退回（只動當節計次，不動已記的班規）。 */
+  function untapSeat(seat) {
+    var cnt = seatCounts();
+    if (!cnt[seat]) return false;
+    if (!--cnt[seat]) delete cnt[seat];
+    save(); render();
+    return true;
   }
 
   /* ── 班規選單（與 routine.js 同一套判準；幣值一律抄班規）──────────── */
@@ -796,7 +805,7 @@
   }
 
   /* ── 結束課程：把這一節的計次結成事件（金幣 0，只記次數）＋留一筆活動紀錄 ── */
-  function settle(key, silent) {
+  function settle(key, silent, extra) {
     var cnt = st.seat[key] || {}, q = (st.quiz[key] || { stats: {} }).stats || {};
     var subj = '', p = periodNow();
     if (p && key.indexOf(p.name) === 0) subj = p.subject || '';
@@ -832,21 +841,25 @@
     delete st.seat[key]; delete st.quiz[key];
     save(); render();
     if (!silent) {
+      var all = pushed + (extra || 0);
       hooks.subtitle && hooks.subtitle('這一節結束', 'say',
-        pushed ? ('已把 ' + pushed + ' 筆課堂紀錄放進待送　·　下課回工作台按「收班送出」')
+        all ? ('已把 ' + all + ' 筆課堂紀錄放進待送　·　下課回工作台按「收班送出」')
                : '這一節沒有要送出的紀錄');
     }
     return pushed;
   }
-  function endPeriod() {
+  /* extra＝上課模式已放進待送的課堂作答筆數（lesson-mode.js 先 flush 再呼叫；HUD 直接綁時收到的是 click 事件，當 0）。 */
+  function endPeriod(extra) {
+    extra = typeof extra === 'number' ? extra : 0;
     var key = periodKey();
     var cnt = st.seat[key] || {}, q = (st.quiz[key] || { stats: {} }).stats || {};
     if (!Object.keys(cnt).length && !Object.keys(q).length && !groupsDirty()) {
-      hooks.subtitle && hooks.subtitle('這一節沒有紀錄', 'say', '沒有計次、抽問或小組分數，不必結算');
+      hooks.subtitle && hooks.subtitle(extra ? '這一節結束' : '這一節沒有紀錄', 'say',
+        extra ? ('已把 ' + extra + ' 筆課堂作答放進待送　·　下課回工作台按「收班送出」') : '沒有計次、抽問或小組分數，不必結算');
       return;
     }
     if (!confirm('結束「' + key + '」並把紀錄放進待送嗎？\n\n（只記次數不加減幣；小組分數會記到每位組員並歸零；要動錢的班規在長按時就已經記過了）')) return;
-    settle(key, false);
+    settle(key, false, extra);
   }
 
   /* 老師忘了按「結束課程」就換節：自動結算上一節，紀錄不會被下一節洗掉。 */
@@ -1029,6 +1042,22 @@
       return L && L.points.length ? { title: L.title, points: L.points.slice(0, 6) } : null;
     },
     drawQuiz: drawQuiz, endPeriod: endPeriod, log: function () { return st.log; },
+    /* 上課模式（assets/js/lesson-mode.js）用：現在這一節、導師課與否、當節教材（含教學網站連結）、下一節 */
+    periodInfo: function () {
+      var p = periodNow();
+      return { p: p, home: isHomeroom(), key: periodKey(), lesson: lessonNow(p), next: nextPeriod() };
+    },
+    seats: function () { return seats.slice(); },
+    seatGrid: function () { return (data.seating && data.seating.grid) || chunk(seats, 6); },
+    seatCounts: function () { var c = seatCounts(), o = {}; Object.keys(c).forEach(function (k) { o[k] = c[k]; }); return o; },
+    tapSeat: tapSeat, untapSeat: untapSeat, openRules: openRules,
+    leaveToday: leaveToday,
+    /* 今天有沒有做晨間報到：檢核台到校站至少點過一格（日期是今天）。沒做就不擅自當全員到（§4.1）。 */
+    arriveDone: function () {
+      var r = Tool.store('classManager.routine.v2').get(null);
+      if (!r || r.date !== Tool.todayKey() || !r.arrive) return false;
+      return Object.keys(r.arrive).some(function (k) { return r.arrive[k] > 0; });
+    },
     setDraw: setDraw, isDraw: function () { return dr.on; }, clearDraw: clearDraw,
     setPen: function (color, size, erase) { dr.color = color || dr.color; dr.size = size || dr.size; dr.erase = !!erase; dr.tool = erase ? 'erase' : 'pen'; },
     setTool: function (tool, color) {
