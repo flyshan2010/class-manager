@@ -127,8 +127,28 @@
   });
 
   /* ── 4. 全班作答面板（§4.1）──────────────────────────────────── */
-  var cur = null, marks = {}, absent = {}, lastLong = 0, locked = false;
+  var cur = null, marks = {}, absent = {}, lastLong = 0, lastLongSeat = null, locked = false;
   function seatsAll() { return Board.seats(); }
+  /* 當天面板內的出缺席異動（PROPOSAL §2.7：中途到校「當天之後各題都視為在場」；中途離開同理，回來再點一下恢復）。
+     只影響作答記錄，不回寫晨間報到；換日自動作廢。 */
+  var PKEY = 'classManager.assess.presence.v1';
+  function presence() {
+    try { var p = JSON.parse(localStorage.getItem(PKEY) || 'null'); if (p && p.date === today()) return p; } catch (e) {}
+    return { date: today(), in: [], out: [] };
+  }
+  function markPresence(s, here) {
+    var p = presence(), n = Number(s);
+    p.in = p.in.filter(function (x) { return x !== n; }); p.out = p.out.filter(function (x) { return x !== n; });
+    (here ? p.in : p.out).push(n);
+    try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch (e) {}
+  }
+  function defaultAbsent() {
+    var p = presence(), a = {};
+    Board.leaveToday().forEach(function (s) { a[s] = 1; });
+    p.out.forEach(function (s) { a[s] = 1; });
+    p.in.forEach(function (s) { delete a[s]; });
+    return a;
+  }
   function openCp(d) {
     var m = (d.meta && typeof d.meta === 'object') ? d.meta : d;   // 平放（協定 v1）為主；包在 meta 裡也收
     var lesson = m.lesson || deckLesson;
@@ -142,7 +162,7 @@
       Object.keys(it.marks).forEach(function (s) { marks[s] = it.marks[s]; });
       it.absent.forEach(function (s) { absent[s] = 1; });
     } else {
-      Board.leaveToday().forEach(function (s) { absent[s] = 1; });   // 預設缺席＝今天晨間報到的請假名單
+      absent = defaultAbsent();   // 預設缺席＝晨間報到請假名單，再套用今天面板裡的中途到校／離開
     }
     wrap.classList.add('rec');
     body.classList.remove('cm-seat'); $('cm-b-seat').classList.remove('on');
@@ -155,7 +175,7 @@
       if (!v) un++; else if (v === 'ok') { ok++; ans++; } else if (v === 'ng') ans++; });
     return { ok: ok, ans: ans, un: un, rate: ans ? ok / ans : 0 };
   }
-  function setAbsent(s) { lastLong = Date.now(); absent[s] = 1; delete marks[s]; draw(); }
+  function setAbsent(s) { lastLong = Date.now(); lastLongSeat = s; absent[s] = 1; delete marks[s]; markPresence(s, false); draw(); }
   function draw() {
     var panel = $('cp-panel');
     $('cp-title').textContent = cur.cp + ' ' + cur.type;
@@ -177,8 +197,8 @@
       ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (t) { b.addEventListener(t, function () { clearTimeout(lp); }); });
       b.addEventListener('contextmenu', function (e) { e.preventDefault(); setAbsent(s); });
       b.onclick = function () {
-        if (longed || Date.now() - lastLong < 800) { longed = false; return; }   // 長按放開時不要再算一次點擊（格子已重畫，旗標記在面板層）
-        if (absent[s]) { delete absent[s]; draw(); return; }                   // 缺席的同學中途到校：點一下就改成在場
+        if (longed || (lastLongSeat === s && Date.now() - lastLong < 800)) { longed = false; return; }   // 長按放開時同一格不要再算一次點擊（只擋同一格，別格照常）
+        if (absent[s]) { delete absent[s]; markPresence(s, true); draw(); return; }   // 缺席的同學中途到校：點一下就改成在場，之後各題沿用
         /* 點一下的循環：未標 → 答錯 → 未答 → 答對 → 答錯…（三種狀態都點得到，老師 10/21） */
         var NEXT = { ng: 'na', na: 'ok', ok: 'ng' };
         marks[s] = marks[s] ? NEXT[marks[s]] : 'ng';
