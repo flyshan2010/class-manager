@@ -14,7 +14,7 @@
 (function (global) {
   'use strict';
 
-  var KEY = 'classManager.assess.v1';   // { '2026-10-22': { '國L7-2': { subj, sent, items:{ Q3:{kind,type,src,kp,marks,absent,at} } } } }
+  var KEY = 'classManager.assess.v1';   // { '2026-10-22': { '國L7-2': { subj, sent, items:{ Q3:{kind,type,src,kp,marks,absent,at,open,sec} } } } }
   var KEEP_DAYS = 7;
   var ORDER = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'C1', 'C2', 'C3'];
   var CODE = { ok: 'O', ng: 'X', na: 'N' };
@@ -79,6 +79,10 @@
     L.items[o.cp] = { kind: o.kind || '', type: o.type || '', src: o.src || '', kp: String(o.kp || ''),
       marks: marks, absent: absent.slice().sort(function (a, b) { return a - b; }),
       at: o.at || new Date().toTimeString().slice(0, 5) };
+    /* 計時（老師 2026-10-23 裁定，P3 量「小考實際用時」「每題記錄秒數」）：open＝開面板時刻（HH:MM:SS），
+       sec＝開面板到按確認的秒數。只存在本機暫存，不進事件包、不進 Notion。同一題重開修改＝以最後一次為準。 */
+    if (o.open) L.items[o.cp].open = String(o.open);
+    if (typeof o.sec === 'number' && o.sec >= 0) L.items[o.cp].sec = Math.round(o.sec);
     write(db);
     return { ok: true, stat: itemStat(L.items[o.cp]) };
   }

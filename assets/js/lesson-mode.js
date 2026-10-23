@@ -154,7 +154,8 @@
     var lesson = m.lesson || deckLesson;
     if (!A.validLesson(lesson) || !A.validCp(m.cp)) { toast('讀不到這一題的節次或題號（' + esc(lesson) + '／' + esc(m.cp) + '），不記錄'); return; }
     if (!seatsAll().length) { toast('請先回工作台設定座號'); return; }
-    cur = { lesson: lesson, cp: m.cp, kind: m.kind || '', type: m.qtype || (m !== d ? m.type : '') || '', src: m.src || '', kp: m.kp || '' };
+    cur = { lesson: lesson, cp: m.cp, kind: m.kind || '', type: m.qtype || (m !== d ? m.type : '') || '', src: m.src || '', kp: m.kp || '',
+            openAt: Date.now() };                                // 計時：開面板時刻（老師 10-23 裁定）
     locked = A.isSent(today(), lesson);
     var L = A.lessonRec(today(), lesson), it = L && L.items[cur.cp];
     marks = {}; absent = {};
@@ -227,6 +228,7 @@
     var present = {};
     seatsAll().forEach(function (s) { if (!absent[s]) present[s] = marks[s]; });
     var res = A.saveItem({ date: today(), lesson: cur.lesson, cp: cur.cp, kind: cur.kind, type: cur.type, src: cur.src, kp: cur.kp,
+      open: new Date(cur.openAt).toTimeString().slice(0, 8), sec: (Date.now() - cur.openAt) / 1000,
       marks: present, seats: seatsAll(), absent: Object.keys(absent).map(Number).filter(function (s) { return seatsAll().indexOf(s) >= 0; }) });
     if (!res.ok) { $('cp-msg').textContent = res.why; return; }
     post({ type: 'cp-saved', v: 1, cp: cur.cp, ok: res.stat.ok, ng: res.stat.ng, na: res.stat.na });   // 只送人數

@@ -138,7 +138,8 @@ function assessDrill() {
     const marks = {};
     SEATS.forEach((s) => { if (!abs.includes(s)) marks[s] = ng.includes(s) ? 'ng' : na.includes(s) ? 'na' : 'ok'; });
     Object.assign(marks, over);
-    return AS.saveItem({ date: D, lesson: L, cp, kind, type: '選擇', src: kind === '小考' ? '國L7-1' : L, kp, marks, seats: SEATS, absent: abs });
+    return AS.saveItem({ date: D, lesson: L, cp, kind, type: '選擇', src: kind === '小考' ? '國L7-1' : L, kp, marks, seats: SEATS, absent: abs,
+      open: '08:4' + cp.slice(1) + ':05', sec: 30 + Number(cp.slice(1)) + 0.4 });   // 計時（老師 10-23 裁定）
   };
   // fail-closed：還有未標就不收
   const unmarked = AS.saveItem({ date: D, lesson: L, cp: 'Q1', kp: '字形', marks: { 1: 'ok' }, seats: SEATS, absent: [8] });
@@ -153,6 +154,7 @@ function assessDrill() {
   EXPECT[20] = ['good', 'Q1:字形:O,Q2:字形:O,Q3:推論:O,Q4:成語:O'];                   // 4/4
   EXPECT[26] = ['bad', 'Q1:字形:N,Q2:字形:N,Q3:推論:N,Q4:成語:N,Q5:大意:N,C1:提取:N,C2:推論:N']; // 0/7（未答算分母）
 
+  const timing = AS.lessonRec(D, L).items.Q2;                                        // 計時存進暫存：open 原樣、sec 四捨五入到秒
   const f1 = AS.flush(E, D);
   const unpack = () => {                                                              // 假 R18：拆每一包
     const evs = [];
@@ -165,7 +167,7 @@ function assessDrill() {
     const x = EXPECT[e.seat];
     if (!x || e.kind !== x[0] || e.r !== x[1]) wrong.push(`座號${e.seat}：得 ${e.kind} ${e.r}／手算 ${x ? x.join(' ') : '不該有'}`);
     if (e.id !== `assess-20261022-s${e.seat}-a${L}`) wrong.push(`座號${e.seat} id 不對：${e.id}`);
-    if (e.src !== 'assess' || e._tool !== 'assess' || e.subj !== '國語' || e.lesson !== L || e.act !== '課堂作答' || 'coin' in e) wrong.push(`座號${e.seat} 欄位不對：${JSON.stringify(e)}`);
+    if (e.src !== 'assess' || e._tool !== 'assess' || e.subj !== '國語' || e.lesson !== L || e.act !== '課堂作答' || 'coin' in e || 'open' in e || 'sec' in e) wrong.push(`座號${e.seat} 欄位不對：${JSON.stringify(e)}`);
   }
   const missing = Object.keys(EXPECT).filter((s) => !evs.some((e) => e.seat === Number(s)));
   const packs = E.buildPayloads();
@@ -179,7 +181,7 @@ function assessDrill() {
   E.markSent();                                                                      // 模擬送出成功
   const locked = AS.isSent(D, L), resave = save(Q[0]), f3 = AS.flush(E, D);
   return { unmarked, f1, evs: evs.length, wrong, missing, packs: packs.length, maxLen: Math.max(...packs.map((t) => t.length)),
-    sample: packs[0], preview, again, f2, s5, locked, resave, f3, left: E.count() };
+    sample: packs[0], preview, again, f2, s5, locked, resave, f3, left: E.count(), timing };
 }
 const EA = assessDrill();
 console.log('── 情境 E：課堂作答只讀演練（不送出）');
@@ -206,6 +208,7 @@ const ok = [
   ['E 預覽一行白話（整節人數）', EA.preview === '📋 課堂作答 國L7-2 · 25 人：正向 22、中性 1、負向 2'],
   ['E 重按 flush 不疊加', EA.again === 25 && EA.f2.pushed === 25],
   ['E 改題後重 flush 反映新結果（5 號 6/7→正向）', EA.s5 && EA.s5.kind === 'good' && EA.s5.r.includes('Q3:推論:O')],
+  ['E 計時存本機暫存（open／sec），事件包不帶', EA.timing && EA.timing.open === '08:42:05' && EA.timing.sec === 32 && EA.wrong.length === 0],
   ['E 送出後該節鎖住（拒收、flush 0 筆、待送清空）', EA.locked && EA.resave.ok === false && EA.f3.pushed === 0 && EA.left === 0],
 ];
 let bad = 0;
