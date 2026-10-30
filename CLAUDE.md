@@ -64,6 +64,8 @@
 一頁只講一件事、依時段自動換；規則正本 `assets/js/wall.js`（白板與 `wall-demo.html` 預覽頁共用，
 **改規則只改那一支**）。當天可切到別的模式，隔天開頁回到公布欄。
 
+**選簡報**（2026-10-31）：`assets/js/deck-picker.js`，清單＝`Board.lessons()`＋檔內 `EXTRAS`（不在 lessons.json 的教材加一列）；開啟走 `CMDeck.open`，換簡報先 flush；檔名非 `[0-4].*.html` 的頁面自動走 `#deck-wrap.strip`（按鈕移到上方橫條、不蓋內容）。
+
 現行三頁：**`blackboard.html` 電子白板**（含抽籤問答／計時／小組計分／座位加分板）、
 **`routine.html` 工作檢核台**（到校簽到→打掃→作業清點→午餐→潔牙五站）、
 **`teacher.html` 教師專區**（待送送出／當節活動紀錄／座號設定）。
