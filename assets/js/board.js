@@ -1047,6 +1047,21 @@
       var p = periodNow();
       return { p: p, home: isHomeroom(), key: periodKey(), lesson: lessonNow(p), next: nextPeriod() };
     },
+    /* 選簡報（assets/js/deck-picker.js）用：全部單元、今天進度掛的單元（對應方式同 Wall.lessonFor） */
+    lessons: function () { return Array.isArray(data.lessons) ? data.lessons : []; },
+    todayLessons: function () {
+      var out = [], key = Tool.todayKey(), weeks = (data.plan && data.plan.weeks) || {}, list = Array.isArray(data.lessons) ? data.lessons : [];
+      Object.keys(weeks).forEach(function (w) {
+        Object.keys(weeks[w] || {}).forEach(function (s) {
+          ((weeks[w] || {})[s] || []).forEach(function (e) {
+            if (!e || e.date !== key || !e.unit) return;
+            var L = list.filter(function (x) { return x && String(x.title || '').split(/\s/)[0] === e.unit; })[0];
+            if (L && out.indexOf(L) < 0) out.push(L);
+          });
+        });
+      });
+      return out;
+    },
     seats: function () { return seats.slice(); },
     seatGrid: function () { return (data.seating && data.seating.grid) || chunk(seats, 6); },
     seatCounts: function () { var c = seatCounts(), o = {}; Object.keys(c).forEach(function (k) { o[k] = c[k]; }); return o; },

@@ -24,7 +24,7 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[<>&]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; }); }
 
   /* ── 0. 上課模式開關（每秒對一次課表）──────────────────────────── */
-  var offKey = null, lastKey = null, deckLesson = null;
+  var offKey = null, lastKey = null, deckLesson = null, deckLoaded = false;
   function inLesson(i) { return !!(i.p && /節/.test(i.p.name) && i.home); }
   function tick() {
     var i = Board.periodInfo();
@@ -91,10 +91,16 @@
     wrap.style.width = m.width + 'px'; wrap.style.height = m.height + 'px';
   }
   function openDeck(url) {
-    if (frame.dataset.src !== url) { deckLesson = null; frame.dataset.src = url; frame.src = url; }
+    if (frame.dataset.src !== url) {
+      /* 換簡報：前一份的作答先放進待送，畫記與未確認的作答面板不帶到下一份 */
+      if (frame.dataset.src) { flush(); clearInk(); wrap.classList.remove('rec'); }
+      deckLesson = null; deckLoaded = false; frame.dataset.src = url; frame.src = url;
+    }
     capPaint();
     wrap.classList.add('on', 'full'); $('cap-full').textContent = '⊡ 回白板版面'; place(); frame.focus();
   }
+  frame.addEventListener('load', function () { deckLoaded = true; setTimeout(capPaint, 500); });
+  window.CMDeck = { open: openDeck };   /* 選簡報（deck-picker.js）用 */
   addEventListener('resize', place);
   $('cap-close').onclick = function () {
     wrap.classList.remove('on', 'rec', 'full');
@@ -242,6 +248,8 @@
   function capPaint(cp, s) {
     var cap = $('cap-count'), L = deckLesson && A.lessonRec(today(), deckLesson), n = L ? Object.keys(L.items).length : 0;
     var sent = !!(L && L.sent);
+    /* 舊版簡報與前測／練習／複習／評量沒有訊息協定，不會回報單元（deck-ready） */
+    if (!deckLesson) { cap.textContent = deckLoaded ? '此份不能記作答' : '載入中…'; cap.classList.toggle('warn', deckLoaded); return; }
     cap.textContent = sent ? '📋 本節已送出' : ('📋 已記 ' + n + ' 題' + (cp ? '・' + cp + ' 答對率 ' + Math.round(s.rate * 100) + '%' + (s.low ? '　⚠ 建議重講' : '') : ''));
     cap.classList.toggle('warn', !!(cp && s.low));
   }

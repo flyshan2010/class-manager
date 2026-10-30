@@ -6,8 +6,8 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20261023-1" />
-<link rel="stylesheet" href="assets/css/lesson-mode.css?v=20261023-1" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20261031-1" />
+<link rel="stylesheet" href="assets/css/lesson-mode.css?v=20261031-1" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -554,6 +554,7 @@ body.wall .dyn{overflow:hidden}
   <button type="button" id="btn-end" class="pink">結束課程</button>
   <span class="sep"></span>
   <button type="button" id="btn-wall" class="lime">📢 電子公布欄</button>
+  <button type="button" id="btn-pick" class="primary">📚 選簡報</button>
   <button type="button" id="btn-draw" class="purple">畫記</button>
   <button type="button" id="btn-timer" class="blue">⏱ 計時</button>
   <button type="button" id="btn-say-menu" class="green">廣播</button>
@@ -694,6 +695,7 @@ body.wall .dyn{overflow:hidden}
     <iframe id="deck-frame" title="本節簡報"></iframe>
     <div class="deck-caps">
       <span class="cap" id="cap-count">📋 已記 0 題</span>
+      <button type="button" id="cap-pick">📚 換簡報</button>
       <button type="button" id="cap-full">⛶ 簡報滿版</button>
       <button type="button" id="cap-close">✕ 收起簡報</button>
     </div>
@@ -718,8 +720,10 @@ body.wall .dyn{overflow:hidden}
   <span class="grow"></span>
   <span class="clk" id="cm-clk">--:--</span>
 </div>
+<div id="deck-pick" hidden></div>
 <div id="cm-dock" class="cm-float">
   <span class="grip" title="拖曳移動">⠿</span>
+  <button type="button" id="cm-b-pick">📚 選簡報</button>
   <button type="button" id="cm-b-timer">⏱ 計時</button>
   <button type="button" id="cm-b-seat">🪑 加分</button>
   <button type="button" id="cm-b-draw">✏ 畫記</button>
@@ -763,13 +767,13 @@ body.wall .dyn{overflow:hidden}
 <div class="cm-toast" id="cm-toast"></div>
 <button type="button" id="cm-toggle">🎓 回上課模式</button>
 
-<script src="assets/js/sync.js?v=20261023-1"></script>
-<script src="assets/js/common.js?v=20261023-1"></script>
-<script src="assets/js/tool.js?v=20261023-1"></script>
-<script src="assets/js/events.js?v=20261023-1"></script>
-<script src="assets/js/assess.js?v=20261023-1"></script>
-<script src="assets/js/wall.js?v=20261023-1"></script>
-<script src="assets/js/board.js?v=20261023-1"></script>
+<script src="assets/js/sync.js?v=20261031-1"></script>
+<script src="assets/js/common.js?v=20261031-1"></script>
+<script src="assets/js/tool.js?v=20261031-1"></script>
+<script src="assets/js/events.js?v=20261031-1"></script>
+<script src="assets/js/assess.js?v=20261031-1"></script>
+<script src="assets/js/wall.js?v=20261031-1"></script>
+<script src="assets/js/board.js?v=20261031-1"></script>
 <script>
 (function () {
   'use strict';
@@ -1466,6 +1470,7 @@ body.wall .dyn{overflow:hidden}
   setInterval(tick, 60000);
 })();
 </script>
-<script src="assets/js/lesson-mode.js?v=20261023-1"></script>
+<script src="assets/js/lesson-mode.js?v=20261031-1"></script>
+<script src="assets/js/deck-picker.js?v=20261031-1"></script>
 </body>
 </html>
