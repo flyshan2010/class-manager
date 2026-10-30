@@ -264,3 +264,10 @@ body.cm-lesson:not(.cm-focus) #cm-toggle { display: block; }
 }
 #cm-dock #cm-b-pick { font-weight: 800; }
 .deck-caps #cap-pick { background: var(--duty); border-color: var(--duty); color: #06201d; font-weight: 800; }
+
+#deck-wrap.strip #deck-frame-box { background: var(--board-3); }
+#deck-wrap.strip #deck-frame { position: absolute; left: 0; top: 56px; width: 100%; height: calc(100% - 56px); }
+#deck-wrap.strip .deck-caps { top: 8px; }
+#deck-wrap.strip #cap-count { display: none; }
+/* 收起的側邊面板在畫面外，陰影仍會滲到滿版簡報右緣 */
+.panel:not(.open) { box-shadow: none; }

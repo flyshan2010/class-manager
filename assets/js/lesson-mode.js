@@ -96,6 +96,8 @@
       if (frame.dataset.src) { flush(); clearInk(); wrap.classList.remove('rec'); }
       deckLesson = null; deckLoaded = false; frame.dataset.src = url; frame.src = url;
     }
+    /* 非五段簡報（3D 地圖等）有自己的右上角介面：按鈕移到上方專屬橫條，不蓋內容 */
+    wrap.classList.toggle('strip', !/\/[0-4]\.\w+\.html$/.test(url));
     capPaint();
     wrap.classList.add('on', 'full'); $('cap-full').textContent = '⊡ 回白板版面'; place(); frame.focus();
   }
