@@ -287,7 +287,9 @@
   $('btn-end').addEventListener('click', function () { flush(); }, true);
   $('cm-b-more').onclick = function (e) {
     var m = $('cm-more'), r = e.currentTarget.getBoundingClientRect();
-    m.classList.toggle('show'); m.style.left = Math.max(8, r.left - 60) + 'px'; m.style.bottom = (innerHeight - r.top + 8) + 'px';
+    m.classList.toggle('show'); m.style.left = Math.max(8, r.left - 60) + 'px';
+    /* 工具列在上半部（簡報滿版時）就往下開，否則選單跑出畫面 */
+    if (r.top < innerHeight / 2) { m.style.top = (r.bottom + 8) + 'px'; m.style.bottom = 'auto'; } else { m.style.bottom = (innerHeight - r.top + 8) + 'px'; m.style.top = 'auto'; }
   };
   [].forEach.call(document.querySelectorAll('#cm-more [data-click]'), function (b) {
     b.onclick = function () { $('cm-more').classList.remove('show'); var t = $(b.dataset.click); t && t.click(); };

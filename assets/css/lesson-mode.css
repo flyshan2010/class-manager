@@ -145,6 +145,9 @@ body.cm-seat #deck-wrap.full { right: calc(clamp(250px, 21vw, 340px) + 32px) !im
 #cm-seat h3, #cp-panel h3 { cursor: grab; }
 #cm-dock #cm-b-min { padding: 8px 12px; color: rgba(244,246,251,.7); }
 body.cm-deck #cm-dock { left: 50%; transform: translateX(-50%); }
+/* 簡報滿版：工具列預設放左上，不蓋簡報底部的上一步／下一步與 3D 地圖按鈕（老師 2026-10-31）；拖過的位置（行內樣式）優先 */
+body.cm-deckfull #cm-dock { left: 12px; top: 6px; bottom: auto; transform: none; padding: 3px 6px; }
+body.cm-deckfull #cm-dock button { font-size: 16px; padding: 6px 12px; }
 /* 加分板改成浮動小卡（不再擠壓簡報） */
 #cm-seat { top: 70px; bottom: auto; right: 16px; max-height: calc(100vh - 90px); overflow: auto; }
 body.cm-seat #deck-wrap.full { right: 0 !important; }
