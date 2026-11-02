@@ -6,8 +6,8 @@
 <meta name="robots" content="noindex" />
 <title>電子白板｜班級管理系統</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▣</text></svg>" />
-<link rel="stylesheet" href="assets/css/projection.css?v=20261031-2" />
-<link rel="stylesheet" href="assets/css/lesson-mode.css?v=20261031-3" />
+<link rel="stylesheet" href="assets/css/projection.css?v=20261102-3" />
+<link rel="stylesheet" href="assets/css/lesson-mode.css?v=20261102-3" />
 <style>
 /* 電子看板：沿用共用外殼（星空底、玻璃、彩色膠囊），這裡只加看板專屬版面。 */
 .top{display:flex;align-items:center;gap:2vw;flex:0 0 auto;padding-bottom:1.2vh;
@@ -758,22 +758,22 @@ body.wall .dyn{overflow:hidden}
   <button type="button" data-t="close" title="收起畫記"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
 <aside id="cm-seat" class="cm-float" aria-label="加分板">
-  <h3>🪑 加分<button type="button" class="cm-minbtn" id="cm-seat-min" title="收成小圓鈕">–</button><button type="button" class="x" id="cm-seat-x" title="收起">✕</button></h3>
+  <h3>🪑 <span id="cm-seat-tot">0 次</span><button type="button" id="cm-seat-undo" title="復原上一步">↶ 復原</button><button type="button" class="cm-minbtn" id="cm-seat-min" title="收成小圓鈕">–</button><button type="button" class="x" id="cm-seat-x" title="收起">✕</button></h3>
+  <div class="notice" id="cm-seat-notice" hidden>非導師課不計次；長按仍可記班規</div>
+  <div class="whole"><button type="button" id="cm-seat-all">全班 +1</button><button type="button" id="cm-seat-none">全班 −1</button></div>
   <div class="podium">講　台</div>
   <div class="grid" id="cm-seat-grid"></div>
-  <div class="tot" id="cm-seat-tot">本節 0 次</div>
-  <div class="btns"><button type="button" id="cm-seat-undo">↶ 復原</button></div>
 </aside>
 <div class="cm-toast" id="cm-toast"></div>
 <button type="button" id="cm-toggle">🎓 回上課模式</button>
 
-<script src="assets/js/sync.js?v=20261031-2"></script>
-<script src="assets/js/common.js?v=20261031-2"></script>
-<script src="assets/js/tool.js?v=20261031-2"></script>
-<script src="assets/js/events.js?v=20261031-2"></script>
-<script src="assets/js/assess.js?v=20261031-2"></script>
-<script src="assets/js/wall.js?v=20261031-2"></script>
-<script src="assets/js/board.js?v=20261031-2"></script>
+<script src="assets/js/sync.js?v=20261102-3"></script>
+<script src="assets/js/common.js?v=20261102-3"></script>
+<script src="assets/js/tool.js?v=20261102-3"></script>
+<script src="assets/js/events.js?v=20261102-3"></script>
+<script src="assets/js/assess.js?v=20261102-3"></script>
+<script src="assets/js/wall.js?v=20261102-3"></script>
+<script src="assets/js/board.js?v=20261102-3"></script>
 <script>
 (function () {
   'use strict';
@@ -1470,7 +1470,7 @@ body.wall .dyn{overflow:hidden}
   setInterval(tick, 60000);
 })();
 </script>
-<script src="assets/js/lesson-mode.js?v=20261031-3"></script>
-<script src="assets/js/deck-picker.js?v=20261031-2"></script>
+<script src="assets/js/lesson-mode.js?v=20261102-3"></script>
+<script src="assets/js/deck-picker.js?v=20261102-3"></script>
 </body>
 </html>

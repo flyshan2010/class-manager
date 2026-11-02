@@ -489,6 +489,19 @@
     return true;
   }
 
+  /* 全班 +1／−1 與其復原：一次改完才存檔、畫面與提示音只跑一次。扣到 0 就不再扣，回傳真的有改到的座號。 */
+  function bumpSeats(list, sign) {
+    var cnt = seatCounts(), done = [];
+    list.forEach(function (s) {
+      if (sign < 0 && !cnt[s]) return;
+      cnt[s] = (cnt[s] || 0) + sign;
+      if (!cnt[s]) delete cnt[s];
+      done.push(s);
+    });
+    if (done.length) { save(); if (sign > 0) Tool.beep(1, 760); render(); }
+    return done;
+  }
+
   /* ── 班規選單（與 routine.js 同一套判準；幣值一律抄班規）──────────── */
   function openRules(seat) {
     if (!data.rules) { hooks.panel('<h2>座號 ' + seat + '</h2><p class="hint">還讀不到班規（連上網後會自動帶入）。幣值一律抄班規，讀不到就不記。</p>'); return; }
@@ -1065,7 +1078,7 @@
     seats: function () { return seats.slice(); },
     seatGrid: function () { return (data.seating && data.seating.grid) || chunk(seats, 6); },
     seatCounts: function () { var c = seatCounts(), o = {}; Object.keys(c).forEach(function (k) { o[k] = c[k]; }); return o; },
-    tapSeat: tapSeat, untapSeat: untapSeat, openRules: openRules,
+    tapSeat: tapSeat, untapSeat: untapSeat, bumpSeats: bumpSeats, openRules: openRules,
     leaveToday: leaveToday,
     /* 今天有沒有做晨間報到：檢核台到校站至少點過一格（日期是今天）。沒做就不擅自當全員到（§4.1）。 */
     arriveDone: function () {

@@ -66,6 +66,8 @@
 
 **選簡報**（2026-10-31）：`assets/js/deck-picker.js`，清單＝`Board.lessons()`＋檔內 `EXTRAS`（不在 lessons.json 的教材加一列）；開啟走 `CMDeck.open`，換簡報先 flush；檔名非 `[0-4].*.html` 的頁面自動走 `#deck-wrap.strip`（按鈕移到上方橫條、不蓋內容）。
 
+**上課模式加分板**（2026-11-02）：`lesson-mode.js` 的 `seatPaint`；全班 ±1 走 `Board.bumpSeats`，一樣結算成「舉手回答」，不新增寫入路徑。簡報開著就顯示工具列（`body.cm-deck`，非上課節次），`seatYield()` 依面板是否貼邊讓滿版簡報讓位。
+
 現行三頁：**`blackboard.html` 電子白板**（含抽籤問答／計時／小組計分／座位加分板）、
 **`routine.html` 工作檢核台**（到校簽到→打掃→作業清點→午餐→潔牙五站）、
 **`teacher.html` 教師專區**（待送送出／當節活動紀錄／座號設定）。

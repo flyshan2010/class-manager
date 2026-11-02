@@ -188,14 +188,14 @@ body.cm-focus .cm-bub.show { display: grid; }
 #cm-draw.v .sep { width: 26px; height: 1px; margin: 4px 0; }
 
 /* 10/21 第五輪：計時改浮動小卡（原本全螢幕大字會蓋住簡報，且層級在簡報下面） */
-body.cm-focus .timer-pop { z-index: 1250; flex-direction: row; flex-wrap: wrap; max-width: 92vw; }
-body.cm-focus .timer { inset: auto; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1170; width: auto; height: auto; pointer-events: auto; }
-body.cm-focus .timer.idle { display: none; }
-body.cm-focus .timer .tcard { padding: 10px 18px 12px; border-radius: 18px; background: rgba(24,28,46,.94); border: 1px solid rgba(255,255,255,.2);
+body.cm-focus .timer-pop, body.cm-deck .timer-pop { z-index: 1250; flex-direction: row; flex-wrap: wrap; max-width: 92vw; }
+body.cm-focus .timer, body.cm-deck .timer { inset: auto; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1170; width: auto; height: auto; pointer-events: auto; }
+body.cm-focus .timer.idle, body.cm-deck .timer.idle { display: none; }
+body.cm-focus .timer .tcard, body.cm-deck .timer .tcard { padding: 10px 18px 12px; border-radius: 18px; background: rgba(24,28,46,.94); border: 1px solid rgba(255,255,255,.2);
   box-shadow: 0 8px 28px rgba(0,0,0,.45); cursor: grab; }
-body.cm-focus .timer .t { font-size: clamp(48px, 7vw, 96px); }
-body.cm-focus .timer .cap { font-size: 15px; }
-body.cm-focus .timer .tbtns button { font-size: 15px; }
+body.cm-focus .timer .t, body.cm-deck .timer .t { font-size: clamp(48px, 7vw, 96px); }
+body.cm-focus .timer .cap, body.cm-deck .timer .cap { font-size: 15px; }
+body.cm-focus .timer .tbtns button, body.cm-deck .timer .tbtns button { font-size: 15px; }
 #timer-bub .badge { font-variant-numeric: tabular-nums; right: -10px; }
 
 /* 10/21 第七輪：作答格只用顏色；統計行用色塊當圖例 */
@@ -210,7 +210,7 @@ body.cm-focus .timer .tbtns button { font-size: 15px; }
 body.cm-focus .scrim, body.cm-deck .scrim { z-index: 1480; }
 body.cm-focus .panel, body.cm-deck .panel { z-index: 1490; }
 body.cm-focus .toast, body.cm-deck .toast, body.cm-focus .fixbar, body.cm-deck .fixbar { z-index: 1460; }
-body.cm-focus .timer-pop { z-index: 1250; }
+body.cm-focus .timer-pop, body.cm-deck .timer-pop { z-index: 1250; }
 /* 作答面板：沒有晨間報到資料的提示、本節已送出的鎖 */
 #cp-panel .arrive-hint { font-size: 14px; line-height: 1.45; padding: 6px 10px; border-radius: 10px; background: rgba(240,200,90,.16); color: #ffcf8a; }
 #cp-panel.locked .seats { opacity: .35; pointer-events: none; }
@@ -274,3 +274,46 @@ body.cm-lesson:not(.cm-focus) #cm-toggle { display: block; }
 #deck-wrap.strip #cap-count { display: none; }
 /* 收起的側邊面板在畫面外，陰影仍會滲到滿版簡報右緣 */
 .panel:not(.open) { box-shadow: none; }
+
+/* 11/02：簡報開著就有工具列（下課、科任節也要有）；「結束課程」只在上課節次出現 */
+body.cm-deck #cm-dock { display: flex; }
+body:not(.cm-lesson) #cm-b-end { display: none; }
+body.cm-deck .cm-bub.show { display: grid; }
+
+/* 11/02：加分板精簡版（照座位表、統計與復原併進標題列、全班 ±1、每格可扣回）；貼左右邊時簡報讓位 */
+#cm-seat { width: 250px; gap: 5px; padding: 8px; border-radius: 14px; top: 12px; right: 12px; }
+#cm-seat h3 { font-size: 15px; gap: 5px; white-space: nowrap; }
+#cm-seat h3::before { font-size: 15px; margin-right: 0; }
+#cm-seat h3 button { font: inherit; font-size: 14px; line-height: 1; padding: 5px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #f4f6fb; cursor: pointer; }
+#cm-seat h3 #cm-seat-undo { margin-left: auto; }
+#cm-seat h3 #cm-seat-undo:disabled { opacity: .35; cursor: default; }
+#cm-seat h3 .x { margin-left: 0; }
+#cm-seat .notice { font-size: 12px; line-height: 1.35; padding: 4px 7px; border-radius: 8px; background: rgba(240,200,90,.14); color: #f0c85a; }
+#cm-seat .whole { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+#cm-seat .whole button { font: inherit; font-size: 15px; font-weight: 800; padding: 6px 4px; border: 0; border-radius: 9px; cursor: pointer; }
+#cm-seat-all { background: #f0c85a; color: #1b1f2e; }
+#cm-seat-none { background: rgba(255,159,181,.16); color: #ff9fb5; box-shadow: inset 0 0 0 1px #ff9fb5; }
+#cm-seat .whole button:disabled { opacity: .35; cursor: not-allowed; }
+#cm-seat .podium { align-self: stretch; text-align: center; font-size: 11px; line-height: 15px; padding: 0; border: 0; border-radius: 5px; background: rgba(255,255,255,.08); }
+#cm-seat .grid { gap: 3px; align-items: stretch; }
+#cm-seat .row { gap: 3px; width: 100%; }
+#cm-seat .sc { position: relative; flex: 1; width: auto; min-width: 0; height: 58px; aspect-ratio: auto; display: block; padding: 0; border: 0; border-radius: 7px; background: transparent; overflow: hidden; }
+#cm-seat .sc.gap { visibility: hidden; }
+#cm-seat .sc:active { transform: none; }
+#cm-seat .sc button { position: absolute; left: 0; right: 0; width: 100%; padding: 0; border: 0; color: #f4f6fb; cursor: pointer; touch-action: manipulation; }
+#cm-seat .sc .add { top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; line-height: 1; border-radius: 7px; background: rgba(255,255,255,.09); box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); }
+#cm-seat .sc .num { font-size: 15px; font-weight: 700; }
+#cm-seat .sc .n { position: static; min-height: 0; font-size: 11px; font-weight: 800; color: #1b1f2e; background: #f0c85a; border-radius: 999px; padding: 1px 6px; }
+#cm-seat .sc .n:empty { display: none; }
+#cm-seat .sc.absent .add { opacity: .35; }
+#cm-seat .sc .sub { bottom: 0; height: 22px; display: none; background: #ff9fb5; color: #1b1f2e; font-size: 15px; font-weight: 900; line-height: 1; }
+#cm-seat .sc.hit { border: 0; background: transparent; }
+#cm-seat .sc.hit .add { bottom: 23px; background: rgba(240,200,90,.18); box-shadow: inset 0 0 0 1px #f0c85a; }
+#cm-seat .sc.hit .num { color: #f0c85a; }
+#cm-seat .sc.hit .sub { display: block; }
+@media (min-width: 901px) {
+  body.cm-seat-r #deck-wrap.full { right: 274px !important; }
+  body.cm-seat-l #deck-wrap.full { left: 274px !important; }
+  /* 簡報縮窄後，右上角按鈕可換行，不撞左上工具列 */
+  body.cm-seat-r .deck-caps, body.cm-seat-l .deck-caps { max-width: calc(100% - 540px); flex-wrap: wrap; justify-content: flex-end; }
+}

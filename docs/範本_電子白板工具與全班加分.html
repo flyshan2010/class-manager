@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>白板工具範本</title>
+<style>
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: #171b2b; color: #f4f6fb;
+    font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif; }
+  button { font: inherit; cursor: pointer; }
+
+  /* 範本專用：情境切換（正式版沒有這一條） */
+  #sample { height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #0f1220; border-bottom: 1px solid rgba(255,255,255,.18); overflow-x: auto; }
+  #sample b { white-space: nowrap; color: #f0c85a; font-size: 15px; }
+  #sample button { white-space: nowrap; font-size: 15px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #f4f6fb; }
+  #sample button.on { background: #f0c85a; border-color: #f0c85a; color: #1b1f2e; font-weight: 800; }
+
+  /* 舞台＝簡報滿版；簡報框可讓位，內容依 16:9 等比縮放（與真實簡報相同） */
+  #stage { position: relative; height: calc(100% - 52px); min-height: 520px; overflow: hidden; background: #fbf6ee; }
+  #frame { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; container-type: size; }
+  #deck { position: relative; width: min(100cqw, 177.78cqh); aspect-ratio: 16 / 9; background: #e7edf5; color: #2a241c; border-left: 5px solid #2c5a8c; padding: 0 7%; display: flex; flex-direction: column; justify-content: center; }
+  #deck .k { font-size: 2.4cqw; font-weight: 800; color: #2c5a8c; }
+  #deck h1 { font-size: 5.4cqw; margin: 1.5cqw 0; }
+  #deck p { font-size: 2cqw; color: #6a5c4a; margin: 0; }
+  #nav { position: absolute; right: 2%; bottom: 2%; display: flex; gap: 1cqw; }
+  #nav span { padding: .6cqw 1.3cqw; border-radius: 10px; border: 1px solid #dccfb9; background: #fffdf8; color: #2a241c; font-size: 1.3cqw; font-weight: 700; }
+
+  #caps { position: absolute; right: 12px; top: 8px; z-index: 4; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  #caps span { padding: 8px 16px; border-radius: 999px; font-size: 17px; font-weight: 700; background: #3a3f55; color: #f4f6fb; white-space: nowrap; }
+  #caps .warn { background: #b4522f; }
+  #caps .pick { background: #62c9bc; color: #17302c; }
+
+  /* 工具列：下課、科任節開簡報也要出現 */
+  #dock { position: absolute; left: 12px; top: 6px; z-index: 5; display: flex; gap: 4px; align-items: center; padding: 3px 6px; border-radius: 999px; background: rgba(24,28,46,.94); border: 1px solid rgba(255,255,255,.18); box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  #dock button { font-size: 16px; padding: 6px 12px; border: 0; border-radius: 999px; background: transparent; color: #f4f6fb; white-space: nowrap; }
+  #dock button.on, #dock button:hover { background: rgba(255,255,255,.14); }
+  #dock .end { color: #ff9fb5; }
+  #dock .grip { color: rgba(255,255,255,.55); padding: 0 6px; }
+
+  /* 加分板 */
+  /* 精簡版：統計與復原併進標題列，「−」只在有分數的格子出現、不預留空列 */
+  #seat { position: absolute; right: 12px; top: 58px; z-index: 6; width: 250px; max-height: calc(100% - 70px); overflow: auto; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 14px; background: rgba(24,28,46,.97); border: 1px solid rgba(255,255,255,.2); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  #grip { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 5px; cursor: grab; touch-action: none; user-select: none; white-space: nowrap; }
+  #grip::before { content: '⠿'; color: rgba(255,255,255,.5); }
+  #grip button { font-size: 15px; line-height: 1; padding: 5px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #f4f6fb; }
+  #undo { margin-left: auto; }
+  #undo:disabled { opacity: .35; }
+  #bub { position: absolute; right: 12px; top: 58px; z-index: 6; width: 52px; height: 52px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); background: rgba(24,28,46,.96); font-size: 22px; }
+  #notice { font-size: 12px; line-height: 1.35; padding: 4px 7px; border-radius: 8px; background: rgba(240,200,90,.14); color: #f0c85a; }
+  .whole { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .whole button { padding: 6px 4px; border-radius: 9px; font-size: 15px; font-weight: 800; border: 0; }
+  #all-plus { background: #f0c85a; color: #1b1f2e; }
+  #all-minus { background: rgba(255,159,181,.16); color: #ff9fb5; box-shadow: inset 0 0 0 1px #ff9fb5; }
+  .whole button:disabled { opacity: .35; cursor: not-allowed; }
+  .podium { text-align: center; font-size: 11px; line-height: 15px; border-radius: 5px; background: rgba(255,255,255,.08); color: rgba(244,246,251,.65); }
+  #grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+  .sc { position: relative; height: 58px; min-width: 0; border-radius: 7px; overflow: hidden; }
+  .sc button { position: absolute; left: 0; right: 0; width: 100%; padding: 0; border: 0; color: #f4f6fb; touch-action: manipulation; }
+  .sc .add { top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; line-height: 1; border-radius: 7px; background: rgba(255,255,255,.09); box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); }
+  .sc .num { font-size: 15px; font-weight: 700; }
+  .sc .n { font-size: 11px; font-weight: 800; color: #1b1f2e; background: #f0c85a; border-radius: 999px; padding: 1px 6px; }
+  .sc .n:empty { display: none; }
+  .sc.absent .add { opacity: .35; box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+  .sc .sub { bottom: 0; height: 22px; background: #ff9fb5; color: #1b1f2e; font-size: 15px; font-weight: 900; line-height: 1; display: none; }
+  .sc.hit .add { bottom: 23px; background: rgba(240,200,90,.18); box-shadow: inset 0 0 0 1px #f0c85a; }
+  .sc.hit .num { color: #f0c85a; }
+  .sc.hit .sub { display: block; }
+
+  #toast { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); z-index: 9; max-width: 90%; padding: 10px 20px; border-radius: 12px; background: #0f1220; color: #fff; font-size: 18px; }
+
+  @media (max-width: 900px) {
+    #caps { top: 56px; left: 12px; right: 12px; justify-content: flex-start; }
+    #caps span { font-size: 13px; padding: 6px 10px; }
+    #dock { right: 12px; overflow-x: auto; }
+    #seat { left: 12px !important; right: 12px !important; width: auto; top: 110px !important; }
+  }
+</style>
+</head>
+<body>
+<div id="sample">
+  <b>範本・情境</b>
+  <button type="button" data-s="now">① 現況：下課開簡報</button>
+  <button type="button" data-s="break">② 改後：下課／科任節</button>
+  <button type="button" data-s="class">③ 改後：導師課</button>
+</div>
+
+<div id="stage">
+  <div id="frame">
+    <div id="deck">
+      <div class="k">期中 社會 平時卷總複習（第一～三回・L1－L2）</div>
+      <h1>把重點抓回來</h1>
+      <p>錯題多半是單元重點沒抓穩：看圖懂重點 → 看例題 → 四種類題各練兩題。</p>
+      <div id="nav"><span>← 上一步</span><span>下一步 →</span></div>
+    </div>
+  </div>
+  <div id="caps"><span class="warn">此份不能記作答</span><span class="pick">📚 換簡報</span><span>⊡ 回白板版面</span><span>✕ 收起簡報</span></div>
+
+  <div id="dock">
+    <span class="grip">⠿</span>
+    <button type="button" data-todo="選簡報">📚 選簡報</button>
+    <button type="button" data-todo="計時">⏱ 計時</button>
+    <button type="button" id="b-seat">🪑 加分</button>
+    <button type="button" data-todo="畫記">✏ 畫記</button>
+    <button type="button" id="b-end" class="end" data-todo="結束課程">結束課程</button>
+    <button type="button" data-todo="更多">⋯</button>
+  </div>
+
+  <aside id="seat">
+    <h3 id="grip">🪑 <span id="tot"></span><button type="button" id="undo" title="復原上一步">↶ 復原</button><button type="button" id="seat-min" title="收成小圓鈕">–</button></h3>
+    <div id="notice" hidden>非導師課不計次；長按仍可記班規</div>
+    <div class="whole">
+      <button type="button" id="all-plus">全班 +1</button>
+      <button type="button" id="all-minus">全班 −1</button>
+    </div>
+    <div class="podium">講　台</div>
+    <div id="grid"></div>
+  </aside>
+  <button type="button" id="bub" title="展開加分板" hidden>🪑</button>
+  <div id="toast" hidden></div>
+</div>
+
+<script>
+  /* 範本：座位排列取自班網 seating-seats.json（正式版用 Board.seatGrid() 讀現行座位表）；缺席為示意，資料不儲存。 */
+  var $ = function (id) { return document.getElementById(id); };
+  var GRID = [[null,26,14,7,15,22],[18,3,24,12,21,13],[8,23,2,11,25,16],[19,5,6,17,20,4],[null,null,10,27,9,1]];
+  var ORDER = [].concat.apply([], GRID), SEATS = ORDER.filter(function (s) { return s != null; });
+  var ABSENT = { 8: 1, 19: 1 };
+  var cnt = {}, hist = [], scene = 'class', side = 'R', tt;
+
+  function toast(t) {
+    var el = $('toast'); el.textContent = t; el.hidden = false;
+    clearTimeout(tt); tt = setTimeout(function () { el.hidden = true; }, 2200);
+  }
+  function paint() {
+    var tot = 0;
+    [].forEach.call(document.querySelectorAll('.sc'), function (b) {
+      var s = b.dataset.s, n = cnt[s] || 0; tot += n;
+      b.classList.toggle('hit', n > 0);
+      b.querySelector('.n').textContent = n || '';
+    });
+    $('tot').textContent = tot + ' 次';
+    $('undo').disabled = !hist.length;
+  }
+  function scoring() { return scene === 'class'; }
+  function apply(step, sign) { step.forEach(function (s) { cnt[s] = (cnt[s] || 0) + sign; if (!cnt[s]) delete cnt[s]; }); }
+
+  ORDER.forEach(function (s) {
+    var b = document.createElement('div');
+    if (s == null) { $('grid').appendChild(b); return; }   // 座位表的空位
+    b.className = 'sc' + (ABSENT[s] ? ' absent' : ''); b.dataset.s = s;
+    b.innerHTML = '<button type="button" class="add"><span class="num">' + s + '</span><span class="n"></span></button>' +
+      '<button type="button" class="sub" aria-label="座號 ' + s + ' 扣回 1">−</button>';
+    b.querySelector('.add').onclick = function () {
+      if (!scoring()) { toast('這一節不計次'); return; }
+      apply([s], 1); hist.push({ sign: 1, list: [s] }); toast('座號 ' + s + ' +1'); paint();
+    };
+    b.querySelector('.sub').onclick = function () {
+      if (!cnt[s]) return;
+      apply([s], -1); hist.push({ sign: -1, list: [s] }); toast('座號 ' + s + ' −1'); paint();
+    };
+    $('grid').appendChild(b);
+  });
+
+  $('all-plus').onclick = function () {
+    var list = SEATS.filter(function (s) { return !ABSENT[s]; });
+    apply(list, 1); hist.push({ sign: 1, list: list });
+    toast('全班 +1：' + list.length + ' 人（缺席 ' + (SEATS.length - list.length) + ' 人不加）');
+    paint();
+  };
+  $('all-minus').onclick = function () {
+    var list = SEATS.filter(function (s) { return cnt[s] > 0; });
+    if (!list.length) { toast('目前全班都是 0 次，不用扣'); return; }
+    apply(list, -1); hist.push({ sign: -1, list: list });
+    toast('全班 −1：' + list.length + ' 人（0 次的不會變負數）');
+    paint();
+  };
+  $('undo').onclick = function () {
+    var h = hist.pop(); if (!h) return;
+    apply(h.list, -h.sign); toast('已復原上一步（' + h.list.length + ' 人）'); paint();
+  };
+
+  /* 貼左右邊＝簡報讓位不被蓋；拖到中間＝浮動（會蓋到簡報，適合臨時移開）；收成圓鈕＝簡報回滿版 */
+  var PANEL_GAP = 274;
+  function layout() {
+    var open = !$('seat').hidden, wide = innerWidth > 900;
+    $('frame').style.left = open && wide && side === 'L' ? PANEL_GAP + 'px' : '0';
+    $('frame').style.right = open && wide && side === 'R' ? PANEL_GAP + 'px' : '0';
+    $('seat').title = side === 'F' ? '浮動：會蓋到簡報；拖到左右邊可讓位' : '';
+  }
+  function place(x, y) {
+    var st = $('stage'), el = $('seat');
+    x = Math.max(12, Math.min(x, st.clientWidth - el.offsetWidth - 12));
+    y = Math.max(58, Math.min(y, st.clientHeight - el.offsetHeight - 12));
+    el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.right = 'auto';
+  }
+  (function () {
+    var on = false, sx, sy, ox, oy, h = $('grip');
+    h.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('button')) return;
+      on = true; sx = e.clientX; sy = e.clientY; ox = $('seat').offsetLeft; oy = $('seat').offsetTop;
+      try { h.setPointerCapture(e.pointerId); } catch (x) {}
+      h.style.cursor = 'grabbing';
+    });
+    h.addEventListener('pointermove', function (e) { if (on) place(ox + e.clientX - sx, oy + e.clientY - sy); });
+    function end() {
+      if (!on) return; on = false; h.style.cursor = '';
+      var st = $('stage'), el = $('seat'), x = el.offsetLeft, SNAP = 80;
+      if (x < SNAP) { side = 'L'; place(12, 58); }
+      else if (st.clientWidth - x - el.offsetWidth < SNAP) { side = 'R'; place(st.clientWidth, 58); }
+      else side = 'F';
+      layout();
+    }
+    h.addEventListener('pointerup', end); h.addEventListener('pointercancel', end);
+  })();
+  function openSeat(on) {
+    $('seat').hidden = !on; $('b-seat').classList.toggle('on', on); $('bub').hidden = true; layout();
+  }
+  $('b-seat').onclick = function () { openSeat($('seat').hidden); };
+  $('seat-min').onclick = function () { openSeat(false); $('bub').hidden = false; };
+  $('bub').onclick = function () { openSeat(true); };
+  [].forEach.call(document.querySelectorAll('[data-todo]'), function (b) {
+    b.onclick = function () { toast('範本未接：' + b.dataset.todo + '（正式版沿用現有功能）'); };
+  });
+
+  function setScene(s) {
+    scene = s;
+    [].forEach.call(document.querySelectorAll('#sample button'), function (b) { b.classList.toggle('on', b.dataset.s === s); });
+    $('dock').hidden = s === 'now';
+    openSeat(s !== 'now');
+    $('b-end').hidden = s !== 'class';                   // 下課沒有這一節可結算，先藏起來
+    $('notice').hidden = s !== 'break';
+    ['all-plus', 'all-minus'].forEach(function (id) { $(id).disabled = s !== 'class'; });
+    paint();
+  }
+  [].forEach.call(document.querySelectorAll('#sample button'), function (b) { b.onclick = function () { setScene(b.dataset.s); }; });
+  addEventListener('resize', layout);
+  setScene('class');
+</script>
+</body>
+</html>

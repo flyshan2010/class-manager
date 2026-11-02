@@ -260,9 +260,16 @@
   function flush() { return A.flushAll(CMEvents); }
 
   /* ── 5. 底部工具列 ─────────────────────────────────────────── */
-  /* 簡報開著時，底部工具列不擋簡報的上一步／下一步 */
-  new MutationObserver(function () { body.classList.toggle('cm-deck', wrap.classList.contains('on')); })
-    .observe(wrap, { attributes: true, attributeFilter: ['class'] });
+  /* 簡報開著就有工具列（下課、科任節也要有；滿版時原本的 HUD 被簡報蓋住，老師 11/02）；不擋簡報的上一步／下一步 */
+  new MutationObserver(function () {
+    var on = wrap.classList.contains('on'), was = body.classList.contains('cm-deck');
+    body.classList.toggle('cm-deck', on);
+    if (on && !was) applyPos($('cm-dock'));                    // 工具列隱藏時量不到寬度，顯示後重新夾回畫面內
+    if (!on && was && !body.classList.contains('cm-focus')) {  // 非上課模式收起簡報：浮動工具一起收，回原版面
+      seatOpen(false); hideBub('cm-seat'); openDraw(false); hideBub('cm-draw');
+    }
+    seatYield();
+  }).observe(wrap, { attributes: true, attributeFilter: ['class'] });
 
   $('cm-b-timer').onclick = function (e) {
     e.stopPropagation();                                       // 擋冒泡：不然 document 的點擊會把剛打開的計時設定窗又關掉
@@ -282,9 +289,9 @@
     pop.style.top = Math.max(12, Math.min(y, innerHeight - ph - 12)) + 'px';
   };
   /* 結束課程：先把作答整批放進待送，再走白板原本的結束課程（座位計次、抽問、小組分結算） */
-  $('cm-b-end').onclick = function () { var r = flush(); Board.endPeriod(r.pushed); };
+  $('cm-b-end').onclick = function () { var r = flush(); hist = []; Board.endPeriod(r.pushed); };
   /* 原版面的 HUD「結束課程」也要先收作答（捕獲階段先跑，Board.endPeriod 照舊） */
-  $('btn-end').addEventListener('click', function () { flush(); }, true);
+  $('btn-end').addEventListener('click', function () { flush(); hist = []; }, true);
   $('cm-b-more').onclick = function (e) {
     var m = $('cm-more'), r = e.currentTarget.getBoundingClientRect();
     m.classList.toggle('show'); m.style.left = Math.max(8, r.left - 60) + 'px';
@@ -379,34 +386,69 @@
       grid.forEach(function (row) {
         var r = document.createElement('div'); r.className = 'row';
         (row || []).forEach(function (s) {
-          var b = document.createElement('button'); b.type = 'button'; b.className = 'sc';
-          if (s == null) { b.classList.add('gap'); r.appendChild(b); return; }
-          b.dataset.s = s; r.appendChild(b);
+          /* 一格兩區：上面點一下 +1（長按＝班規），下面「−」扣回（0 次時不出現） */
+          var c = document.createElement('div'); c.className = 'sc';
+          if (s == null) { c.classList.add('gap'); r.appendChild(c); return; }
+          c.dataset.s = s; r.appendChild(c);
+          c.innerHTML = '<button type="button" class="add"><span class="num">' + s + '</span><span class="n"></span></button>' +
+            '<button type="button" class="sub" aria-label="座號 ' + s + ' 扣回 1">−</button>';
+          var b = c.querySelector('.add');
           b.addEventListener('pointerdown', function () { pressed = false; pressT = setTimeout(function () { pressed = true; Board.openRules(Number(s)); }, 550); });
           b.addEventListener('pointerup', function () { clearTimeout(pressT); if (pressed) return; tap(Number(s)); });
           b.addEventListener('pointerleave', function () { clearTimeout(pressT); });
           b.addEventListener('contextmenu', function (e) { e.preventDefault(); Board.openRules(Number(s)); });
+          c.querySelector('.sub').onclick = function () { untap(Number(s)); };
         });
         g.appendChild(r);
       });
     }
-    var cnt = Board.seatCounts(), tot = 0;
-    [].forEach.call(document.querySelectorAll('#cm-seat .sc[data-s]'), function (b) {
-      var n = cnt[b.dataset.s] || 0; tot += n;
-      b.classList.toggle('hit', n > 0);
-      b.innerHTML = '<span class="num">' + b.dataset.s + '</span><span class="n">' + (n ? n : '') + '</span>';
+    var cnt = Board.seatCounts(), tot = 0, absent = defaultAbsent(), home = Board.periodInfo().home;
+    [].forEach.call(document.querySelectorAll('#cm-seat .sc[data-s]'), function (c) {
+      var n = cnt[c.dataset.s] || 0; tot += n;
+      c.classList.toggle('hit', n > 0);
+      c.classList.toggle('absent', !!absent[c.dataset.s]);
+      c.querySelector('.n').textContent = n || '';
     });
-    $('cm-seat-tot').textContent = '本節 ' + tot + ' 次';
+    $('cm-seat-tot').textContent = tot + ' 次';
+    $('cm-seat-notice').hidden = home;
+    $('cm-seat-all').disabled = $('cm-seat-none').disabled = !home;
+    $('cm-seat-undo').disabled = !hist.length;
   }
-  function tap(s) { if (!Board.tapSeat(s)) return; hist.push(s); seatPaint(); toast('座號 ' + s + ' 發表 +1'); }
+  function tap(s) { if (!Board.tapSeat(s)) { toast('這一節不計次'); return; } hist.push({ sign: 1, list: [s] }); seatPaint(); toast('座號 ' + s + ' +1'); }
+  function untap(s) { if (!Board.untapSeat(s)) return; hist.push({ sign: -1, list: [s] }); seatPaint(); toast('座號 ' + s + ' −1'); }
+  /* 全班 +1 只加到校的（缺席＝晨間報到請假＋今天中途離開）；全班 −1 只扣有次數的。兩者都走當節計次，下課照舊結算成「舉手回答」。 */
+  $('cm-seat-all').onclick = function () {
+    if (!Board.periodInfo().home) return;
+    var absent = defaultAbsent(), all = seatsAll();
+    var done = Board.bumpSeats(all.filter(function (s) { return !absent[s]; }), 1);
+    if (done.length) hist.push({ sign: 1, list: done });
+    seatPaint(); toast('全班 +1：' + done.length + ' 人' + (all.length - done.length ? '（缺席 ' + (all.length - done.length) + ' 人不加）' : ''));
+  };
+  $('cm-seat-none').onclick = function () {
+    if (!Board.periodInfo().home) return;
+    var done = Board.bumpSeats(seatsAll(), -1);
+    if (!done.length) { toast('目前全班都是 0 次，不用扣'); return; }
+    hist.push({ sign: -1, list: done });
+    seatPaint(); toast('全班 −1：' + done.length + ' 人（0 次的不變）');
+  };
+  /* 復原整步退回：誤按全班 −1 時，原本 0 次的同學不會被補加，只有這顆能完全還原 */
   $('cm-seat-undo').onclick = function () {
-    var s = hist.pop(); if (s == null) return;
-    if (Board.untapSeat(s)) toast('已復原：座號 ' + s + ' −1');
+    var h = hist.pop(); if (!h) return;
+    Board.bumpSeats(h.list, -h.sign);
+    toast('已復原上一步（' + h.list.length + ' 人）');
     seatPaint();
   };
   function seatOpen(on) {
     body.classList.toggle('cm-seat', on); $('cm-b-seat').classList.toggle('on', on);
     if (on) { wrap.classList.remove('rec'); seatPaint(); }   // 與作答面板同一個位置：互斥
+    seatYield();
+  }
+  /* 加分板貼左右邊且簡報滿版時，簡報讓出那一側（不蓋字）；拖到中間＝浮動、收成圓鈕＝簡報回滿版 */
+  function seatYield() {
+    var el = $('cm-seat'), show = body.classList.contains('cm-seat') && !isMin('cm-seat') && wrap.classList.contains('full');
+    var r = show ? el.getBoundingClientRect() : null;
+    body.classList.toggle('cm-seat-l', !!r && r.left <= M + 2);
+    body.classList.toggle('cm-seat-r', !!r && innerWidth - r.right <= M + 6);
   }
   $('cm-seat-x').onclick = function () { seatOpen(false); hideBub('cm-seat'); };
   var tt2;
@@ -416,12 +458,14 @@
   new MutationObserver(function () {
     body.classList.toggle('cm-deckfull', wrap.classList.contains('on') && wrap.classList.contains('full'));
     if (wrap.classList.contains('rec')) { body.classList.remove('cm-seat'); $('cm-b-seat').classList.remove('on'); }
+    seatYield();
   }).observe(wrap, { attributes: true, attributeFilter: ['class'] });
 
   /* ── 8. 浮動工具：抓把手拖曳、放開時靠近四邊（48px 內）自動貼齊；貼左右兩側的工具列自動轉直排。
      每個浮動視窗都能按「–」收成小圓鈕（圓鈕也能拖、也會貼齊，點一下展開）。位置記在該台電腦。 ── */
   var POS_KEY = 'cm-float-pos-v2', pos = {}, M = 12, SNAP = 48;
   try { pos = JSON.parse(localStorage.getItem(POS_KEY) || '{}') || {}; } catch (e) { pos = {}; }
+  if (!pos.seatV2) { delete pos['cm-seat']; pos.seatV2 = 1; }   // 加分板 11/02 改窄：舊位置不沿用，回到預設貼右
   function savePos() { try { localStorage.setItem(POS_KEY, JSON.stringify(pos)); } catch (e) {} }
   var VERT = { 'cm-dock': 1, 'cm-draw': 1 };                 // 這兩條貼左右側時轉直排
   function topMin() { return getComputedStyle($('cm-strip')).display === 'none' ? M : 56 + M; }
@@ -435,13 +479,15 @@
     var r = el.getBoundingClientRect(), x = r.left, y = r.top, side = '';
     if (r.left < SNAP) { x = M; side = 'L'; } else if (innerWidth - r.right < SNAP) { x = innerWidth; side = 'R'; }
     if (r.top < topMin() + SNAP) y = topMin(); else if (innerHeight - r.bottom < SNAP) y = innerHeight;
+    if (el.id === 'cm-seat' && side === 'L' && body.classList.contains('cm-deckfull')) y = Math.max(y, 60);   // 簡報滿版時工具列在左上，讓開
     if (VERT[el.id]) {
       var wasV = el.classList.contains('v');
       el.classList.toggle('v', side !== '');
       if (wasV !== el.classList.contains('v') && side === '') { y = r.top; }   // 轉回橫排：保留高度位置
     }
     el.classList.add('snapping');
-    var xy = placeEl(el, x, y); setTimeout(function () { el.classList.remove('snapping'); }, 200);
+    /* 貼齊動畫跑完才量位置，動畫中量到的還是放開前的地方 */
+    var xy = placeEl(el, x, y); setTimeout(function () { el.classList.remove('snapping'); if (el.id === 'cm-seat') seatYield(); }, 200);
     pos[el.id] = [xy[0], xy[1], el.classList.contains('v') ? 1 : 0]; savePos();
   }
   function applyPos(el) {
@@ -490,6 +536,7 @@
     var el = $(id), r = el.getBoundingClientRect(), b = bubs[id];
     if (id === 'cm-draw') setTool('off');                      // 收起時畫面恢復可點，畫記保留
     setMin(id, true); b.classList.add('show'); badge(id);
+    if (id === 'cm-seat') seatYield();
     var x = r.right > innerWidth - SNAP ? innerWidth : r.left;  // 原本貼右側就收到右側
     placeEl(b, x, r.top); snap(b);
   }
@@ -499,7 +546,7 @@
     if (id === 'cm-draw') setTool('pen');
     placeEl(el, r.right > innerWidth - SNAP ? innerWidth : r.left, r.top); snap(el);
   }
-  function hideBub(id) { bubs[id].classList.remove('show'); setMin(id, false); }
+  function hideBub(id) { bubs[id].classList.remove('show'); setMin(id, false); if (id === 'cm-seat') seatYield(); }
   $('cm-b-min').onclick = function () { minimize('cm-dock'); };
   $('cm-draw-min').onclick = function () { minimize('cm-draw'); };
   $('cm-seat-min').onclick = function () { minimize('cm-seat'); };
@@ -532,8 +579,9 @@
     ['cm-dock', 'cm-draw', 'cm-seat', 'cp-panel', 'timer'].forEach(function (id) {
       var el = $(id); el.classList.remove('v'); el.style.left = el.style.top = el.style.right = el.style.bottom = el.style.transform = '';
     });
+    seatYield();
   };
-  addEventListener('resize', function () { Object.keys(BUB).forEach(function (id) { applyPos($(id)); applyPos(bubs[id]); }); });
+  addEventListener('resize', function () { Object.keys(BUB).forEach(function (id) { applyPos($(id)); applyPos(bubs[id]); }); seatYield(); });
 
   setInterval(tick, 1000); tick();
 })();
