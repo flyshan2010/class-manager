@@ -49,11 +49,16 @@
     clean: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位達標', t: 'ok' },
             { m: '△', l: '到位未達標', t: 'warn' },
             { m: '✗', l: '請假', t: 'purple' }, { m: '🎫', l: '免打掃券', t: 'purple' },
-            { m: '⛔', l: '無故未到', t: 'pink' }],
+            { m: '⛔', l: '無故未到', t: 'pink' },
+            { m: '📋', l: '因事未做', t: 'purple' }],
+    /* 因事未做（2026-11-18 老師：人在學校、因公務／活動／輔導沒做，不是請假——用請假會讓學習報告寫成「上午／下午請假」，
+       家長誤會）：接在最後一態＝舊編號不位移，不必推 sv。送原 act「打掃缺席／午餐缺席」、note＝因事未做（備註不含「請假」，
+       f43 不當請假日），薪水照缺席少算一次、不記班規、不帶入其他站。 */
     /* 午餐支援比照打掃改浮動（2026-09-11 老師：午餐有人請假要能指派別人補位）——
        不再是成員的第 5 態，改由各崗位卡片「＋ 加支援」選人，存在 st.lunchSup（sv 5→6）。 */
     lunch: [{ m: '', l: '未檢核', t: 'idle' }, { m: '✓', l: '到位', t: 'ok' },
-            { m: '✗', l: '請假', t: 'purple' }, { m: '⛔', l: '無故未到', t: 'pink' }],
+            { m: '✗', l: '請假', t: 'purple' }, { m: '⛔', l: '無故未到', t: 'pink' },
+            { m: '📋', l: '因事未做', t: 'purple' }],
     /* 潔牙／含氟（2026-09-11 定案、09-12 簡化為兩態，sv 7→8）：沒點＝沒做；有補做就點成 ✓（補做算已潔牙）。
        結算時仍沒做＝不肯重做 → 常規未達成＋班規⑦。 */
     teeth: [{ m: '', l: '沒做', t: 'pink' }, { m: '✓', l: '已潔牙', t: 'ok' }, { m: '✗', l: '請假', t: 'purple' }],
@@ -63,9 +68,9 @@
 
   var TAB_TITLE = {
     arrive: '點座號簽到：未點名 → ✓ 出席 → ⏰ 遲到 → ✗ 請假（其他站自動帶入請假）',
-    clean: '點座號檢核：未檢核 → ✓ 達標 → △ 未達標 → ✗ 請假 → 🎫 免打掃券 → ⛔ 無故；支援按各組「＋ 加支援」',
+    clean: '點座號檢核：未檢核 → ✓ 達標 → △ 未達標 → ✗ 請假 → 🎫 免打掃券 → ⛔ 無故 → 📋 因事未做；支援按各組「＋ 加支援」',
     hw: '未交 → 已交 → 要訂正 → 完成；右上可切「🪑 座位表／🔢 座號清單」',
-    lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 請假 → ⛔ 無故；有人補位按各崗位「＋ 加支援」',
+    lunch: '點座號檢核：未檢核 → ✓ 到位 → ✗ 請假 → ⛔ 無故 → 📋 因事未做；有人補位按各崗位「＋ 加支援」',
     teeth: '沒點＝沒做：點一下 ✓ 已潔牙（補做完也點 ✓）→ ✗ 請假；結算時仍沒做的記常規未達成＋班規⑦'
   };
 
@@ -249,7 +254,7 @@
 
   /* 缺席原因（寫進 note）與「無故」的狀態號。無故另記班規⑦——用行為名稱找 act_i，
      不寫死序號：班規卡增刪一行，序號就位移，排程端核對幣值會整批 E07。 */
-  var ABSENT = { clean: { 3: '請假', 4: '免打掃券', 5: '無故' }, lunch: { 2: '請假', 3: '無故' } };
+  var ABSENT = { clean: { 3: '請假', 4: '免打掃券', 5: '無故', 6: '因事未做' }, lunch: { 2: '請假', 3: '無故', 4: '因事未做' } };
   var NOSHOW = { clean: 5, lunch: 3 };
   var NOSHOW_ACT = '輪到的工作或幹部職務沒做完';
   function noShowRule() {
@@ -485,9 +490,11 @@
       if (v === 3) flashFix(who + '打掃請假（不是行為問題）', '週結薪水少算這一次出勤，不扣幣、不記班規');
       if (v === 4) flashFix(who + '使用免打掃一次券', '這次沒有打掃薪水，不扣幣、不記班規（兌換紀錄已扣過就不重扣）');
       if (v === 5) flashFix(who + '無故沒去打掃', noShowFix());
+      if (v === 6) flashFix(who + '因事沒打掃（人在學校，不是請假）', '週結薪水少算這一次，不扣幣、不記班規；學習報告不會寫成請假');
     } else if (kind === 'lunch') {
       if (v === 2) flashFix(who + '午餐工作請假（不是行為問題）', '週結午餐薪水少算一次，不扣幣、不記班規；潔牙／含氟自動記請假');
       if (v === 3) flashFix(who + '無故沒做午餐工作', noShowFix());
+      if (v === 4) flashFix(who + '因事沒做午餐工作（人在學校，不是請假）', '週結午餐薪水少算一次，不扣幣、不記班規；潔牙照常檢核，學習報告不會寫成請假');
     } else if (kind === 'fluoride' || kind === 'teeth') {
       // ✓ 就是做到（含補做），不必另外提示；✗ 請假（2026-09-16）結算時跳過
       if (v === 2) flashFix(who + '請假（不是行為問題）', '結算時跳過，不記常規、不扣幣');
@@ -1359,10 +1366,11 @@
     if (touched('arrive')) day.arrive = { x: pick('arrive', [2]), lv: pick('arrive', [LEAVE_ARRIVE]) };
     var cs = supCount('clean'), ls = supCount('lunch');
     /* 晨掃／午餐：只有請假被簽到帶進來不算「有檢核」（那天老師沒開這一站，不能算全班達成）。 */
-    if (pick('clean', [1, 2, NOSHOW.clean]).length || Object.keys(cs).length)
-      day.clean = { x: pick('clean', [2, NOSHOW.clean]), lv: pick('clean', [3, 4]), su: cs };
-    if (pick('lunch', [1, NOSHOW.lunch]).length || Object.keys(ls).length)
-      day.lunch = { x: pick('lunch', [NOSHOW.lunch]), lv: pick('lunch', [LEAVE_OF.lunch]), su: ls };
+    /* 因事未做（打掃 6／午餐 4）比照請假：不算例外、不算應到；但老師點了它＝那天有開這一站。 */
+    if (pick('clean', [1, 2, NOSHOW.clean, 6]).length || Object.keys(cs).length)
+      day.clean = { x: pick('clean', [2, NOSHOW.clean]), lv: pick('clean', [3, 4, 6]), su: cs };
+    if (pick('lunch', [1, NOSHOW.lunch, 4]).length || Object.keys(ls).length)
+      day.lunch = { x: pick('lunch', [NOSHOW.lunch]), lv: pick('lunch', [LEAVE_OF.lunch, 4]), su: ls };
     /* 潔牙：沒點＝沒做，所以「至少有一格 ✓」才算今天有檢核（整頁沒動過＝沒開這一站，不算應到）。 */
     var ti = teethItem();
     if (pick(ti.kind, [1]).length) day.teeth = { x: pick(ti.kind, [0]), lv: pick(ti.kind, [LEAVE_OF[ti.kind]]) };
