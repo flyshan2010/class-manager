@@ -1139,12 +1139,17 @@
   function collect(kind) {
     var out = [];
     if (kind === 'arrive') {
-      // ⏰ 遲到照班規①bad[0] 記；✗ 未到（請假／缺席）**不產生任何事件**——
-      // 請假不是偏差行為，也不是週結公式的輸入，送出去只會在紀錄庫留一列沒人要的資料。
+      // ⏰ 遲到照班規①bad[0] 記；✗ 請假送一筆中性「到校請假」（0 幣、不扣分）——
+      // 2026-11-18 老師要求：期末要統計出缺席，原本請假不送紀錄，事後查不到哪天到校請假。
+      Object.keys(st.arrive).forEach(function (k) {
+        if (st.arrive[k] !== LEAVE_ARRIVE) return;
+        out.push({ tool: TOOL.arrive, date: st.date, seat: Number(k), src: 'tally', dedupe: 'day',
+                   kind: 'neutral', act: '到校請假', period: '到校簽到' });
+      });
       var a = actOf(1, 'bad', 0);
       if (!a) return out;
       Object.keys(st.arrive).forEach(function (k) {
-        if (st.arrive[k] !== 2) return;               // 2＝⏰ 遲到（1＝出席、3＝未到都不送出）
+        if (st.arrive[k] !== 2) return;               // 2＝⏰ 遲到（1＝出席不送；3＝請假在上面送）
         out.push({ tool: TOOL.arrive, date: st.date, seat: Number(k), src: 'rule',
                    rule_n: 1, kind: 'bad', act_i: 0, act: a.act, coin: a.coin, level: a.level,
                    period: '到校簽到' });
@@ -1255,8 +1260,8 @@
     if (kind === 'arrive') {
       var a = actOf(1, 'bad', 0) || {};
       return '把到校簽到結算到「待送」嗎？\n\n' +
-        '　⏰ 上學遲到（' + (a.coin || '') + '）　' + evs.length + ' 人\n' +
-        '　✗ 未到（請假／缺席）不送出，不進 Notion\n\n再按一次是重新結算，不會疊加。';
+        '　⏰ 上學遲到（' + (a.coin || '') + '）　' + evs.filter(function (e) { return e.act !== '到校請假'; }).length + ' 人\n' +
+        '　✗ 請假　' + evs.filter(function (e) { return e.act === '到校請假'; }).length + ' 人　→ 中性紀錄「到校請假」，不扣分，期末統計出缺席用\n\n再按一次是重新結算，不會疊加。';
     }
     var ns = (noShowRule() || { a: {} }).a.coin || '';
     if (kind === 'clean') {
